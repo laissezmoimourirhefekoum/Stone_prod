@@ -27,6 +27,10 @@ import { saveOAuthSession } from "./services/supabase";
 /* ──────────────────────────────────────────────────────────────
    INTERCEPTION DU RETOUR OAUTH (Google, etc.)
    Exécuté AVANT le montage de React (au chargement du module).
+   Supabase (implicit flow) renvoie les tokens dans le hash :
+   /#access_token=...&refresh_token=...
+   On les récupère, on sauvegarde la session, puis on nettoie
+   l'URL vers un vrai chemin (pathname) : /home ou /signin.
    ────────────────────────────────────────────────────────────── */
 
 (function handleOAuthRedirect() {
@@ -97,11 +101,7 @@ import { saveOAuthSession } from "./services/supabase";
     }
   }, 300);
 
-  window.history.replaceState(
-    null,
-    "",
-    "/home"
-  );
+  window.history.replaceState(null, "", "/home");
 })();
 
 type ToggleOrigin = { x: number; y: number };
@@ -223,8 +223,34 @@ function Home() {
   );
 }
 
+function NotFound() {
+  return (
+    <main className="flex min-h-screen w-full flex-col items-center justify-center gap-6 px-6 text-center">
+      <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+        Error 404
+      </p>
+      <h1 className="font-display text-[clamp(36px,6vw,72px)] font-bold leading-[1.05] tracking-[-0.03em] text-neutral-900 dark:text-white">
+        Page not found
+      </h1>
+      <p className="max-w-md text-neutral-600 dark:text-neutral-400">
+        The page you are looking for doesn&rsquo;t exist or has been moved.
+      </p>
+      <a
+        href="/"
+        onClick={(e) => {
+          e.preventDefault();
+          navigate("");
+        }}
+        className="inline-flex items-center rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+      >
+        Back to home
+      </a>
+    </main>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────
-   Routes
+   Routes (valeurs renvoyées par useHashRoute, sans slash initial)
    ────────────────────────────────────────────────────────────── */
 
 /** Pages qui nécessitent d'être connecté. */
@@ -266,6 +292,14 @@ const DASHBOARD_HOME_ROUTES = new Set([
 
 const AUTH_ROUTES = new Set(["signin", "signup"]);
 
+/** Pages publiques (accessibles connecté ou non). "" = landing (/). */
+const PUBLIC_ROUTES = new Set(["", "pricing", "faq", "tos", "privacy"]);
+
+/** Normalise la route : sans slashs de début/fin, en minuscules. */
+function normalizeRoute(route: string | null | undefined): string {
+  return (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
+}
+
 /* ──────────────────────────────────────────────────────────────
    App
    ────────────────────────────────────────────────────────────── */
@@ -293,23 +327,21 @@ type AppContentProps = {
   route: string;
 };
 
-function AppContent({ theme, toggle, route }: AppContentProps) {
+function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
   const { user, loading } = useUser();
+
+  const route = normalizeRoute(rawRoute);
 
   const isAuth = AUTH_ROUTES.has(route);
   const isProtected = PROTECTED_ROUTES.has(route);
   const isTemplate = TEMPLATE_ROUTES.has(route);
+  const isPublic = PUBLIC_ROUTES.has(route);
   const isPricing = route === "pricing";
   const isFaq = route === "faq";
   const isTos = route === "tos";
   const isPrivacy = route === "privacy";
-  const isLanding =
-    !isAuth &&
-    !isProtected &&
-    !isPricing &&
-    !isFaq &&
-    !isTos &&
-    !isPrivacy;
+  const isLanding = route === "";
+  const isUnknown = !isAuth && !isProtected && !isPublic;
 
   useGentleWheelScroll(isLanding || isPricing);
 
@@ -321,12 +353,12 @@ function AppContent({ theme, toggle, route }: AppContentProps) {
     if (loading) return;
 
     if (!user && isProtected) {
-      navigate("signin");
+      navigate("signin", { replace: true });
       return;
     }
 
     if (user && isAuth) {
-      navigate("home");
+      navigate("home", { replace: true });
     }
   }, [user, loading, isProtected, isAuth]);
 
@@ -428,10 +460,7 @@ function AppContent({ theme, toggle, route }: AppContentProps) {
     );
   }
 
-  /* ──────────────────────────────────────────────────────────
-     Templates : captions / hashtags / replies
-     Rendus par TemplatesPage (3 onglets synchronisés avec le hash).
-     ────────────────────────────────────────────────────────── */
+  /* Templates : captions / hashtags / replies */
   if (isTemplate) {
     return (
       <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
@@ -448,7 +477,17 @@ function AppContent({ theme, toggle, route }: AppContentProps) {
     );
   }
 
-  // Landing (accessible connecté ou non)
+  /* Route inconnue → page 404 (jamais la landing par accident) */
+  if (isUnknown) {
+    return (
+      <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
+        <Navbar theme={theme} onToggleTheme={toggle} />
+        <NotFound />
+      </div>
+    );
+  }
+
+  /* Landing (route === "") : accessible connecté ou non */
   return (
     <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
       <Navbar theme={theme} onToggleTheme={toggle} />
