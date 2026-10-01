@@ -1,0 +1,458 @@
+﻿import { useEffect } from "react";
+import Carousel from "./components/Carousel";
+import ExpertiseSection from "./components/ExpertiseSection";
+import IntegrationSection from "./components/IntegrationSection";
+import Navbar from "./components/Navbar";
+import PricingSection from "./components/PricingSection";
+import Footer from "./components/Footer";
+import Signup from "./pages/signup";
+import Signin from "./pages/signin";
+import DashboardHome from "./pages/home";
+import IntegrationsPage from "./pages/integration";
+import Settings from "./pages/settings";
+import Schedule from "./pages/schedule";
+import Pricing from "./pages/pricing";
+import Queue from "./pages/queue";
+import Analytics from "./pages/analytics";
+import Channels from "./pages/channels";
+import Faq from "./pages/Faq";
+import Tos from "./pages/Tos";
+import Privacy from "./pages/Privacy";
+import TemplatesPage from "./pages/template";
+import { useHashRoute, navigate } from "./hooks/useHashRoute";
+import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
+import { UserProvider, useUser } from "./contexts/UserContext";
+import { saveOAuthSession } from "./services/supabase";
+
+/* ──────────────────────────────────────────────────────────────
+   INTERCEPTION DU RETOUR OAUTH (Google, etc.)
+   Exécuté AVANT le montage de React (au chargement du module).
+   ────────────────────────────────────────────────────────────── */
+
+(function handleOAuthRedirect() {
+  if (typeof window === "undefined") return;
+
+  const rawHash = window.location.hash || "";
+  const rawSearch = window.location.search || "";
+
+  const hashParams =
+    rawHash.length > 1
+      ? new URLSearchParams(rawHash.replace(/^#\/?/, ""))
+      : new URLSearchParams();
+
+  const searchParams =
+    rawSearch.length > 1
+      ? new URLSearchParams(rawSearch)
+      : new URLSearchParams();
+
+  const readParam = (key: string): string | null =>
+    hashParams.get(key) ?? searchParams.get(key);
+
+  const oauthError = readParam("error");
+  const accessToken = readParam("access_token");
+  const refreshToken = readParam("refresh_token");
+  const code = readParam("code");
+
+  if (oauthError) {
+    const description = readParam("error_description") || oauthError;
+
+    window.history.replaceState(
+      null,
+      "",
+      `/signin?oauth_error=${encodeURIComponent(description)}`
+    );
+    return;
+  }
+
+  if (code && !accessToken) {
+    window.history.replaceState(
+      null,
+      "",
+      `/signin?oauth_error=${encodeURIComponent(
+        "PKCE flow returned instead of implicit flow"
+      )}`
+    );
+    return;
+  }
+
+  if (!accessToken || !refreshToken) {
+    return;
+  }
+
+  saveOAuthSession(accessToken, refreshToken);
+
+  setTimeout(async () => {
+    try {
+      const baseUrl =
+        (import.meta as any).env?.VITE_API_BASE_URL ||
+        "http://localhost:3002";
+
+      const res = await fetch(`${baseUrl}/api/user/profile`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      console.log("OAuth profile data:", await res.json());
+    } catch (err) {
+      // Erreur silencieuse
+    }
+  }, 300);
+
+  window.history.replaceState(
+    null,
+    "",
+    "/home"
+  );
+})();
+
+type ToggleOrigin = { x: number; y: number };
+type ToggleThemeFn = (origin?: ToggleOrigin) => void;
+
+/**
+ * Défilement "doux" à la molette.
+ * Activé uniquement sur les pages publiques scrollables (landing, pricing).
+ */
+function useGentleWheelScroll(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (reduceMotion.matches) return;
+
+    let targetY = window.scrollY;
+    let animationFrame = 0;
+
+    const animate = () => {
+      const currentY = window.scrollY;
+      const distance = targetY - currentY;
+
+      if (Math.abs(distance) < 0.5) {
+        window.scrollTo(0, targetY);
+        animationFrame = 0;
+        return;
+      }
+
+      window.scrollTo(0, currentY + distance * 0.12);
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.deltaX !== 0
+      ) {
+        return;
+      }
+
+      const multiplier =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
+      const delta = event.deltaY * multiplier * 0.55;
+      const maxY =
+        document.documentElement.scrollHeight - window.innerHeight;
+
+      targetY = Math.max(0, Math.min(maxY, targetY + delta));
+      event.preventDefault();
+
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(animate);
+      }
+    };
+
+    const syncTarget = () => {
+      if (!animationFrame) targetY = window.scrollY;
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("scroll", syncTarget, { passive: true });
+
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("scroll", syncTarget);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [enabled]);
+}
+
+function Home() {
+  return (
+    <main className="relative z-10 w-full">
+      <section className="flex min-h-screen w-full items-center justify-center px-[clamp(12px,3vw,48px)] pt-[clamp(78px,9vw,130px)] pb-[clamp(30px,6vw,90px)]">
+        <div className="relative w-full max-w-[1280px]">
+          <h2 className="text-center font-display text-[clamp(38px,6.6vw,86px)] leading-[1.02] font-bold tracking-[-0.035em] tint text-neutral-900 dark:text-white">
+            What We&rsquo;ve Built
+          </h2>
+
+          <Carousel />
+
+          <div className="mt-[clamp(22px,2.8vw,38px)] flex justify-center">
+            <a
+              href="/signup"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("signup");
+              }}
+              className="group inline-flex items-center gap-2 rounded-full bg-neutral-900 px-[clamp(20px,2.1vw,32px)] py-[clamp(11px,1.15vw,16px)] text-[clamp(12px,1.05vw,15px)] font-medium text-white shadow-[0_18px_30px_-18px_rgba(0,0,0,0.8)] transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+            >
+              Start your 7-day free trial
+              <svg
+                viewBox="0 0 12 12"
+                className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-[2px]"
+                fill="none"
+              >
+                <path
+                  d="M2.5 6h7M6.6 2.8 9.8 6l-3.2 3.2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <ExpertiseSection />
+      <IntegrationSection />
+      <PricingSection />
+      <div className="pt-32 sm:pt-52 lg:pt-64">
+        <Footer />
+      </div>
+    </main>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Routes
+   ────────────────────────────────────────────────────────────── */
+
+/** Pages qui nécessitent d'être connecté. */
+const PROTECTED_ROUTES = new Set([
+  "home",
+  "captions",
+  "hashtags",
+  "replies",
+  "billing",
+  "help",
+  "api",
+  "apps",
+  "beta",
+  "refer",
+  "create",
+  "queue",
+  "analytics",
+  "integrations",
+  "settings",
+  "schedule",
+  "calendar",
+  "channels",
+]);
+
+/** Routes qui affichent la page Templates (3 onglets). */
+const TEMPLATE_ROUTES = new Set(["captions", "hashtags", "replies"]);
+
+/** Routes qui affichent le DashboardHome. */
+const DASHBOARD_HOME_ROUTES = new Set([
+  "home",
+  "billing",
+  "help",
+  "api",
+  "apps",
+  "beta",
+  "refer",
+  "create",
+]);
+
+const AUTH_ROUTES = new Set(["signin", "signup"]);
+
+/* ──────────────────────────────────────────────────────────────
+   App
+   ────────────────────────────────────────────────────────────── */
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <UserProvider>
+        <AppWithTheme />
+      </UserProvider>
+    </ThemeProvider>
+  );
+}
+
+function AppWithTheme() {
+  const { theme, toggle } = useTheme();
+  const route = useHashRoute();
+
+  return <AppContent theme={theme} toggle={toggle} route={route} />;
+}
+
+type AppContentProps = {
+  theme: Theme;
+  toggle: ToggleThemeFn;
+  route: string;
+};
+
+function AppContent({ theme, toggle, route }: AppContentProps) {
+  const { user, loading } = useUser();
+
+  const isAuth = AUTH_ROUTES.has(route);
+  const isProtected = PROTECTED_ROUTES.has(route);
+  const isTemplate = TEMPLATE_ROUTES.has(route);
+  const isPricing = route === "pricing";
+  const isFaq = route === "faq";
+  const isTos = route === "tos";
+  const isPrivacy = route === "privacy";
+  const isLanding =
+    !isAuth &&
+    !isProtected &&
+    !isPricing &&
+    !isFaq &&
+    !isTos &&
+    !isPrivacy;
+
+  useGentleWheelScroll(isLanding || isPricing);
+
+  /* Garde de routes :
+     - déconnecté + page privée  → signin
+     - connecté + signin/signup  → home
+     La landing, pricing, faq, tos et privacy restent accessibles dans les deux cas. */
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user && isProtected) {
+      navigate("signin");
+      return;
+    }
+
+    if (user && isAuth) {
+      navigate("home");
+    }
+  }, [user, loading, isProtected, isAuth]);
+
+  // Pendant la vérification de session : écran neutre sur les pages
+  // qui dépendent de l'état connecté (évite les flashs et les appels API sans session).
+  if (loading && (isProtected || isAuth)) {
+    return <div className="min-h-screen w-full bg-white dark:bg-[#050505]" />;
+  }
+
+  // Évite d'afficher une page privée / auth une frame avant la redirection
+  if (!user && isProtected) return null;
+  if (user && isAuth) return null;
+
+  if (isAuth) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
+        {route === "signin" ? <Signin /> : <Signup />}
+      </div>
+    );
+  }
+
+  if (isFaq) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
+        <Faq />
+      </div>
+    );
+  }
+
+  if (isTos) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
+        <Tos />
+      </div>
+    );
+  }
+
+  if (isPrivacy) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
+        <Privacy />
+      </div>
+    );
+  }
+
+  if (isPricing) {
+    return (
+      <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
+        <Pricing />
+      </div>
+    );
+  }
+
+  if (route === "integrations") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <IntegrationsPage />
+      </div>
+    );
+  }
+
+  if (route === "settings") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <Settings />
+      </div>
+    );
+  }
+
+  if (route === "schedule" || route === "calendar") {
+    return (
+      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <Schedule />
+      </div>
+    );
+  }
+
+  if (route === "queue") {
+    return (
+      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <Queue />
+      </div>
+    );
+  }
+
+  if (route === "analytics") {
+    return (
+      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <Analytics />
+      </div>
+    );
+  }
+
+  if (route === "channels") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <Channels />
+      </div>
+    );
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     Templates : captions / hashtags / replies
+     Rendus par TemplatesPage (3 onglets synchronisés avec le hash).
+     ────────────────────────────────────────────────────────── */
+  if (isTemplate) {
+    return (
+      <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <TemplatesPage />
+      </div>
+    );
+  }
+
+  if (DASHBOARD_HOME_ROUTES.has(route)) {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <DashboardHome />
+      </div>
+    );
+  }
+
+  // Landing (accessible connecté ou non)
+  return (
+    <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
+      <Navbar theme={theme} onToggleTheme={toggle} />
+      <Home />
+    </div>
+  );
+}
