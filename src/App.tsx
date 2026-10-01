@@ -16,7 +16,7 @@ import Queue from "./pages/queue";
 import Analytics from "./pages/analytics";
 import Channels from "./pages/channels";
 import Faq from "./pages/Faq";
-import Tos from "./pages/Tos";
+import Tos from "./pages/tos";
 import Privacy from "./pages/Privacy";
 import TemplatesPage from "./pages/template";
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
