@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar from "../components/DashboardSidebar";
-import NewPostModal from "../components/NewPostModal";
+import NewPostModal from "../components/Newpostmodal";
 
 /* ---------- Icônes ---------- */
 
