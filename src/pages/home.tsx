@@ -2,9 +2,9 @@
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar from "../components/DashboardSidebar";
-import NewPostModal, { type NewPostPayload } from "../components/NewPostModal";
-import HelpChatButton from "../components/HelpChatButton";
-import BottomBar, { type BottomBarTab } from "../components/BottomBar";
+import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+import HelpChatButton from "../components/Helpchatbutton";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 
