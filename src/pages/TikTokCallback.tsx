@@ -1,21 +1,52 @@
 // src/pages/TikTokCallback.tsx
 //
-// Page atteinte après l'autorisation TikTok :
+// Flux :
 //   /tiktok/callback?code=XXX&state=XXX
-// Elle envoie le code au backend (Railway), puis redirige vers /channels.
+//     ↓ App.tsx intercepte (avant React), range les params dans sessionStorage
+//   /#/tiktok-callback
+//     ↓ useHashRoute()
+//   TikTokCallback.tsx → backend → /#/channels
 
 import { useEffect } from "react";
 
 import { useTheme } from "../hooks/useTheme";
 import { completeTikTokLogin } from "../services/tiktok";
 
+// Doit être identique à la clé définie dans App.tsx
+const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
+
+type StoredTikTokParams = {
+  code: string | null;
+  state: string | null;
+  error: string | null;
+  error_description: string | null;
+};
+
 // Le code TikTok est à usage unique. En dev, React StrictMode exécute les
 // effets deux fois : on mémorise la requête par code pour ne l'envoyer qu'une fois.
 const inflight = new Map<string, Promise<unknown>>();
 
+function readStoredParams(): StoredTikTokParams | null {
+  try {
+    const raw = sessionStorage.getItem(TIKTOK_OAUTH_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredTikTokParams) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredParams() {
+  try {
+    sessionStorage.removeItem(TIKTOK_OAUTH_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function goToChannels(query = "") {
-  // replace : le callback (avec son code) ne reste pas dans l'historique.
-  window.location.replace(`/channels${query}`);
+  clearStoredParams();
+  // replace : le callback ne reste pas dans l'historique.
+  window.location.replace(`/#/channels${query}`);
 }
 
 export default function TikTokCallback() {
@@ -23,12 +54,18 @@ export default function TikTokCallback() {
   const isDark = theme === "dark";
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = readStoredParams();
 
-    const code = params.get("code");
-    const state = params.get("state");
-    const error = params.get("error");
-    const errorDescription = params.get("error_description");
+    if (!params) {
+      goToChannels(
+        `?tiktok_error=${encodeURIComponent(
+          "TikTok authorization data not found. Please try again."
+        )}`
+      );
+      return;
+    }
+
+    const { code, state, error, error_description: errorDescription } = params;
 
     // L'utilisateur a refusé, ou TikTok a renvoyé une erreur.
     if (error) {
