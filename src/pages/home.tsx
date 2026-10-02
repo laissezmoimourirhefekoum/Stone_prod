@@ -1007,14 +1007,15 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Ligne du haut : streak + 2 cartes, centrées.
-                Performance a été retirée. */}
-            <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-stretch lg:justify-center">
+            {/* Ligne du haut : streak (largeur fixe) + 2 cartes qui
+                remplissent le reste, sur toute la largeur — alignée
+                avec la barre "Connectez votre premier réseau" en dessous. */}
+            <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-stretch">
               <div className="w-full lg:w-[280px] lg:shrink-0">
                 <StreakStepsWidget isDark={isDark} />
               </div>
 
-              <div className="grid w-full max-w-[560px] grid-cols-1 gap-4 sm:grid-cols-2 lg:max-w-[580px]">
+              <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
                 <IntegrationsCard isDark={isDark} />
                 <UpcomingPostsCard
                   isDark={isDark}
