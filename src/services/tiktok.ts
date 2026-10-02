@@ -86,20 +86,24 @@ export async function startTikTokLogin(): Promise<void> {
   window.location.assign(target.toString());
 }
 
-/** Appelé par la page /tiktok/callback avec les paramètres de l'URL. */
+/**
+ * Appelé par la page /tiktok/callback avec les paramètres de l'URL.
+ * Envoie le `code` et le `state` au backend (Railway), qui échange le code
+ * contre un access_token auprès de TikTok.
+ */
 export async function completeTikTokLogin(
   code: string,
   state: string
-): Promise<TikTokAccount> {
-  const data = await apiRequest<{ account: TikTokAccount }>(
-    "/api/tiktok/auth/callback",
-    {
-      method: "POST",
-      body: JSON.stringify({ code, state }),
-    }
-  );
+): Promise<TikTokAccount | null> {
+  const data = await apiRequest<{
+    connected?: boolean;
+    account?: TikTokAccount | null;
+  }>("/api/tiktok/auth/callback", {
+    method: "POST",
+    body: JSON.stringify({ code, state }),
+  });
 
-  return data.account;
+  return data?.account ?? null;
 }
 
 export async function disconnectTikTok(): Promise<void> {
