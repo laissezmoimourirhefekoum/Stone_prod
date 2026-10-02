@@ -359,8 +359,8 @@ function ConnectModal({
   }, [onClose]);
 
   const cardBase = [
-    "flex min-h-[210px] flex-col items-center justify-center gap-1",
-    "rounded-2xl border px-4 py-8 text-center",
+    "flex min-h-[148px] flex-col items-center justify-center gap-0.5",
+    "rounded-2xl border px-3 py-5 text-center",
     "transition-colors duration-150",
     isDark
       ? "border-white/10 bg-transparent"
@@ -386,7 +386,7 @@ function ConnectModal({
         aria-label="Connect a New Channel"
         onClick={(event) => event.stopPropagation()}
         className={[
-          "flex h-full max-h-[760px] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl border",
+          "flex max-h-[560px] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border",
           isDark
             ? "border-white/10 bg-[#1f2020] text-[#f3f3ef] shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
             : "border-black/10 bg-white text-[#151515] shadow-[0_24px_60px_rgba(0,0,0,0.18)]",
@@ -395,18 +395,18 @@ function ConnectModal({
         {/* Header */}
         <div
           className={[
-            "relative flex shrink-0 items-center justify-center border-b px-16 py-5",
+            "relative flex shrink-0 items-center justify-center border-b px-14 py-4",
             isDark ? "border-white/10" : "border-black/10",
           ].join(" ")}
         >
-          <h2 className="text-[20px] font-medium">Connect a New Channel</h2>
+          <h2 className="text-[17px] font-medium">Connect a New Channel</h2>
 
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             className={[
-              "absolute right-5 top-1/2 flex h-10 w-10 -translate-y-1/2",
+              "absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2",
               "items-center justify-center rounded-xl border",
               "transition-colors duration-150",
               isDark
@@ -419,12 +419,12 @@ function ConnectModal({
         </div>
 
         {/* Contenu scrollable */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-12">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
           {errorMessage && (
             <p
               role="alert"
               className={[
-                "mx-auto mb-5 max-w-[760px] rounded-lg border px-3 py-2 text-[13px]",
+                "mx-auto mb-5 max-w-[600px] rounded-lg border px-3 py-2 text-[13px]",
                 isDark
                   ? "border-red-400/30 bg-red-500/10 text-red-300"
                   : "border-red-300 bg-red-50 text-red-700",
@@ -434,7 +434,7 @@ function ConnectModal({
             </p>
           )}
 
-          <div className="mx-auto grid max-w-[760px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-[600px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {channels.map((channel) => {
               const connected = connections[channel.key].connected;
               const isPending = pendingKey === channel.key;
@@ -453,15 +453,15 @@ function ConnectModal({
                     isPending ? "opacity-60" : "",
                   ].join(" ")}
                 >
-                  <span className="mb-4 flex h-[70px] w-[70px] items-center justify-center rounded-2xl bg-white">
-                    <Icon className="h-9 w-9" size={36} />
+                  <span className="mb-3 flex h-[52px] w-[52px] items-center justify-center rounded-xl bg-white">
+                    <Icon className="h-7 w-7" size={28} />
                   </span>
 
-                  <span className="text-[19px] font-semibold leading-tight">
+                  <span className="text-[16px] font-semibold leading-tight">
                     {channel.name}
                   </span>
 
-                  <span className={["text-[16px] leading-snug", subtitleColor].join(" ")}>
+                  <span className={["text-[13px] leading-snug", subtitleColor].join(" ")}>
                     {isPending ? (
                       channel.key === "tiktok" ? "Redirecting..." : "Connecting..."
                     ) : connected ? (
