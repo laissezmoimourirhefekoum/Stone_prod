@@ -1,5 +1,5 @@
 // src/pages/Channels.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -144,8 +144,8 @@ function CloseIcon(props: IconProps) {
 function formatTikTokError(error: unknown): string {
   const raw = error instanceof Error ? error.message : "";
 
-  if (/failed to fetch|networkerror/i.test(raw)) {
-    return "Unable to connect to TikTok. The server can't be reached (network or CORS error).";
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
+    return "Unable to reach the server (network or CORS error). Check that the backend is running and that VITE_API_URL is correct.";
   }
 
   return raw
@@ -260,7 +260,9 @@ function ConnectModal({
     const connected = connections[key].connected;
 
     if (pendingKey === key) {
-      if (key === "tiktok") return connected ? "Disconnecting..." : "Connecting...";
+      if (key === "tiktok") {
+        return connected ? "Disconnecting..." : "Redirecting...";
+      }
       return "...";
     }
 
@@ -396,6 +398,9 @@ export default function Channels({
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Empêche un double clic de lancer deux OAuth en parallèle.
+  const tiktokBusy = useRef(false);
+
   const connectedChannels = useMemo(
     () => CHANNELS.filter((channel) => connections[channel.key].connected),
     [connections]
@@ -405,8 +410,6 @@ export default function Channels({
   /* ── Statut réel de TikTok (source de vérité : le backend) ── */
 
   useEffect(() => {
-    console.log("[Stone] Channels page mounted");
-
     let cancelled = false;
 
     const loadTikTokStatus = async () => {
@@ -469,7 +472,12 @@ export default function Channels({
   /* ── TikTok : vrai OAuth, aucune simulation ── */
 
   const handleTikTokToggle = async () => {
+    if (tiktokBusy.current) return;
+    tiktokBusy.current = true;
+
     setPendingKey("tiktok");
+
+    let redirecting = false;
 
     try {
       if (connections.tiktok.connected) {
@@ -484,17 +492,20 @@ export default function Channels({
       } else {
         console.log("[Stone] Starting TikTok OAuth");
 
-        // POST /api/tiktok/auth/url puis redirection du navigateur
-        // (effectuée par startTikTokLogin lui-même).
+        // POST /api/tiktok/auth/url puis window.location.assign(url).
+        // Si ça réussit, le navigateur quitte la page.
         await startTikTokLogin();
-
-        console.log("[Stone] TikTok OAuth request completed");
+        redirecting = true;
       }
     } catch (error) {
       console.error("[Stone] TikTok OAuth error:", error);
       setErrorMessage(formatTikTokError(error));
     } finally {
-      setPendingKey(null);
+      // Pendant la redirection, on garde le bouton désactivé.
+      if (!redirecting) {
+        setPendingKey(null);
+        tiktokBusy.current = false;
+      }
     }
   };
 

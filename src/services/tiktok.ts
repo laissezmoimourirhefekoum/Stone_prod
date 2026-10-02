@@ -47,21 +47,43 @@ export async function getTikTokStatus(): Promise<{
   return apiRequest("/api/tiktok/status", { method: "GET" });
 }
 
+/**
+ * Demande l'URL d'autorisation au backend (POST /api/tiktok/auth/url),
+ * vérifie qu'elle pointe bien vers tiktok.com, puis redirige le navigateur.
+ *
+ * Si tout va bien, la page quitte l'application : la promesse ne sert
+ * qu'à remonter les erreurs (réseau, 401, URL manquante...).
+ */
 export async function startTikTokLogin(): Promise<void> {
-  console.log("1 - appel backend TikTok");
+  console.log("[Stone] TikTok : demande de l'URL d'autorisation");
 
-  const data = await apiRequest<{ url: string }>("/api/tiktok/auth/url", {
+  const data = await apiRequest<{ url?: string }>("/api/tiktok/auth/url", {
     method: "POST",
   });
 
-  console.log("2 - réponse backend :", data);
-  console.log("3 - URL TikTok :", data.url);
+  console.log("[Stone] TikTok : réponse du backend", data);
 
-  if (!data.url) {
-    throw new Error("Le backend n'a pas renvoyé d'URL TikTok");
+  if (!data || typeof data.url !== "string" || !data.url) {
+    throw new Error(
+      `Le backend n'a pas renvoyé d'URL TikTok (réponse : ${JSON.stringify(data)})`
+    );
   }
 
-  window.location.assign(data.url);
+  let target: URL;
+
+  try {
+    target = new URL(data.url);
+  } catch {
+    throw new Error(`URL TikTok invalide : ${data.url}`);
+  }
+
+  if (target.protocol !== "https:" || !target.hostname.endsWith("tiktok.com")) {
+    throw new Error(`URL inattendue (hôte ${target.hostname}).`);
+  }
+
+  console.log("[Stone] TikTok : redirection vers", target.toString());
+
+  window.location.assign(target.toString());
 }
 
 /** Appelé par la page /tiktok/callback avec les paramètres de l'URL. */
