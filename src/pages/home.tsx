@@ -196,10 +196,13 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 function StreakStepsWidget({ isDark }: { isDark: boolean }) {
-  const streakCount = 5;
-  const challengeName = "100 Days of Code";
-  const checkedDays = 5;
-  const remainingDays = 15;
+  // TODO: brancher ici le vrai nombre de jours consécutifs avec un post.
+  const streakCount = 0;
+  const challengeName = "0 day of post";
+
+  // Nombre de pastilles affichées : les `streakCount` premières sont
+  // cochées, les autres restent vides.
+  const totalSlots = 6;
 
   const tokens = buildStreakTokens(!isDark);
 
@@ -231,27 +234,28 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
       </div>
 
       <div className="mt-5 flex items-center gap-2.5">
-        {Array.from({ length: checkedDays }).map((_, index) => (
-          <div
-            key={index}
-            className={[
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-              tokens.checkBg,
-            ].join(" ")}
-          >
-            <CheckIcon className={["h-4 w-4", tokens.checkIcon].join(" ")} />
-          </div>
-        ))}
-
-        <div
-          className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-            tokens.badgeBg,
-            tokens.badgeText,
-          ].join(" ")}
-        >
-          {remainingDays}
-        </div>
+        {Array.from({ length: totalSlots }).map((_, index) =>
+          index < streakCount ? (
+            <div
+              key={index}
+              className={[
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                tokens.checkBg,
+              ].join(" ")}
+            >
+              <CheckIcon className={["h-4 w-4", tokens.checkIcon].join(" ")} />
+            </div>
+          ) : (
+            <div
+              key={index}
+              aria-hidden="true"
+              className={[
+                "h-9 w-9 shrink-0 rounded-full",
+                tokens.badgeBg,
+              ].join(" ")}
+            />
+          )
+        )}
       </div>
     </div>
   );
