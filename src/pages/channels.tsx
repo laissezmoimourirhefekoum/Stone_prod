@@ -247,6 +247,7 @@ type ConnectModalProps = {
   pendingKey: ChannelKey | null;
   onToggle: (key: ChannelKey) => void;
   onClose: () => void;
+  errorMessage: string | null;
   t: ThemeTokens;
   isDark: boolean;
 };
@@ -257,6 +258,7 @@ function ConnectModal({
   pendingKey,
   onToggle,
   onClose,
+  errorMessage,
   t,
   isDark,
 }: ConnectModalProps) {
@@ -316,6 +318,20 @@ function ConnectModal({
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
+
+        {errorMessage && (
+          <p
+            role="alert"
+            className={[
+              "mt-3 rounded-lg border px-3 py-2 text-[12.5px]",
+              isDark
+                ? "border-red-400/30 bg-red-500/10 text-red-300"
+                : "border-red-300 bg-red-50 text-red-700",
+            ].join(" ")}
+          >
+            {errorMessage}
+          </p>
+        )}
 
         <div className="mt-4 grid grid-cols-3 gap-3">
           {channels.map((channel) => {
@@ -501,11 +517,26 @@ export default function Channels({
           return;
         }
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not update the TikTok connection."
-        );
+        console.error("TikTok connection error:", error);
+
+        const raw =
+          error instanceof Error ? error.message : "Unknown error";
+
+        if (/route not found/i.test(raw)) {
+          setErrorMessage(
+            "The server doesn't have the TikTok routes yet. Redeploy the backend (Railway) with the new index.js."
+          );
+        } else if (/not configured/i.test(raw)) {
+          setErrorMessage(
+            "TikTok isn't configured on the server. Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET on Railway."
+          );
+        } else if (/failed to fetch|networkerror/i.test(raw)) {
+          setErrorMessage(
+            "Can't reach the server (network or CORS error). Check the Railway deployment."
+          );
+        } else {
+          setErrorMessage(raw);
+        }
       } finally {
         setPendingKey(null);
       }
@@ -746,6 +777,7 @@ export default function Channels({
           pendingKey={pendingKey}
           onToggle={handleToggle}
           onClose={() => setShowConnectModal(false)}
+          errorMessage={errorMessage}
           t={t}
           isDark={isDark}
         />
