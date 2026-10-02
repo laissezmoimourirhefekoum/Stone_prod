@@ -1,6 +1,10 @@
 ﻿import { useEffect, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
+import {
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
 import DashboardSidebar from "../components/DashboardSidebar";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
@@ -254,7 +258,10 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Widget "Connecter un réseau"
+   Widget "Réseaux connectés"
+   - aucun réseau connecté : invitation "Connectez votre premier réseau"
+   - au moins un réseau   : uniquement les photos de profil à gauche
+                            et le bouton "Connecter" tout à droite
    ────────────────────────────────────────────────────────────── */
 
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
@@ -309,19 +316,117 @@ function LinkStackIcon({ isDark }: { isDark: boolean }) {
   );
 }
 
-function ConnectFirstChannelWidget({ isDark }: { isDark: boolean }) {
+function ChannelAvatar({
+  channel,
+  isDark,
+  overlap,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  overlap: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  // Si l'URL change (reconnexion), on retente le chargement.
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const showImage = Boolean(channel.avatarUrl) && !failed;
+
+  const ring = isDark ? "ring-[#141416]" : "ring-white";
+
+  return showImage ? (
+    <img
+      src={channel.avatarUrl}
+      alt={label}
+      title={label}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      style={{ marginLeft: overlap ? -10 : 0 }}
+      className={[
+        "h-10 w-10 shrink-0 rounded-full object-cover ring-2",
+        ring,
+      ].join(" ")}
+    />
+  ) : (
+    <div
+      title={label}
+      style={{ marginLeft: overlap ? -10 : 0 }}
+      className={[
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold ring-2",
+        ring,
+        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      {initial}
+    </div>
+  );
+}
+
+function ConnectFirstChannelWidget({
+  isDark,
+  channels,
+}: {
+  isDark: boolean;
+  channels: ConnectedChannel[];
+}) {
+  const cardClasses = [
+    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3.5",
+    isDark
+      ? "border-white/10 bg-[#141416]"
+      : "border-black/[0.06] bg-white",
+    isDark
+      ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
+      : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+  ].join(" ");
+
+  const connectButtonClasses = [
+    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition",
+    isDark
+      ? "bg-white text-neutral-900 hover:bg-neutral-200"
+      : "bg-neutral-900 text-white hover:bg-neutral-800",
+  ].join(" ");
+
+  /* Au moins un réseau connecté : uniquement les photos de profil
+     à gauche, et le bouton "Connecter" tout à droite. */
+  if (channels.length > 0) {
+    return (
+      <div className={cardClasses}>
+        <div className="flex items-center">
+          {channels.map((channel, index) => (
+            <ChannelAvatar
+              key={channel.key}
+              channel={channel}
+              isDark={isDark}
+              overlap={index > 0}
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate("channels")}
+          className={connectButtonClasses}
+        >
+          <PlusIcon />
+          Connecter
+        </button>
+      </div>
+    );
+  }
+
+  /* Aucun réseau connecté : invitation d'origine. */
   return (
     <button
       type="button"
       onClick={() => navigate("channels")}
       className={[
-        "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3.5 text-left transition",
-        isDark
-          ? "border-white/10 bg-[#141416] hover:bg-[#19191c]"
-          : "border-black/[0.06] bg-white hover:bg-neutral-50",
-        isDark
-          ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+        cardClasses,
+        "text-left transition",
+        isDark ? "hover:bg-[#19191c]" : "hover:bg-neutral-50",
       ].join(" ")}
     >
       <div className="flex items-center gap-3.5">
@@ -347,14 +452,7 @@ function ConnectFirstChannelWidget({ isDark }: { isDark: boolean }) {
         </div>
       </div>
 
-      <span
-        className={[
-          "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition",
-          isDark
-            ? "bg-white text-neutral-900 hover:bg-neutral-200"
-            : "bg-neutral-900 text-white hover:bg-neutral-800",
-        ].join(" ")}
-      >
+      <span className={connectButtonClasses}>
         <PlusIcon />
         Connecter
       </span>
@@ -725,6 +823,9 @@ export default function Home() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
+  // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
+  const connectedChannels = useConnectedChannels();
+
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
   );
@@ -844,7 +945,10 @@ export default function Home() {
               </div>
             </div>
 
-            <ConnectFirstChannelWidget isDark={isDark} />
+            <ConnectFirstChannelWidget
+              isDark={isDark}
+              channels={connectedChannels}
+            />
 
             <FromTheBlogSection isDark={isDark} />
           </div>
