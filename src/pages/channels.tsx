@@ -46,10 +46,17 @@ type ChannelKey =
 type Channel = {
   key: ChannelKey;
   name: string;
+  subtitle: string;
   icon: IconComponent;
+  /** Couleur de fond + couleur de l'icône de la pastille (modal + badge). */
+  tile: string;
 };
 
-type Connection = { connected: boolean; handle?: string };
+type Connection = {
+  connected: boolean;
+  handle?: string;
+  avatarUrl?: string;
+};
 type ConnectionState = Record<ChannelKey, Connection>;
 
 type ThemeTokens = {
@@ -68,13 +75,52 @@ type ThemeTokens = {
    Réseaux + état initial
 ============================================================================ */
 
+// URL / mailto utilisé par la carte "Can't find it? Request a channel".
+const REQUEST_CHANNEL_URL = "mailto:hello@example.com?subject=Channel%20request";
+
 const CHANNELS: Channel[] = [
-  { key: "instagram", name: "Instagram", icon: InstagramIcon },
-  { key: "tiktok", name: "TikTok", icon: TikTokIcon },
-  { key: "youtube", name: "YouTube", icon: YouTubeIcon },
-  { key: "facebook", name: "Facebook", icon: FacebookIcon },
-  { key: "pinterest", name: "Pinterest", icon: PinterestIcon },
-  { key: "threads", name: "Threads", icon: ThreadsIcon },
+  {
+    key: "instagram",
+    name: "Instagram",
+    subtitle: "Business or Creator",
+    icon: InstagramIcon,
+    tile: "bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white",
+  },
+  {
+    key: "facebook",
+    name: "Facebook",
+    subtitle: "Page",
+    icon: FacebookIcon,
+    tile: "bg-[#1877f2] text-white",
+  },
+  {
+    key: "threads",
+    name: "Threads",
+    subtitle: "Profile",
+    icon: ThreadsIcon,
+    tile: "bg-black text-white",
+  },
+  {
+    key: "youtube",
+    name: "YouTube",
+    subtitle: "Channel",
+    icon: YouTubeIcon,
+    tile: "bg-[#ff0000] text-white",
+  },
+  {
+    key: "tiktok",
+    name: "TikTok",
+    subtitle: "Business or Personal",
+    icon: TikTokIcon,
+    tile: "bg-white text-black",
+  },
+  {
+    key: "pinterest",
+    name: "Pinterest",
+    subtitle: "Business or Profile",
+    icon: PinterestIcon,
+    tile: "bg-[#e60023] text-white",
+  },
 ];
 
 const initialConnections: ConnectionState = {
@@ -137,6 +183,14 @@ function CloseIcon(props: IconProps) {
   );
 }
 
+function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </Svg>
+  );
+}
+
 /* ============================================================================
    Helpers
 ============================================================================ */
@@ -165,6 +219,65 @@ function mockHandleFor(key: ChannelKey): string {
   };
 
   return handles[key];
+}
+
+/* ============================================================================
+   Avatar (photo de profil + badge du réseau en bas à droite)
+============================================================================ */
+
+type AvatarProps = {
+  channel: Channel;
+  connection: Connection;
+  isDark: boolean;
+};
+
+function Avatar({ channel, connection, isDark }: AvatarProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const Icon = channel.icon;
+
+  const label = connection.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const showImage = Boolean(connection.avatarUrl) && !imgFailed;
+
+  // Si l'URL change (reconnexion), on retente le chargement.
+  useEffect(() => {
+    setImgFailed(false);
+  }, [connection.avatarUrl]);
+
+  return (
+    <span className="relative flex h-11 w-11 shrink-0">
+      {showImage ? (
+        <img
+          src={connection.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setImgFailed(true)}
+          className="h-11 w-11 rounded-full object-cover"
+        />
+      ) : (
+        <span
+          className={[
+            "flex h-11 w-11 items-center justify-center rounded-full",
+            "text-[15px] font-semibold",
+            isDark ? "bg-white/10 text-white/80" : "bg-black/[0.07] text-black/60",
+          ].join(" ")}
+        >
+          {initial}
+        </span>
+      )}
+
+      <span
+        className={[
+          "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
+          "rounded-md ring-2",
+          channel.tile,
+          isDark ? "ring-[#131316]" : "ring-white",
+        ].join(" ")}
+      >
+        <Icon className="h-3 w-3" />
+      </span>
+    </span>
+  );
 }
 
 /* ============================================================================
@@ -233,7 +346,6 @@ type ConnectModalProps = {
   onToggle: (key: ChannelKey) => void;
   onClose: () => void;
   errorMessage: string | null;
-  t: ThemeTokens;
   isDark: boolean;
 };
 
@@ -244,7 +356,6 @@ function ConnectModal({
   onToggle,
   onClose,
   errorMessage,
-  t,
   isDark,
 }: ConnectModalProps) {
   useEffect(() => {
@@ -256,25 +367,24 @@ function ConnectModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const buttonLabel = (key: ChannelKey): string => {
-    const connected = connections[key].connected;
+  const cardBase = [
+    "flex min-h-[210px] flex-col items-center justify-center gap-1",
+    "rounded-2xl border px-4 py-8 text-center",
+    "transition-colors duration-150",
+    isDark
+      ? "border-white/10 bg-transparent"
+      : "border-black/10 bg-transparent",
+  ].join(" ");
 
-    if (pendingKey === key) {
-      if (key === "tiktok") {
-        return connected ? "Disconnecting..." : "Redirecting...";
-      }
-      return "...";
-    }
-
-    return connected ? "Disconnect" : "Connect";
-  };
+  const cardHover = isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]";
+  const subtitleColor = isDark ? "text-white/55" : "text-black/50";
 
   return createPortal(
     <div
       role="presentation"
       onClick={onClose}
       className={[
-        "fixed inset-0 z-[100] flex items-center justify-center px-4",
+        "fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8",
         "backdrop-blur-sm",
         isDark ? "bg-black/70" : "bg-black/40",
       ].join(" ")}
@@ -282,95 +392,119 @@ function ConnectModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Connect a channel"
+        aria-label="Connect a New Channel"
         onClick={(event) => event.stopPropagation()}
         className={[
-          "max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border p-5",
+          "flex h-full max-h-[760px] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl border",
           isDark
-            ? "border-white/10 bg-[#101011] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
-            : "border-black/10 bg-white text-[#151515] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
+            ? "border-white/10 bg-[#1f2020] text-[#f3f3ef] shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+            : "border-black/10 bg-white text-[#151515] shadow-[0_24px_60px_rgba(0,0,0,0.18)]",
         ].join(" ")}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-[16px] font-semibold">Connect a channel</h2>
+        {/* Header */}
+        <div
+          className={[
+            "relative flex shrink-0 items-center justify-center border-b px-16 py-5",
+            isDark ? "border-white/10" : "border-black/10",
+          ].join(" ")}
+        >
+          <h2 className="text-[20px] font-medium">Connect a New Channel</h2>
 
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-full",
+              "absolute right-5 top-1/2 flex h-10 w-10 -translate-y-1/2",
+              "items-center justify-center rounded-xl border",
               "transition-colors duration-150",
               isDark
-                ? "text-white/70 hover:bg-white/10"
-                : "text-black/50 hover:bg-black/[0.06]",
+                ? "border-white/15 text-white/80 hover:bg-white/10"
+                : "border-black/15 text-black/60 hover:bg-black/[0.05]",
             ].join(" ")}
           >
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
-        {errorMessage && (
-          <p
-            role="alert"
-            className={[
-              "mt-3 rounded-lg border px-3 py-2 text-[12.5px]",
-              isDark
-                ? "border-red-400/30 bg-red-500/10 text-red-300"
-                : "border-red-300 bg-red-50 text-red-700",
-            ].join(" ")}
-          >
-            {errorMessage}
-          </p>
-        )}
+        {/* Contenu scrollable */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-12">
+          {errorMessage && (
+            <p
+              role="alert"
+              className={[
+                "mx-auto mb-5 max-w-[760px] rounded-lg border px-3 py-2 text-[13px]",
+                isDark
+                  ? "border-red-400/30 bg-red-500/10 text-red-300"
+                  : "border-red-300 bg-red-50 text-red-700",
+              ].join(" ")}
+            >
+              {errorMessage}
+            </p>
+          )}
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {channels.map((channel) => {
-            const connection = connections[channel.key];
-            const Icon = channel.icon;
-            const isPending = pendingKey === channel.key;
+          <div className="mx-auto grid max-w-[760px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {channels.map((channel) => {
+              const connected = connections[channel.key].connected;
+              const isPending = pendingKey === channel.key;
+              const Icon = channel.icon;
 
-            return (
-              <div
-                key={channel.key}
-                className={[
-                  "flex flex-col items-center gap-2",
-                  "rounded-xl border px-3 py-4",
-                  "transition-colors duration-150",
-                  isDark
-                    ? connection.connected
-                      ? "border-white/20 bg-[#131316]"
-                      : "border-white/10 bg-[#0c0c0d] hover:border-white/20"
-                    : connection.connected
-                    ? "border-black/[0.12] bg-[#faf9f7]"
-                    : "border-black/[0.08] bg-white hover:border-black/[0.16]",
-                ].join(" ")}
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg">
-                  <Icon className="h-5 w-5" />
-                </span>
-
-                <span className="text-center text-[12px] font-medium leading-tight">
-                  {channel.name}
-                </span>
-
+              return (
                 <button
+                  key={channel.key}
                   type="button"
-                  disabled={isPending}
+                  disabled={isPending || connected}
                   onClick={() => onToggle(channel.key)}
                   className={[
-                    "w-full rounded-lg py-1.5",
-                    "text-[11.5px] font-semibold",
-                    "transition-[background-color,opacity] duration-150",
-                    "disabled:opacity-50",
-                    connection.connected ? t.disconnectBtn : t.connectBtn,
+                    cardBase,
+                    connected ? "" : cardHover,
+                    "disabled:cursor-default",
+                    isPending ? "opacity-60" : "",
                   ].join(" ")}
                 >
-                  {buttonLabel(channel.key)}
+                  <span
+                    className={[
+                      "mb-4 flex h-[70px] w-[70px] items-center justify-center rounded-2xl",
+                      channel.tile,
+                    ].join(" ")}
+                  >
+                    <Icon className="h-9 w-9" />
+                  </span>
+
+                  <span className="text-[19px] font-semibold leading-tight">
+                    {channel.name}
+                  </span>
+
+                  <span className={["text-[16px] leading-snug", subtitleColor].join(" ")}>
+                    {isPending ? (
+                      channel.key === "tiktok" ? "Redirecting..." : "Connecting..."
+                    ) : connected ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckIcon className="h-4 w-4" />
+                        Connected
+                      </span>
+                    ) : (
+                      channel.subtitle
+                    )}
+                  </span>
                 </button>
-              </div>
-            );
-          })}
+              );
+            })}
+
+            {/* Demander un réseau */}
+            <a
+              href={REQUEST_CHANNEL_URL}
+              className={[cardBase, cardHover].join(" ")}
+            >
+              <PlusIcon className="mb-4 h-8 w-8 opacity-80" />
+              <span className="text-[19px] font-semibold leading-tight">
+                Can't find it?
+              </span>
+              <span className={["text-[16px] leading-snug", subtitleColor].join(" ")}>
+                Request a channel
+              </span>
+            </a>
+          </div>
         </div>
       </div>
     </div>,
@@ -417,12 +551,24 @@ export default function Channels({
         const status = await getTikTokStatus();
         if (cancelled) return;
 
+        // Le nom du champ de la photo dépend de ton backend : on accepte
+        // avatar_url (TikTok API) ou avatarUrl. Adapte si besoin.
+        const account = status.account as
+          | {
+              display_name?: string | null;
+              avatar_url?: string | null;
+              avatarUrl?: string | null;
+            }
+          | null
+          | undefined;
+
         setConnections((current) => ({
           ...current,
           tiktok: status.connected
             ? {
                 connected: true,
-                handle: status.account?.display_name ?? undefined,
+                handle: account?.display_name ?? undefined,
+                avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
               }
             : { connected: false },
         }));
@@ -639,79 +785,56 @@ export default function Channels({
             />
           ) : (
             <div
-              className="grid gap-4"
+              className="grid gap-3"
               style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(132px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
               }}
             >
               {connectedChannels.map((channel) => {
                 const connection = connections[channel.key];
-                const Icon = channel.icon;
                 const isPending = pendingKey === channel.key;
 
                 return (
                   <div
                     key={channel.key}
                     className={[
-                      "flex flex-col items-center gap-3",
-                      "rounded-2xl border px-4 py-6",
+                      "flex items-center gap-3",
+                      "rounded-2xl border px-4 py-3.5",
                       "transition-colors duration-150",
                       t.cardConnected,
                     ].join(" ")}
                   >
-                    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
-                      <Icon className="h-6 w-6" />
+                    <Avatar
+                      channel={channel}
+                      connection={connection}
+                      isDark={isDark}
+                    />
 
-                      <span
-                        aria-hidden="true"
-                        className={[
-                          "absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2",
-                          isDark
-                            ? "bg-[#7fe0a2] ring-[#101011]"
-                            : "bg-[#1f7a42] ring-white",
-                        ].join(" ")}
-                      />
+                    <span
+                      className={[
+                        "min-w-0 flex-1 truncate text-[16px] font-semibold",
+                        t.title,
+                      ].join(" ")}
+                      title={connection.handle || channel.name}
+                    >
+                      {connection.handle || channel.name}
                     </span>
-
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span
-                        className={["text-[13px] font-medium", t.title].join(
-                          " "
-                        )}
-                      >
-                        {channel.name}
-                      </span>
-
-                      {/* Seul TikTok expose un vrai nom de compte */}
-                      {channel.key === "tiktok" && connection.handle && (
-                        <span
-                          className={[
-                            "max-w-[110px] truncate text-[11.5px]",
-                            t.muted,
-                          ].join(" ")}
-                        >
-                          {connection.handle}
-                        </span>
-                      )}
-                    </div>
 
                     <button
                       type="button"
                       disabled={isPending}
                       onClick={() => handleToggle(channel.key)}
+                      aria-label={`Disconnect ${channel.name}`}
+                      title="Disconnect"
                       className={[
-                        "w-full rounded-lg py-2",
-                        "text-[12.5px] font-semibold",
+                        "shrink-0 rounded-lg px-3 py-1.5",
+                        "text-[12px] font-semibold",
                         "transition-[background-color,opacity] duration-150",
                         "disabled:opacity-50",
                         t.disconnectBtn,
                       ].join(" ")}
                     >
-                      {isPending
-                        ? channel.key === "tiktok"
-                          ? "Disconnecting..."
-                          : "Working..."
-                        : "Disconnect"}
+                      {isPending ? "..." : "Disconnect"}
                     </button>
                   </div>
                 );
@@ -729,7 +852,6 @@ export default function Channels({
           onToggle={handleToggle}
           onClose={closeModal}
           errorMessage={errorMessage}
-          t={t}
           isDark={isDark}
         />
       )}
