@@ -54,7 +54,8 @@ type ChannelKey =
 type Channel = {
   key: ChannelKey;
   name: string;
-  subtitle: string;
+  subtitle: string; // affiché dans le modal de connexion
+  accountLabel: string; // affiché sous le nom dans la liste (ex. "TikTok Account")
   icon: IconComponent;
 };
 
@@ -64,13 +65,23 @@ type ThemeTokens = {
   page: string;
   title: string;
   muted: string;
-  cardConnected: string;
+  card: string;
   divider: string;
   connectBtn: string;
-  disconnectBtn: string;
-  chipIdle: string;
-  titleIconWrap: string;
+  secondaryBtn: string;
+  planCard: string;
+  progressOn: string;
+  progressOff: string;
+  iconBtn: string;
+  menu: string;
+  menuItem: string;
 };
+
+/* ============================================================================
+   Plan (TODO: à remplacer par le vrai plan de l'utilisateur, côté backend)
+============================================================================ */
+
+const PLAN = { name: "Free", maxChannels: 3 };
 
 /* ============================================================================
    Réseaux + état initial
@@ -81,36 +92,42 @@ const CHANNELS: Channel[] = [
     key: "instagram",
     name: "Instagram",
     subtitle: "Business or Creator",
+    accountLabel: "Instagram Account",
     icon: InstagramIcon,
   },
   {
     key: "facebook",
     name: "Facebook",
     subtitle: "Page",
+    accountLabel: "Facebook Page",
     icon: FacebookIcon,
   },
   {
     key: "threads",
     name: "Threads",
     subtitle: "Profile",
+    accountLabel: "Threads Profile",
     icon: ThreadsIcon,
   },
   {
     key: "youtube",
     name: "YouTube",
     subtitle: "Channel",
+    accountLabel: "YouTube Channel",
     icon: YouTubeIcon,
   },
   {
     key: "tiktok",
     name: "TikTok",
     subtitle: "Business or Personal",
+    accountLabel: "TikTok Account",
     icon: TikTokIcon,
   },
   {
     key: "pinterest",
     name: "Pinterest",
     subtitle: "Business or Profile",
+    accountLabel: "Pinterest Account",
     icon: PinterestIcon,
   },
 ];
@@ -172,16 +189,26 @@ function CheckIcon(props: IconProps) {
   );
 }
 
-function GearIcon(props: IconProps) {
+function LayersIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
+      <path d="m3 12 9 4.5 9-4.5" />
+      <path d="m3 16.5 9 4.5 9-4.5" />
     </Svg>
   );
 }
 
-function DotsVerticalIcon(props: IconProps) {
+function GearIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.62.8 1.03 1.56 1.03H21a2 2 0 1 1 0 4h-.09c-.76 0-1.36.41-1.51 1Z" />
+    </Svg>
+  );
+}
+
+function DotsIcon(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -189,9 +216,9 @@ function DotsVerticalIcon(props: IconProps) {
       fill="currentColor"
       aria-hidden="true"
     >
-      <circle cx="12" cy="5" r="1.7" />
-      <circle cx="12" cy="12" r="1.7" />
-      <circle cx="12" cy="19" r="1.7" />
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
     </svg>
   );
 }
@@ -250,20 +277,20 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
   }, [connection.avatarUrl]);
 
   return (
-    <span className="relative flex h-[60px] w-[60px] shrink-0">
+    <span className="relative flex h-10 w-10 shrink-0">
       {showImage ? (
         <img
           src={connection.avatarUrl}
           alt=""
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
-          className="h-[60px] w-[60px] rounded-2xl object-cover"
+          className="h-10 w-10 rounded-full object-cover"
         />
       ) : (
         <span
           className={[
-            "flex h-[60px] w-[60px] items-center justify-center rounded-2xl",
-            "text-[20px] font-semibold",
+            "flex h-10 w-10 items-center justify-center rounded-full",
+            "text-[15px] font-semibold",
             isDark ? "bg-white/10 text-white/80" : "bg-black/[0.07] text-black/60",
           ].join(" ")}
         >
@@ -273,42 +300,36 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
 
       <span
         className={[
-          "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center",
-          "rounded-lg bg-white ring-[3px]",
+          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
+          "rounded-md bg-white ring-2",
           isDark ? "ring-[#131316]" : "ring-white",
         ].join(" ")}
       >
-        <Icon className="h-3.5 w-3.5" size={14} />
+        <Icon className="h-3 w-3" size={12} />
       </span>
     </span>
   );
 }
 
 /* ============================================================================
-   Menu "⋮" d'une carte de canal
+   Menu "⋮" d'une ligne (Disconnect)
 ============================================================================ */
 
-type ChannelMenuProps = {
-  isDark: boolean;
+type RowMenuProps = {
+  t: ThemeTokens;
   disabled: boolean;
-  buttonClass: string;
   onDisconnect: () => void;
 };
 
-function ChannelMenu({
-  isDark,
-  disabled,
-  buttonClass,
-  onDisconnect,
-}: ChannelMenuProps) {
+function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
 
     const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -323,28 +344,30 @@ function ChannelMenu({
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
-        aria-label="More options"
+        aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="More options"
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
-        className={[buttonClass, "disabled:opacity-50"].join(" ")}
+        className={[
+          "flex h-8 w-8 items-center justify-center rounded-lg",
+          "transition-colors duration-150 disabled:opacity-50",
+          t.iconBtn,
+        ].join(" ")}
       >
-        <DotsVerticalIcon className="h-[18px] w-[18px]" />
+        <DotsIcon className="h-4 w-4" />
       </button>
 
       {open && (
         <div
           role="menu"
           className={[
-            "absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border p-1 shadow-2xl",
-            isDark
-              ? "border-white/10 bg-[#1f2020]"
-              : "border-black/10 bg-white",
+            "absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden",
+            "rounded-xl border p-1 shadow-lg",
+            t.menu,
           ].join(" ")}
         >
           <button
@@ -355,54 +378,15 @@ function ChannelMenu({
               onDisconnect();
             }}
             className={[
-              "flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-semibold transition-colors",
-              isDark
-                ? "text-red-400 hover:bg-white/[0.06]"
-                : "text-red-600 hover:bg-black/[0.04]",
+              "w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium",
+              "transition-colors duration-150",
+              t.menuItem,
             ].join(" ")}
           >
             Disconnect
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ============================================================================
-   Segments de progression (un segment par réseau, vert = connecté)
-============================================================================ */
-
-function ConnectionSegments({
-  total,
-  connected,
-  isDark,
-}: {
-  total: number;
-  connected: number;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className="flex items-center gap-1.5"
-      role="img"
-      aria-label={`${connected} of ${total} channels connected`}
-    >
-      {Array.from({ length: total }).map((_, index) => (
-        <span
-          key={index}
-          className={[
-            "h-1.5 w-7 rounded-full transition-colors duration-300",
-            index < connected
-              ? isDark
-                ? "bg-[#4d7a56]"
-                : "bg-emerald-500"
-              : isDark
-              ? "bg-white/10"
-              : "bg-black/10",
-          ].join(" ")}
-        />
-      ))}
     </div>
   );
 }
@@ -419,7 +403,7 @@ type EmptyStateProps = {
 
 function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-5 px-6 py-24 text-center">
+    <div className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
       <span
         className={[
           "flex h-20 w-20 items-center justify-center rounded-full",
@@ -433,12 +417,7 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
         <h2 className={["text-[19px] font-semibold", t.title].join(" ")}>
           Connect a channel to get started
         </h2>
-        <p
-          className={[
-            "max-w-sm text-[14px] leading-relaxed",
-            t.muted,
-          ].join(" ")}
-        >
+        <p className={["max-w-sm text-[14px] leading-relaxed", t.muted].join(" ")}>
           Once connected, you'll see your channels listed here.
         </p>
       </div>
@@ -447,11 +426,10 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
         type="button"
         onClick={onConnect}
         className={[
-          "rounded-xl border px-6 py-2.5",
-          "text-[13.5px] font-semibold",
-          "shadow-sm transition-[background-color,transform] duration-150",
+          "rounded-xl px-6 py-2.5 text-[13.5px] font-semibold",
+          "transition-[background-color,transform] duration-150",
           "active:scale-[0.98]",
-          "border-black/10 bg-white text-[#151515] hover:bg-[#f0f0ed]",
+          t.connectBtn,
         ].join(" ")}
       >
         Connect Channel
@@ -470,6 +448,7 @@ type ConnectModalProps = {
   channels: Channel[];
   connections: ConnectionState;
   pendingKey: ChannelKey | null;
+  limitReached: boolean;
   onToggle: (key: ChannelKey) => void;
   onClose: () => void;
   errorMessage: string | null;
@@ -480,6 +459,7 @@ function ConnectModal({
   channels,
   connections,
   pendingKey,
+  limitReached,
   onToggle,
   onClose,
   errorMessage,
@@ -570,23 +550,36 @@ function ConnectModal({
             </p>
           )}
 
+          {limitReached && (
+            <p
+              className={[
+                "mx-auto mb-5 max-w-[600px] text-center text-[13px]",
+                subtitleColor,
+              ].join(" ")}
+            >
+              You've reached the channel limit of your {PLAN.name} plan.
+              Upgrade to connect more.
+            </p>
+          )}
+
           <div className="mx-auto grid max-w-[600px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {channels.map((channel) => {
               const connected = connections[channel.key].connected;
               const isPending = pendingKey === channel.key;
+              const blocked = limitReached && !connected;
               const Icon = channel.icon;
 
               return (
                 <button
                   key={channel.key}
                   type="button"
-                  disabled={isPending || connected}
+                  disabled={isPending || connected || blocked}
                   onClick={() => onToggle(channel.key)}
                   className={[
                     cardBase,
-                    connected ? "" : cardHover,
+                    connected || blocked ? "" : cardHover,
                     "disabled:cursor-default",
-                    isPending ? "opacity-60" : "",
+                    isPending || blocked ? "opacity-60" : "",
                   ].join(" ")}
                 >
                   <span className="mb-3 flex h-[52px] w-[52px] items-center justify-center rounded-xl bg-white">
@@ -612,7 +605,6 @@ function ConnectModal({
                 </button>
               );
             })}
-
           </div>
         </div>
       </div>
@@ -659,6 +651,7 @@ export default function Channels({
     [connections]
   );
   const connectedCount = connectedChannels.length;
+  const limitReached = connectedCount >= PLAN.maxChannels;
 
   /* ── Retour de TikTok + statut du compte (avec cache) ── */
 
@@ -757,6 +750,8 @@ export default function Channels({
     };
   }, [userId]);
 
+  /* ── Thème : mêmes couleurs que ta version précédente ── */
+
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
@@ -764,25 +759,33 @@ export default function Channels({
             page: "bg-[#050506] text-[#f3f3ef]",
             title: "text-[#f3f3ef]",
             muted: "text-[#99a2a2]",
-            cardConnected: "border-white/20 bg-[#131316]",
+            card: "border-white/20 bg-[#131316]",
             divider: "bg-white/10",
             connectBtn: "bg-white text-[#111111] hover:bg-[#e9e9e6]",
-            disconnectBtn:
-              "border border-white/15 text-[#d7d7d2] hover:bg-white/[0.06]",
-            chipIdle: "bg-white/[0.06] text-[#99a2a2]",
-            titleIconWrap: "border-white/10 bg-white/[0.05] text-[#d7d7d2]",
+            secondaryBtn:
+              "border border-white/15 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
+            planCard: "border-white/10 bg-white/[0.04]",
+            progressOn: "bg-[#f3f3ef]",
+            progressOff: "bg-white/10",
+            iconBtn: "text-[#99a2a2] hover:bg-white/[0.07] hover:text-[#f3f3ef]",
+            menu: "border-white/10 bg-[#1f2020] text-[#f3f3ef]",
+            menuItem: "hover:bg-white/[0.07]",
           }
         : {
             page: "bg-[#faf9f7] text-[#151515]",
             title: "text-[#151515]",
             muted: "text-[#71706d]",
-            cardConnected: "border-black/[0.12] bg-white",
+            card: "border-black/[0.12] bg-white",
             divider: "bg-black/[0.07]",
             connectBtn: "bg-[#151515] text-white hover:bg-[#2a2a2a]",
-            disconnectBtn:
-              "border border-black/10 text-[#3f3f3d] hover:bg-black/[0.04]",
-            chipIdle: "bg-black/[0.04] text-[#71706d]",
-            titleIconWrap: "border-black/[0.08] bg-black/[0.03] text-[#4d4d4b]",
+            secondaryBtn:
+              "border border-black/10 bg-white text-[#151515] hover:bg-black/[0.04]",
+            planCard: "border-black/[0.08] bg-black/[0.03]",
+            progressOn: "bg-[#151515]",
+            progressOff: "bg-black/10",
+            iconBtn: "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
+            menu: "border-black/10 bg-white text-[#151515]",
+            menuItem: "hover:bg-black/[0.05]",
           },
     [isDark]
   );
@@ -854,6 +857,14 @@ export default function Channels({
   const handleToggle = (key: ChannelKey) => {
     setErrorMessage(null);
 
+    // Limite du plan : on bloque uniquement les NOUVELLES connexions.
+    if (!connections[key].connected && limitReached) {
+      setErrorMessage(
+        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
+      );
+      return;
+    }
+
     if (key === "tiktok") {
       console.log("[Stone] TikTok button clicked");
       void handleTikTokToggle();
@@ -863,59 +874,89 @@ export default function Channels({
     handlePlaceholderToggle(key);
   };
 
+  const handleUpgrade = () => {
+    // TODO: rediriger vers la page de facturation / des plans.
+    console.log("[Stone] Upgrade plan clicked");
+  };
+
+  const handleSettings = (key: ChannelKey) => {
+    // TODO: ouvrir les réglages du canal.
+    console.log("[Stone] Channel settings clicked:", key);
+  };
+
   const closeModal = () => setShowConnectModal(false);
 
-  const iconButtonClass = [
-    "flex h-9 w-9 items-center justify-center rounded-full",
-    "transition-colors duration-150",
-    isDark
-      ? "text-[#99a2a2] hover:bg-white/10 hover:text-white"
-      : "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
-  ].join(" ");
-
   return (
-    <div
-      className={["relative h-full w-full overflow-hidden", t.page].join(" ")}
-    >
+    <div className={["relative h-full w-full overflow-hidden", t.page].join(" ")}>
       <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      <main className="h-full overflow-y-auto py-10 pl-[104px] pr-6 sm:pr-10">
-        <div className="mx-auto max-w-3xl">
+      <main className="h-full overflow-y-auto py-12 pl-[104px] pr-6 sm:pr-10">
+        <div className="mx-auto max-w-4xl">
           {/* Header */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <h1
               className={[
-                "text-[22px] font-semibold tracking-tight",
+                "text-[28px] font-semibold tracking-tight",
                 t.title,
               ].join(" ")}
             >
-              {connectedCount}/{CHANNELS.length} Channels connected
+              Channels
             </h1>
+          </div>
 
-            <div className="flex shrink-0 items-center gap-3">
-              {connectedCount > 0 && (
-                <button
-                  type="button"
-                  aria-label="Add channel"
-                  title="Add channel"
-                  onClick={() => setShowConnectModal(true)}
-                  className={[
-                    "flex h-8 w-8 items-center justify-center",
-                    "rounded-full transition-colors duration-150",
-                    t.chipIdle,
-                    isDark ? "hover:bg-white/10" : "hover:bg-black/[0.08]",
-                  ].join(" ")}
-                >
-                  <PlusIcon className="h-4 w-4" />
-                </button>
-              )}
+          {/* Carte du plan */}
+          <section
+            className={[
+              "mt-10 flex items-start gap-3 rounded-2xl border px-6 py-5",
+              t.planCard,
+            ].join(" ")}
+          >
+            <LayersIcon className={["mt-0.5 h-5 w-5 shrink-0", t.title].join(" ")} />
 
-              <ConnectionSegments
-                total={CHANNELS.length}
-                connected={connectedCount}
-                isDark={isDark}
-              />
+            <div className="flex min-w-0 flex-col items-start gap-1">
+              <h2 className={["text-[16px] font-semibold", t.title].join(" ")}>
+                Get to know your plan
+              </h2>
+              <p className={["text-[14.5px]", t.title].join(" ")}>
+                You are on the {PLAN.name} plan and can connect up to{" "}
+                {PLAN.maxChannels} channels.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                className={[
+                  "mt-2 rounded-lg px-4 py-2 text-[13.5px] font-medium",
+                  "transition-colors duration-150",
+                  t.secondaryBtn,
+                ].join(" ")}
+              >
+                Upgrade Plan
+              </button>
             </div>
+          </section>
+
+          {/* Compteur + segments de progression */}
+          <div className="mt-10 flex items-center justify-between gap-4">
+            <h2 className={["text-[18px] font-semibold", t.title].join(" ")}>
+              {connectedCount}/{PLAN.maxChannels} Channels connected
+            </h2>
+
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMessage(null);
+                setShowConnectModal(true);
+              }}
+              className={[
+                "shrink-0 rounded-xl px-5 py-2.5 text-[14px] font-semibold",
+                "transition-[background-color,transform] duration-150",
+                "active:scale-[0.98]",
+                t.connectBtn,
+              ].join(" ")}
+            >
+              Connect Channel
+            </button>
           </div>
 
           {/* Erreur (page) — masquée si le modal est ouvert, il l'affiche lui-même */}
@@ -923,7 +964,7 @@ export default function Channels({
             <div
               role="alert"
               className={[
-                "mb-4 flex items-start justify-between gap-3",
+                "mt-4 flex items-start justify-between gap-3",
                 "rounded-xl border px-4 py-3 text-[13px]",
                 isDark
                   ? "border-red-400/30 bg-red-500/10 text-red-300"
@@ -950,7 +991,7 @@ export default function Channels({
               onConnect={() => setShowConnectModal(true)}
             />
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="mt-4 flex flex-col gap-3">
               {connectedChannels.map((channel) => {
                 const connection = connections[channel.key];
                 const isPending = pendingKey === channel.key;
@@ -959,10 +1000,10 @@ export default function Channels({
                   <div
                     key={channel.key}
                     className={[
-                      "flex items-center gap-4",
-                      "rounded-[22px] border px-5 py-4",
+                      "flex items-center gap-3",
+                      "rounded-xl border px-4 py-2.5",
                       "transition-colors duration-150",
-                      t.cardConnected,
+                      t.card,
                     ].join(" ")}
                   >
                     <Avatar
@@ -971,41 +1012,40 @@ export default function Channels({
                       isDark={isDark}
                     />
 
-                    <div className="min-w-0 flex-1">
-                      <p
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span
                         className={[
-                          "truncate text-[19px] font-semibold leading-tight",
+                          "truncate text-[14.5px] font-semibold leading-tight",
                           t.title,
                         ].join(" ")}
                         title={connection.handle || channel.name}
                       >
                         {connection.handle || channel.name}
-                      </p>
-                      <p
-                        className={[
-                          "mt-0.5 truncate text-[16px] leading-snug",
-                          t.muted,
-                        ].join(" ")}
-                      >
-                        {channel.name} Account
-                      </p>
+                      </span>
+                      <span className={["truncate text-[13px]", t.muted].join(" ")}>
+                        {isPending ? "Updating..." : channel.accountLabel}
+                      </span>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-1">
-                      {/* TODO: brancher les réglages du canal */}
                       <button
                         type="button"
                         aria-label={`${channel.name} settings`}
                         title="Settings"
-                        className={iconButtonClass}
+                        disabled={isPending}
+                        onClick={() => handleSettings(channel.key)}
+                        className={[
+                          "flex h-8 w-8 items-center justify-center rounded-lg",
+                          "transition-colors duration-150 disabled:opacity-50",
+                          t.iconBtn,
+                        ].join(" ")}
                       >
-                        <GearIcon className="h-[18px] w-[18px]" />
+                        <GearIcon className="h-4 w-4" />
                       </button>
 
-                      <ChannelMenu
-                        isDark={isDark}
+                      <RowMenu
+                        t={t}
                         disabled={isPending}
-                        buttonClass={iconButtonClass}
                         onDisconnect={() => handleToggle(channel.key)}
                       />
                     </div>
@@ -1022,6 +1062,7 @@ export default function Channels({
           channels={CHANNELS}
           connections={connections}
           pendingKey={pendingKey}
+          limitReached={limitReached}
           onToggle={handleToggle}
           onClose={closeModal}
           errorMessage={errorMessage}
