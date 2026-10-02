@@ -371,7 +371,10 @@ function ConnectModal({
                 <button
                   type="button"
                   disabled={isPending}
-                  onClick={() => onToggle(channel.key)}
+                  onClick={() => {
+  console.log("🔥 BOUTON CLIQUÉ :", channel.key);
+  onToggle(channel.key);
+}}
                   className={[
                     "w-full rounded-lg py-1.5",
                     "text-[11.5px] font-semibold",
