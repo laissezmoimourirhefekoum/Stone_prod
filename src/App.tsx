@@ -29,8 +29,8 @@ import { saveOAuthSession } from "./services/supabase";
    Exécuté AVANT le montage de React (au chargement du module).
    Supabase (implicit flow) renvoie les tokens dans le hash :
    /#access_token=...&refresh_token=...
-   On les récupère, on sauvegarde la session, puis on nettoie
-   l'URL vers un vrai chemin (pathname) : /home ou /signin.
+   On les récupère, on sauvegarde la session, puis on remplace
+   l'URL par une route hash : /#/home ou /#/signin?oauth_error=...
    ────────────────────────────────────────────────────────────── */
 
 (function handleOAuthRedirect() {
@@ -63,7 +63,7 @@ import { saveOAuthSession } from "./services/supabase";
     window.history.replaceState(
       null,
       "",
-      `/signin?oauth_error=${encodeURIComponent(description)}`
+      `/#/signin?oauth_error=${encodeURIComponent(description)}`
     );
     return;
   }
@@ -72,7 +72,7 @@ import { saveOAuthSession } from "./services/supabase";
     window.history.replaceState(
       null,
       "",
-      `/signin?oauth_error=${encodeURIComponent(
+      `/#/signin?oauth_error=${encodeURIComponent(
         "PKCE flow returned instead of implicit flow"
       )}`
     );
@@ -101,7 +101,7 @@ import { saveOAuthSession } from "./services/supabase";
     }
   }, 300);
 
-  window.history.replaceState(null, "", "/home");
+  window.history.replaceState(null, "", "/#/home");
 })();
 
 type ToggleOrigin = { x: number; y: number };
@@ -187,7 +187,7 @@ function Home() {
 
           <div className="mt-[clamp(22px,2.8vw,38px)] flex justify-center">
             <a
-              href="/signup"
+              href="#/signup"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("signup");
@@ -236,7 +236,7 @@ function NotFound() {
         The page you are looking for doesn&rsquo;t exist or has been moved.
       </p>
       <a
-        href="/"
+        href="#/"
         onClick={(e) => {
           e.preventDefault();
           navigate("");
@@ -251,6 +251,7 @@ function NotFound() {
 
 /* ──────────────────────────────────────────────────────────────
    Routes (valeurs renvoyées par useHashRoute, sans slash initial)
+   Exemple : /#/faq -> "faq"
    ────────────────────────────────────────────────────────────── */
 
 /** Pages qui nécessitent d'être connecté. */
@@ -292,7 +293,7 @@ const DASHBOARD_HOME_ROUTES = new Set([
 
 const AUTH_ROUTES = new Set(["signin", "signup"]);
 
-/** Pages publiques (accessibles connecté ou non). "" = landing (/). */
+/** Pages publiques (accessibles connecté ou non). "" = landing (/#/). */
 const PUBLIC_ROUTES = new Set(["", "pricing", "faq", "tos", "privacy"]);
 
 /** Normalise la route : sans slashs de début/fin, en minuscules. */
