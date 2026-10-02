@@ -42,7 +42,7 @@ const userProfileCache = {
 
 /* ──────────────────────────────────────────────────────────────
    Réseaux sociaux : helpers pour retrouver l'icône à afficher
-   en badge sur la photo de profil de l'utilisateur.
+   en badge sur les photos de profil des canaux connectés.
    ────────────────────────────────────────────────────────────── */
 
 type SocialNetworkKey =
@@ -90,82 +90,43 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 
 /* ──────────────────────────────────────────────────────────────
    Avatar de la barre "Bonjour, ..."
-   - Affiche la photo de profil de l'utilisateur.
-   - Si un canal connecté est fourni, affiche le badge du réseau
-     en bas à droite (même style que dans NewPostModal).
    ────────────────────────────────────────────────────────────── */
 
 function GreetingAvatar({
   avatarUrl,
   initials,
   isDark,
-  channel,
 }: {
   avatarUrl?: string | null;
   initials: string;
   isDark: boolean;
-  channel?: ConnectedChannel | null;
 }) {
   const [loadFailed, setLoadFailed] = useState(false);
 
-  // Si l'URL change (nouvelle photo), on retente le chargement.
   useEffect(() => {
     setLoadFailed(false);
   }, [avatarUrl]);
 
   const showImage = Boolean(avatarUrl) && !loadFailed;
 
-  // Détermine l'icône du réseau à afficher en badge (si un canal est fourni).
-  let NetworkIcon:
-    | ((props: { className?: string }) => JSX.Element)
-    | null = null;
-
-  if (channel) {
-    const networkId = getNetworkId(channel);
-    if (networkId) {
-      NetworkIcon = NETWORK_ICONS[networkId];
-    }
-  }
-
-  // Légèrement agrandi (44 → 48) pour que le badge du réseau soit lisible.
-  const size = 48;
-
-  // Couleur du ring du badge : identique au fond de la page Home.
-  const badgeRing = isDark ? "ring-[#09090a]" : "ring-[#f3f1ed]";
-
-  return (
-    <div className="relative inline-block shrink-0">
-      {showImage ? (
-        <img
-          key={avatarUrl}
-          src={avatarUrl!}
-          alt="Profile"
-          style={{ width: size, height: size }}
-          className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-          onError={() => setLoadFailed(true)}
-        />
-      ) : (
-        <div
-          style={{ width: size, height: size }}
-          className={[
-            "flex aspect-square shrink-0 items-center justify-center rounded-full text-[14px] font-semibold",
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          {initials}
-        </div>
-      )}
-
-      {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black ring-[3px]",
-            badgeRing,
-          ].join(" ")}
-        >
-          <NetworkIcon className="h-3.5 w-3.5" />
-        </span>
-      )}
+  return showImage ? (
+    <img
+      key={avatarUrl}
+      src={avatarUrl!}
+      alt="Profile"
+      style={{ width: 44, height: 44 }}
+      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+      onError={() => setLoadFailed(true)}
+    />
+  ) : (
+    <div
+      style={{ width: 44, height: 44 }}
+      className={[
+        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[14px] font-semibold",
+        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      {initials}
     </div>
   );
 }
@@ -365,7 +326,8 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
    Widget "Réseaux connectés"
    - aucun réseau connecté : invitation "Connectez votre premier réseau"
    - au moins un réseau   : uniquement les photos de profil à gauche
-                            et le bouton "Connecter" tout à droite
+                            et le bouton "Connecter" tout à droite.
+                            Chaque photo affiche le badge de son réseau.
    ────────────────────────────────────────────────────────────── */
 
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
@@ -424,10 +386,12 @@ function ChannelAvatar({
   channel,
   isDark,
   overlap,
+  NetworkIcon,
 }: {
   channel: ConnectedChannel;
   isDark: boolean;
   overlap: boolean;
+  NetworkIcon?: (props: { className?: string }) => JSX.Element;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -442,30 +406,45 @@ function ChannelAvatar({
 
   const ring = isDark ? "ring-[#141416]" : "ring-white";
 
-  return showImage ? (
-    <img
-      src={channel.avatarUrl}
-      alt={label}
-      title={label}
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-      style={{ marginLeft: overlap ? -10 : 0 }}
-      className={[
-        "h-10 w-10 shrink-0 rounded-full object-cover ring-2",
-        ring,
-      ].join(" ")}
-    />
-  ) : (
+  return (
     <div
       title={label}
       style={{ marginLeft: overlap ? -10 : 0 }}
-      className={[
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold ring-2",
-        ring,
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-      ].join(" ")}
+      className="relative h-10 w-10 shrink-0"
     >
-      {initial}
+      {showImage ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={[
+            "h-full w-full rounded-full object-cover ring-2",
+            ring,
+          ].join(" ")}
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
+            ring,
+            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
+            ring,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-3 w-3" />
+        </span>
+      )}
     </div>
   );
 }
@@ -500,14 +479,19 @@ function ConnectFirstChannelWidget({
     return (
       <div className={cardClasses}>
         <div className="flex items-center">
-          {channels.map((channel, index) => (
-            <ChannelAvatar
-              key={channel.key}
-              channel={channel}
-              isDark={isDark}
-              overlap={index > 0}
-            />
-          ))}
+          {channels.map((channel, index) => {
+            const networkId = getNetworkId(channel);
+            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+            return (
+              <ChannelAvatar
+                key={channel.key}
+                channel={channel}
+                isDark={isDark}
+                overlap={index > 0}
+                NetworkIcon={NetworkIcon}
+              />
+            );
+          })}
         </div>
 
         <button
@@ -965,11 +949,6 @@ export default function Home() {
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
 
-  // Premier canal connecté : utilisé pour afficher le badge du réseau
-  // sur la photo de profil utilisateur.
-  const primaryChannel =
-    connectedChannels.length > 0 ? connectedChannels[0] : null;
-
   /**
    * Point d'entrée unique pour la création d'un post depuis la popup.
    * TODO : brancher ici le vrai envoi (Supabase, file d'attente de
@@ -1031,7 +1010,6 @@ export default function Home() {
                   avatarUrl={user?.avatar_url}
                   initials={initials}
                   isDark={isDark}
-                  channel={primaryChannel}
                 />
               </div>
 
