@@ -373,7 +373,7 @@ const navSections: NavSection[] = [
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
-      { label: "Queue", icon: QueueIcon, route: "queue", badge: "3" },
+      { label: "Queue", icon: QueueIcon, route: "queue" },
       { label: "Analytics", icon: AnalyticsIcon, route: "analytics" },
     ],
   },
@@ -992,7 +992,7 @@ export default function DashboardSidebar({
           "motion-reduce:transition-none",
           "will-change-[width]",
           t.aside,
-          isCollapsed ? "w-[68px]" : "w-[240px]",
+          isCollapsed ? "w-[68px]" : "w-[200px]",
         ].join(" ")}
       >
         {/* Collapse button */}
