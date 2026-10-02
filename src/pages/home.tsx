@@ -114,15 +114,15 @@ function GreetingAvatar({
       key={avatarUrl}
       src={avatarUrl!}
       alt="Profile"
-      style={{ width: 44, height: 44 }}
+      style={{ width: 40, height: 40 }}
       className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
       onError={() => setLoadFailed(true)}
     />
   ) : (
     <div
-      style={{ width: 44, height: 44 }}
+      style={{ width: 40, height: 40 }}
       className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[14px] font-semibold",
+        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
         isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
       ].join(" ")}
     >
@@ -160,7 +160,7 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
     <div className="flex flex-col items-end">
       <span
         className={[
-          "font-display text-[clamp(22px,2.4vw,30px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
+          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
           isDark ? "text-white" : "text-neutral-900",
         ].join(" ")}
       >
@@ -168,7 +168,7 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
       </span>
       <span
         className={[
-          "mt-1 text-[12.5px] font-medium capitalize",
+          "mt-0.5 text-[12px] font-medium capitalize",
           isDark ? "text-neutral-400" : "text-neutral-500",
         ].join(" ")}
       >
@@ -224,7 +224,7 @@ function buildStreakTokens(invert: boolean): StreakWidgetTokens {
 }
 
 function FlameIcon({
-  className = "h-9 w-9",
+  className = "h-8 w-8",
   color,
 }: {
   className?: string;
@@ -270,7 +270,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
   return (
     <div
       className={[
-        "flex h-full w-full flex-col justify-between rounded-[26px] border p-5",
+        "flex h-full w-full flex-col justify-between rounded-[22px] border p-4",
         tokens.cardBg,
         tokens.cardBorder,
         tokens.shadow,
@@ -280,40 +280,44 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
         <div>
           <p
             className={[
-              "text-[19px] font-bold leading-tight",
+              "text-[17px] font-bold leading-tight",
               tokens.heading,
             ].join(" ")}
           >
             {streakCount} days streak
           </p>
-          <p className={["mt-1 text-[13px] font-medium", tokens.subtitle].join(" ")}>
+          <p
+            className={[
+              "mt-0.5 text-[12.5px] font-medium",
+              tokens.subtitle,
+            ].join(" ")}
+          >
             {challengeName}
           </p>
         </div>
 
-        <FlameIcon className="h-10 w-10 shrink-0" color={tokens.flame} />
+        <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
       </div>
 
-      <div className="mt-5 flex items-center gap-2.5">
+      <div className="mt-3.5 flex items-center gap-2">
         {Array.from({ length: totalSlots }).map((_, index) =>
           index < streakCount ? (
             <div
               key={index}
               className={[
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
                 tokens.checkBg,
               ].join(" ")}
             >
-              <CheckIcon className={["h-4 w-4", tokens.checkIcon].join(" ")} />
+              <CheckIcon className={["h-3.5 w-3.5", tokens.checkIcon].join(" ")} />
             </div>
           ) : (
             <div
               key={index}
               aria-hidden="true"
-              className={[
-                "h-9 w-9 shrink-0 rounded-full",
-                tokens.badgeBg,
-              ].join(" ")}
+              className={["h-8 w-8 shrink-0 rounded-full", tokens.badgeBg].join(
+                " "
+              )}
             />
           )
         )}
@@ -457,17 +461,15 @@ function ConnectFirstChannelWidget({
   channels: ConnectedChannel[];
 }) {
   const cardClasses = [
-    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3.5",
-    isDark
-      ? "border-white/10 bg-[#141416]"
-      : "border-black/[0.06] bg-white",
+    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3",
+    isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
     isDark
       ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
       : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
   ].join(" ");
 
   const connectButtonClasses = [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition",
+    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
     isDark
       ? "bg-white text-neutral-900 hover:bg-neutral-200"
       : "bg-neutral-900 text-white hover:bg-neutral-800",
@@ -564,7 +566,7 @@ function DashboardCard({
   return (
     <div
       className={[
-        "flex h-full flex-col rounded-[22px] border p-5",
+        "flex h-full flex-col rounded-[22px] border p-4",
         isDark
           ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
           : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
@@ -586,10 +588,10 @@ function CardHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="mb-3 flex items-center justify-between gap-3">
       <p
         className={[
-          "text-[15px] font-semibold",
+          "text-[14px] font-semibold",
           isDark ? "text-white" : "text-neutral-900",
         ].join(" ")}
       >
@@ -605,17 +607,17 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
     <DashboardCard isDark={isDark}>
       <CardHeading isDark={isDark} title="Vos intégrations" />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-2 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
         <div
           className={[
-            "flex h-11 w-11 items-center justify-center rounded-full",
+            "flex h-9 w-9 items-center justify-center rounded-full",
             isDark ? "bg-white/5" : "bg-neutral-100",
           ].join(" ")}
         >
           <svg
             viewBox="0 0 24 24"
             className={[
-              "h-5 w-5",
+              "h-4 w-4",
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
             fill="none"
@@ -630,7 +632,7 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
         </div>
         <p
           className={[
-            "text-[13px] font-medium",
+            "text-[12.5px] font-medium",
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
@@ -642,7 +644,7 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
         type="button"
         onClick={() => navigate("integrations")}
         className={[
-          "mt-4 w-full rounded-full py-2 text-[12.5px] font-semibold transition",
+          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
           isDark
             ? "bg-white/10 text-white hover:bg-white/15"
             : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
@@ -665,17 +667,17 @@ function UpcomingPostsCard({
     <DashboardCard isDark={isDark}>
       <CardHeading isDark={isDark} title="Publications à venir" />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-2 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
         <div
           className={[
-            "flex h-11 w-11 items-center justify-center rounded-full",
+            "flex h-9 w-9 items-center justify-center rounded-full",
             isDark ? "bg-white/5" : "bg-neutral-100",
           ].join(" ")}
         >
           <svg
             viewBox="0 0 24 24"
             className={[
-              "h-5 w-5",
+              "h-4 w-4",
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
             fill="none"
@@ -690,7 +692,7 @@ function UpcomingPostsCard({
         </div>
         <p
           className={[
-            "text-[13px] font-medium",
+            "text-[12.5px] font-medium",
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
@@ -702,7 +704,7 @@ function UpcomingPostsCard({
         type="button"
         onClick={onPlan}
         className={[
-          "mt-4 w-full rounded-full py-2 text-[12.5px] font-semibold transition",
+          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
           isDark
             ? "bg-white text-neutral-900 hover:bg-neutral-200"
             : "bg-neutral-900 text-white hover:bg-neutral-800",
@@ -730,7 +732,7 @@ function PerformanceCard({ isDark }: { isDark: boolean }) {
           <div key={stat.label} className="flex flex-col">
             <span
               className={[
-                "font-display text-[22px] font-semibold leading-none tracking-[-0.01em]",
+                "font-display text-[20px] font-semibold leading-none tracking-[-0.01em]",
                 isDark ? "text-white" : "text-neutral-900",
               ].join(" ")}
             >
@@ -738,7 +740,7 @@ function PerformanceCard({ isDark }: { isDark: boolean }) {
             </span>
             <span
               className={[
-                "mt-1.5 text-[11.5px] font-medium leading-tight",
+                "mt-1 text-[11px] font-medium leading-tight",
                 isDark ? "text-neutral-500" : "text-neutral-400",
               ].join(" ")}
             >
@@ -750,7 +752,7 @@ function PerformanceCard({ isDark }: { isDark: boolean }) {
 
       <p
         className={[
-          "mt-4 text-[12px] font-medium",
+          "mt-3 text-[11.5px] font-medium",
           isDark ? "text-neutral-500" : "text-neutral-400",
         ].join(" ")}
       >
@@ -829,7 +831,7 @@ function BlogPostCard({
           : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
       ].join(" ")}
     >
-      <div className="h-[170px] w-full shrink-0 overflow-hidden">
+      <div className="h-[150px] w-full shrink-0 overflow-hidden">
         <img
           src={post.imageUrl}
           alt=""
@@ -994,12 +996,12 @@ export default function Home() {
             contenu ne passe pas dessous. */}
         <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
           {/* Heading row + widgets */}
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h1
                   className={[
-                    "font-display text-[clamp(26px,3vw,40px)] font-semibold tracking-[-0.02em]",
+                    "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
                     isDark ? "text-white" : "text-neutral-900",
                   ].join(" ")}
                 >
@@ -1018,12 +1020,12 @@ export default function Home() {
 
             {/* Ligne du haut : streak (largeur fixe) à gauche,
                 grille des 3 cartes à droite sur la même ligne. */}
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
-              <div className="w-full lg:w-[300px] lg:shrink-0">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+              <div className="w-full lg:w-[280px] lg:shrink-0">
                 <StreakStepsWidget isDark={isDark} />
               </div>
 
-              <div className="grid flex-1 grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <IntegrationsCard isDark={isDark} />
                 <UpcomingPostsCard
                   isDark={isDark}
