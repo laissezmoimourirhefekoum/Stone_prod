@@ -688,6 +688,11 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
   );
 }
 
+/**
+ * Empty state reproduit d'après la maquette fournie :
+ * gros cercle avec un "+", titre en gras, sous-titre gris,
+ * puis bouton d'action. Adapté à la carte "Publications à venir".
+ */
 function UpcomingPostsCard({
   isDark,
   onPlan,
@@ -699,46 +704,56 @@ function UpcomingPostsCard({
     <DashboardCard isDark={isDark}>
       <CardHeading isDark={isDark} title="Publications à venir" />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+        {/* Cercle avec le "+" au centre */}
         <div
           className={[
-            "flex h-9 w-9 items-center justify-center rounded-full",
-            isDark ? "bg-white/5" : "bg-neutral-100",
+            "flex h-16 w-16 items-center justify-center rounded-full",
+            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
           ].join(" ")}
         >
           <svg
             viewBox="0 0 24 24"
             className={[
-              "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              "h-6 w-6",
+              isDark ? "text-neutral-400" : "text-neutral-500",
             ].join(" ")}
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.8"
+            strokeWidth="2"
             strokeLinecap="round"
-            strokeLinejoin="round"
           >
-            <rect x="4" y="5" width="16" height="15" rx="3" />
-            <path d="M4 10h16M8 3v4M16 3v4" />
+            <path d="M12 5v14M5 12h14" />
           </svg>
         </div>
-        <p
-          className={[
-            "text-[12.5px] font-medium",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          Rien de prévu pour l'instant
-        </p>
+
+        <div className="flex flex-col gap-1">
+          <p
+            className={[
+              "text-[16px] font-bold leading-tight",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            Planifiez votre première publication
+          </p>
+          <p
+            className={[
+              "text-[12px] font-medium leading-snug",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            Une fois planifiées, vous verrez vos publications ici.
+          </p>
+        </div>
       </div>
 
       <button
         type="button"
         onClick={onPlan}
         className={[
-          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
+          "mx-auto mt-4 rounded-[10px] px-5 py-2 text-[13px] font-bold transition",
           isDark
-            ? "bg-white text-neutral-900 hover:bg-neutral-200"
+            ? "bg-white/[0.08] text-white hover:bg-white/[0.12]"
             : "bg-neutral-900 text-white hover:bg-neutral-800",
         ].join(" ")}
       >
