@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
+import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+
+/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
+const SIDEBAR_OFFSET = 104;
 
 /* ---------------------------------------------------------------- */
-/* Icons — same hand-drawn, single-stroke language as the rest of   */
-/* the app (currentColor, ~1.6-1.8 stroke, round caps).             */
+/* Icons                                                             */
 /* ---------------------------------------------------------------- */
 
 function ChevronDownIcon() {
@@ -53,7 +58,7 @@ const DAILY_CALLS = [6, 6.4, 5.6, 6.8, 7.8, 6.9, 5.9, 5.2, 4.6, 3.6, 4.2, 5, 5.8
 
 const X_LABELS = ["Jan 6", "Jan 8", "Jan 10", "Jan 12", "Jan 14", "Jan 16", "Jan 18", "Jan 20", "Jan 22", "Jan 24", "Jan 26", "Jan 28", "Jan 30"];
 
-const HIGHLIGHT_INDEX = 12; // "Jan 18"
+const HIGHLIGHT_INDEX = 12;
 
 const CALL_OUTCOMES = [
   { label: "Answer business questions", value: 60 },
@@ -209,7 +214,7 @@ function CardShell({
 }
 
 /* ---------------------------------------------------------------- */
-/* Performance chart — hand-built SVG area chart                    */
+/* Performance chart                                                 */
 /* ---------------------------------------------------------------- */
 
 function PerformanceChart({ isDark }: { isDark: boolean }) {
@@ -238,7 +243,7 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
 
   const activeIndex = hover ?? HIGHLIGHT_INDEX;
   const [ax, ay] = points[activeIndex];
-  const activeDay = 6 + activeIndex; // Jan 6 is index 0
+  const activeDay = 6 + activeIndex;
   const activeCalls = Math.round(DAILY_CALLS[activeIndex]);
 
   const strokeColor = isDark ? "#ffffff" : "#171717";
@@ -263,7 +268,6 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
         <path d={areaPath} fill="url(#perfFill)" />
         <path d={linePath} fill="none" stroke={strokeColor} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* dashed guide + marker for the active point */}
         <line
           x1={ax}
           y1={ay}
@@ -275,7 +279,6 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
         />
         <circle cx={ax} cy={ay} r={4.5} fill={strokeColor} stroke={isDark ? "#09090a" : "#f3f1ed"} strokeWidth={2.5} />
 
-        {/* invisible hit targets so hovering anywhere near a point updates the tooltip */}
         {points.map(([x], i) => (
           <rect
             key={i}
@@ -289,7 +292,6 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
         ))}
       </svg>
 
-      {/* tooltip */}
       <div
         className={[
           "pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-[10px] border px-3 py-2 text-[11.5px] shadow-lg transition-all",
@@ -307,7 +309,6 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
         </div>
       </div>
 
-      {/* x axis labels */}
       <div className={["mt-2 flex justify-between text-[11px]", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
         {X_LABELS.map((label) => (
           <span key={label} className={label === "Jan 18" ? (isDark ? "font-semibold text-neutral-200" : "font-semibold text-neutral-800") : ""}>
@@ -320,7 +321,7 @@ function PerformanceChart({ isDark }: { isDark: boolean }) {
 }
 
 /* ---------------------------------------------------------------- */
-/* Donut chart                                                      */
+/* Donut chart                                                       */
 /* ---------------------------------------------------------------- */
 
 function Donut({
@@ -397,7 +398,7 @@ function LegendDot({ color }: { color: string }) {
 }
 
 /* ---------------------------------------------------------------- */
-/* Cards: Call Outcomes / Call Topics / End Call Reasons             */
+/* Cards                                                             */
 /* ---------------------------------------------------------------- */
 
 function DonutCard({
@@ -515,12 +516,34 @@ export default function Analytics() {
   const [view, setView] = useState("Performance");
   const [tab, setTab] = useState("Overview");
 
+  // ── BottomBar / Folder / NewPostModal ──
+  const [bottomQuery, setBottomQuery] = useState("");
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    console.log("Nouveau post :", payload);
+  };
+
   return (
     <main className={["relative min-h-screen w-full transition-colors duration-500", isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]"].join(" ")}>
       <DashboardSidebar theme={theme} />
 
       <div className="pl-[104px]">
-        <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] py-[clamp(20px,2.6vw,34px)]">
+        {/* pb-[96px] : réserve la place de la BottomBar. */}
+        <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
           {/* Top row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Dropdown value={range} options={RANGES} onChange={setRange} isDark={isDark} />
@@ -607,6 +630,30 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+
+      {/* Barre d'actions rapides. */}
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+      />
+
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={bottomQuery}
+        onQueryChange={setBottomQuery}
+      />
+
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+      />
     </main>
   );
 }

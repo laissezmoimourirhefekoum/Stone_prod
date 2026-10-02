@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar from "../components/DashboardSidebar";
-import NewPostModal from "../components/Newpostmodal";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
+import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+
+/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
+const SIDEBAR_OFFSET = 104;
 
 /* ---------- Icônes ---------- */
 
@@ -210,8 +215,29 @@ export default function Queue() {
   // ── État du modal de création de post ──
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // ── BottomBar / Folder ──
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [bottomQuery, setBottomQuery] = useState("");
+
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsModalOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    // TODO: remplacer par l'appel API
+    console.log("Nouveau post :", payload);
+  };
 
   return (
     <main
@@ -223,7 +249,8 @@ export default function Queue() {
       <DashboardSidebar theme={theme} />
 
       <div className="pl-[104px]">
-        <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] py-[clamp(20px,2.6vw,34px)]">
+        {/* pb-[96px] : réserve la place de la BottomBar. */}
+        <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
           {/* Heading row */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1
@@ -371,15 +398,29 @@ export default function Queue() {
         </div>
       </div>
 
+      {/* Barre d'actions rapides. */}
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+      />
+
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={bottomQuery}
+        onQueryChange={setBottomQuery}
+      />
+
       {/* ── Modal de création de post ── */}
       <NewPostModal
         isOpen={isModalOpen}
         onClose={closeModal}
         isDark={isDark}
-        onSubmit={async (payload) => {
-          // TODO: remplacer par l'appel API
-          console.log("Nouveau post :", payload);
-        }}
+        onSubmit={handleCreatePost}
       />
     </main>
   );

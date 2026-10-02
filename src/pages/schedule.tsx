@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar from "../components/DashboardSidebar";
 import PageTransition from "../components/PageTransition";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
+import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
 
+/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
+const SIDEBAR_OFFSET = 104;
+
 /* ------------------------------------------------------------------ */
-/* Icons — kept local since these are specific to the schedule header  */
+/* Icons                                                               */
 /* ------------------------------------------------------------------ */
 
 function ChevronDownIcon() {
@@ -118,10 +124,9 @@ function formatWeekRange(start: Date, end: Date) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Time <-> decimal hour helpers (bridge to TimePicker's Date API)     */
+/* Time <-> decimal hour helpers                                       */
 /* ------------------------------------------------------------------ */
 
-/** Ancre neutre utilisée pour représenter une heure sous forme de Date. */
 const TIME_ANCHOR = new Date(2024, 0, 1);
 
 function hourToDate(h: number): Date {
@@ -150,8 +155,8 @@ type Category = {
 
 type CalendarEvent = {
   id: string;
-  day: number; // 0 = Mon .. 6 = Sun
-  start: number; // decimal hour
+  day: number;
+  start: number;
   end: number;
   title: string;
   categoryId?: string;
@@ -159,16 +164,14 @@ type CalendarEvent = {
   published?: boolean;
 };
 
-// Plage complète : minuit → minuit.
 const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
-const HOUR_HEIGHT = 60; // px
+const HOUR_HEIGHT = 60;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
-/** Format FR 24h : ex. "9h00", "14h30". Heure 0 → "0h00" (minuit). */
 function formatTime(h: number) {
   const hh = Math.floor(h);
   const mm = Math.round((h - hh) * 60);
@@ -217,7 +220,7 @@ const NEUTRAL_STYLE: ToneStyle = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Layout — événements superposés (pleine largeur)                     */
+/* Layout                                                              */
 /* ------------------------------------------------------------------ */
 
 type PositionedEvent = {
@@ -261,7 +264,7 @@ function fieldClass(isDark: boolean) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Category editor popover (create / edit)                             */
+/* Category editor popover                                             */
 /* ------------------------------------------------------------------ */
 
 function CategoryEditorPopover({
@@ -500,7 +503,7 @@ function EventCard({
 }
 
 /* ------------------------------------------------------------------ */
-/* Event form (create / edit)                                          */
+/* Event form                                                          */
 /* ------------------------------------------------------------------ */
 
 type EventFormData = {
@@ -528,8 +531,6 @@ function EventFormModal({
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
 
-  // Par défaut : aujourd'hui pour un nouvel événement,
-  // ou la date correspondant au jour stocké pour une édition.
   const [date, setDate] = useState<Date>(() =>
     initial ? addDays(weekStart, initial.day) : new Date(),
   );
@@ -686,16 +687,18 @@ export default function Schedule() {
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  // Category UI states
   const [catCreatorOpen, setCatCreatorOpen] = useState(false);
   const [catMenuOpenId, setCatMenuOpenId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
-  // Event form (create / edit)
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  // Conteneur scrollable du calendrier + suivi du scroll
+  /* ---------------- BottomBar state ---------------- */
+  const [bottomQuery, setBottomQuery] = useState("");
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -756,14 +759,14 @@ export default function Schedule() {
     return () => window.clearInterval(id);
   }, []);
 
-  /* ---------------- Scroll du calendrier : toujours démarrer en haut ---------------- */
+  /* ---------------- Scroll reset ---------------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = 0;
     setScrollTop(0);
   }, [range]);
 
-  /* ---------------- Mesure du viewport de scroll ---------------- */
+  /* ---------------- Viewport measure ---------------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -844,7 +847,6 @@ export default function Schedule() {
     return map;
   }, [visibleEvents]);
 
-  /* ---------------- Indicateurs d'événements cachés ---------------- */
   const hiddenAbove = useMemo(() => {
     if (viewportHeight === 0) return false;
     return visibleEvents.some((e) => {
@@ -941,6 +943,23 @@ export default function Schedule() {
 
   const editingEvent = editingEventId ? events.find((e) => e.id === editingEventId) ?? null : null;
 
+  /* ---------------- BottomBar handlers ---------------- */
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    console.log("Nouveau post :", payload);
+  };
+
   /* ---------------- Render ---------------- */
   return (
     <main
@@ -953,17 +972,17 @@ export default function Schedule() {
 
       <div className="h-full pl-[104px]">
         <PageTransition>
-          <div className="mx-auto flex h-[100dvh] w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] py-[clamp(20px,2.6vw,34px)]">
+          {/* pb-[96px] : réserve la place de la BottomBar. */}
+          <div className="mx-auto flex h-[100dvh] w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
             {/* Heading row */}
             <div className="grid shrink-0 items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
-              {/* Categories — dynamic pills */}
+              {/* Categories */}
               <div className="order-2 flex flex-col gap-1.5 lg:order-none lg:justify-start">
                 <span className={["text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
                   Catégorie
                 </span>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* All pill */}
                   <button
                     type="button"
                     onClick={() => setActiveCategory("All")}
@@ -982,7 +1001,6 @@ export default function Schedule() {
                     All
                   </button>
 
-                  {/* Category pills */}
                   {categories.map((cat) => {
                     const tone = TONE_STYLES[cat.tone];
                     const isActive = activeCategory === cat.id;
@@ -1097,7 +1115,6 @@ export default function Schedule() {
                     );
                   })}
 
-                  {/* "+" button + creation popover */}
                   <div className="relative" data-cat-creator>
                     <button
                       type="button"
@@ -1132,7 +1149,6 @@ export default function Schedule() {
                 </div>
               </div>
 
-              {/* Date (centered) */}
               <h1
                 className={[
                   "order-1 text-center font-display text-[clamp(20px,2vw,26px)] font-semibold tracking-[-0.01em] lg:order-none",
@@ -1142,7 +1158,6 @@ export default function Schedule() {
                 {weekLabel}
               </h1>
 
-              {/* Filter + add */}
               <div className="order-3 flex flex-wrap items-center gap-2 lg:order-none lg:justify-end">
                 <div className="relative">
                   <button
@@ -1229,7 +1244,6 @@ export default function Schedule() {
                 isDark ? "border-white/10 bg-[#111113]" : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
-              {/* Day header row */}
               <div className="grid shrink-0 grid-cols-[56px_repeat(7,1fr)]">
                 <div className={["border-b", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ")} />
                 {days.map((day) => (
@@ -1252,7 +1266,6 @@ export default function Schedule() {
                 ))}
               </div>
 
-              {/* Zone scrollable + indicateurs flottants */}
               <div className="relative min-h-0 flex-1">
                 <div
                   ref={scrollRef}
@@ -1263,7 +1276,6 @@ export default function Schedule() {
                     className="grid grid-cols-[56px_repeat(7,1fr)]"
                     style={{ height: TOTAL_HEIGHT }}
                   >
-                    {/* Hour labels */}
                     <div className="relative">
                       {HOURS.map((h, i) => (
                         <div
@@ -1282,7 +1294,6 @@ export default function Schedule() {
                       ))}
                     </div>
 
-                    {/* Day columns */}
                     {days.map((day, dayIndex) => (
                       <div
                         key={day.date.toISOString()}
@@ -1336,7 +1347,6 @@ export default function Schedule() {
                   </div>
                 </div>
 
-                {/* Indicateur : événements cachés en haut */}
                 {hiddenAbove && (
                   <button
                     type="button"
@@ -1354,7 +1364,6 @@ export default function Schedule() {
                   </button>
                 )}
 
-                {/* Indicateur : événements cachés en bas */}
                 {hiddenBelow && (
                   <button
                     type="button"
@@ -1401,6 +1410,30 @@ export default function Schedule() {
           onSave={handleSaveEvent}
         />
       )}
+
+      {/* Barre d'actions rapides. */}
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+      />
+
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={bottomQuery}
+        onQueryChange={setBottomQuery}
+      />
+
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+      />
     </main>
   );
 }
