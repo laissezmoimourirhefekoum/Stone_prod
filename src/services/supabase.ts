@@ -3,9 +3,38 @@
 // ============================================================
 // API CONFIGURATION
 // ============================================================
+//
+// Production (Vercel) : définir VITE_API_BASE_URL dans les variables
+// d'environnement, par exemple :
+//   VITE_API_BASE_URL=https://stoneserv-production.up.railway.app
+//
+// Développement local : le fallback http://localhost:3002 est utilisé.
+//
+// Le .replace(/\/$/, "") retire un éventuel "/" final afin d'éviter
+// des URLs de la forme https://.../​/api/auth/login.
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3002"
+).replace(/\/$/, "");
+
+// Vérification en développement uniquement (ne bloque jamais la production).
+if (import.meta.env.DEV) {
+  try {
+    const parsed = new URL(API_BASE_URL);
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      console.warn(
+        `[api] VITE_API_BASE_URL a un protocole inattendu : ${API_BASE_URL}`
+      );
+    }
+  } catch {
+    console.warn(
+      `[api] VITE_API_BASE_URL semble invalide : "${API_BASE_URL}". ` +
+        "Elle doit ressembler à https://stoneserv-production.up.railway.app"
+    );
+  }
+}
 
 // ============================================================
 // STORAGE KEYS
@@ -209,6 +238,8 @@ async function apiRequest<T>(
 
   const headers = new Headers(options.headers || {});
 
+  // Ne jamais définir Content-Type manuellement pour FormData :
+  // le navigateur ajoute lui-même le boundary multipart.
   if (!(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -306,6 +337,9 @@ export async function signUp(
 // 3) Google → Supabase → revient sur redirectTo avec le hash
 //    #access_token=...&refresh_token=... que App.tsx intercepte
 //    au démarrage pour stocker la session.
+//
+// Le redirectTo est l'URL du FRONTEND (window.location.origin),
+// jamais l'URL Railway du backend.
 
 export async function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/api/auth/google/url`, {
