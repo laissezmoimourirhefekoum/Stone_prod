@@ -12,10 +12,16 @@ import {
   disconnectTikTok,
 } from "../services/tiktok";
 import {
+  getPinterestStatus,
+  startPinterestLogin,
+  disconnectPinterest,
+} from "../services/pinterest";
+import {
   CACHE_MAX_AGE_MS,
   clearCache,
   readCache,
   writeCache,
+  type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
 import {
@@ -75,6 +81,19 @@ type ThemeTokens = {
   iconBtn: string;
   menu: string;
   menuItem: string;
+};
+
+// Réponse commune des endpoints /status (TikTok et Pinterest).
+type StatusResponse = {
+  connected: boolean;
+  account:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null
+    | undefined;
 };
 
 /* ============================================================================
@@ -140,6 +159,9 @@ const initialConnections: ConnectionState = {
   pinterest: { connected: false },
   threads: { connected: false },
 };
+
+// Réseaux branchés sur un vrai OAuth (les autres sont encore des placeholders).
+const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest"];
 
 /* ============================================================================
    Icônes locales
@@ -227,7 +249,7 @@ function DotsIcon(props: IconProps) {
    Helpers
 ============================================================================ */
 
-function formatTikTokError(error: unknown): string {
+function formatOAuthError(provider: string, error: unknown): string {
   const raw = error instanceof Error ? error.message : "";
 
   if (/failed to fetch|networkerror|load failed/i.test(raw)) {
@@ -235,22 +257,36 @@ function formatTikTokError(error: unknown): string {
   }
 
   return raw
-    ? `Unable to connect to TikTok. ${raw}`
-    : "Unable to connect to TikTok.";
+    ? `Unable to connect to ${provider}. ${raw}`
+    : `Unable to connect to ${provider}.`;
 }
 
 function mockHandleFor(key: ChannelKey): string {
-  // Valeurs fictives utilisées uniquement par les placeholders.
+  // Valeurs fictives utilisées uniquement par les placeholders
+  // (TikTok et Pinterest utilisent maintenant le vrai profil).
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
     tiktok: "",
     youtube: "Ronan Studio",
     facebook: "Ronan Studio Page",
-    pinterest: "Ronan Studio",
+    pinterest: "",
     threads: "@ronan.studio",
   };
 
   return handles[key];
+}
+
+function toConnection(status: StatusResponse): Connection {
+  if (!status.connected) return { connected: false };
+
+  const account = status.account;
+
+  return {
+    connected: true,
+    handle: account?.display_name ?? undefined,
+    // Le nom du champ dépend du backend : avatar_url ou avatarUrl.
+    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
+  };
 }
 
 /* ============================================================================
@@ -587,7 +623,7 @@ function ConnectModal({
 
                   <span className={["text-[13px] leading-snug", subtitleColor].join(" ")}>
                     {isPending ? (
-                      channel.key === "tiktok" ? "Redirecting..." : "Connecting..."
+                      REAL_OAUTH.includes(channel.key) ? "Redirecting..." : "Connecting..."
                     ) : connected ? (
                       <span className="inline-flex items-center gap-1.5">
                         <CheckIcon className="h-4 w-4" />
@@ -625,14 +661,19 @@ export default function Channels({
   const { user } = useUser();
   const userId = user?.id ?? null;
 
-  // État initial lu depuis le cache : le profil TikTok s'affiche tout de suite
-  // quand on revient sur la page, sans rechargement ni clignotement.
+  // État initial lu depuis le cache : les profils TikTok et Pinterest
+  // s'affichent tout de suite quand on revient sur la page, sans clignotement.
   const [connections, setConnections] = useState<ConnectionState>(() => {
-    const cached = userId ? readCache(userId) : null;
+    if (!userId) return initialConnections;
 
-    return cached
-      ? { ...initialConnections, tiktok: cached.connection }
-      : initialConnections;
+    const tiktok = readCache(userId, "tiktok");
+    const pinterest = readCache(userId, "pinterest");
+
+    return {
+      ...initialConnections,
+      ...(tiktok ? { tiktok: tiktok.connection } : {}),
+      ...(pinterest ? { pinterest: pinterest.connection } : {}),
+    };
   });
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -640,6 +681,7 @@ export default function Channels({
 
   // Empêche un double clic de lancer deux OAuth en parallèle.
   const tiktokBusy = useRef(false);
+  const pinterestBusy = useRef(false);
 
   const connectedChannels = useMemo(
     () => CHANNELS.filter((channel) => connections[channel.key].connected),
@@ -648,12 +690,13 @@ export default function Channels({
   const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
 
-  /* ── Retour de TikTok + statut du compte (avec cache) ── */
+  /* ── Retour OAuth + statut des comptes (avec cache) ── */
 
   useEffect(() => {
     if (!userId) return;
 
-    /* 1) Retour de TikTok : /#/channels?tiktok=connected ou ?tiktok_error=...
+    /* 1) Retour d'un réseau : /#/channels?tiktok=connected, ?pinterest=connected
+          ou ?tiktok_error=... / ?pinterest_error=...
           Avec le routage par hash, la query est DANS le hash, pas dans
           window.location.search. */
     const hash = window.location.hash;
@@ -664,18 +707,28 @@ export default function Channels({
     );
 
     const tiktokError = params.get("tiktok_error");
-    const justReturned = params.has("tiktok") || Boolean(tiktokError);
+    const pinterestError = params.get("pinterest_error");
 
-    if (justReturned) {
-      if (tiktokError) {
-        setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
-      }
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: params.has("tiktok") || Boolean(tiktokError),
+      pinterest: params.has("pinterest") || Boolean(pinterestError),
+    };
 
-      // Nouvelle connexion : on force un rechargement du profil.
-      clearCache(userId);
+    if (tiktokError) {
+      setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+    }
+    if (pinterestError) {
+      setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
+    }
 
-      params.delete("tiktok");
-      params.delete("tiktok_error");
+    // Nouvelle connexion : on force un rechargement du profil.
+    if (returned.tiktok) clearCache(userId, "tiktok");
+    if (returned.pinterest) clearCache(userId, "pinterest");
+
+    if (returned.tiktok || returned.pinterest) {
+      ["tiktok", "tiktok_error", "pinterest", "pinterest_error"].forEach((k) =>
+        params.delete(k)
+      );
       const query = params.toString();
 
       // On nettoie l'URL pour ne pas réafficher le message au rafraîchissement.
@@ -688,57 +741,50 @@ export default function Channels({
       );
     }
 
-    /* 2) Cache : affiché immédiatement, aucun appel réseau s'il est récent. */
-    const cached = justReturned ? null : readCache(userId);
-
-    if (cached) {
-      setConnections((current) => ({ ...current, tiktok: cached.connection }));
-
-      if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
-      // Cache ancien : on l'affiche quand même, puis on le met à jour en silence.
-    }
-
-    /* 3) Chargement depuis le backend (une seule fois, puis mis en cache). */
     let cancelled = false;
 
-    const loadTikTokStatus = async () => {
-      try {
-        const status = await getTikTokStatus();
-        if (cancelled) return;
+    /* 2) Pour chaque réseau : cache affiché immédiatement, aucun appel réseau
+          s'il est récent, sinon rechargement silencieux depuis le backend. */
+    const sync = (
+      provider: CacheProvider,
+      justReturned: boolean,
+      fetchStatus: () => Promise<StatusResponse>
+    ) => {
+      const cached = justReturned ? null : readCache(userId, provider);
 
-        // Le nom du champ de la photo dépend de ton backend : on accepte
-        // avatar_url (TikTok API) ou avatarUrl. Adapte si besoin.
-        const account = status.account as
-          | {
-              display_name?: string | null;
-              avatar_url?: string | null;
-              avatarUrl?: string | null;
-            }
-          | null
-          | undefined;
+      if (cached) {
+        setConnections((current) => ({
+          ...current,
+          [provider]: cached.connection,
+        }));
 
-        const tiktok: Connection = status.connected
-          ? {
-              connected: true,
-              handle: account?.display_name ?? undefined,
-              avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
-            }
-          : { connected: false };
-
-        if (tiktok.connected) {
-          writeCache(userId, tiktok);
-        } else {
-          clearCache(userId);
-        }
-
-        setConnections((current) => ({ ...current, tiktok }));
-      } catch (error) {
-        // Non bloquant : on garde ce qui est affiché (cache éventuel).
-        console.warn("[Stone] Could not load TikTok status:", error);
+        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
+        // Cache ancien : on l'affiche quand même, puis on le met à jour en silence.
       }
+
+      void (async () => {
+        try {
+          const status = await fetchStatus();
+          if (cancelled) return;
+
+          const connection = toConnection(status);
+
+          if (connection.connected) {
+            writeCache(userId, connection, provider);
+          } else {
+            clearCache(userId, provider);
+          }
+
+          setConnections((current) => ({ ...current, [provider]: connection }));
+        } catch (error) {
+          // Non bloquant : on garde ce qui est affiché (cache éventuel).
+          console.warn(`[Stone] Could not load ${provider} status:`, error);
+        }
+      })();
     };
 
-    void loadTikTokStatus();
+    sync("tiktok", returned.tiktok, getTikTokStatus);
+    sync("pinterest", returned.pinterest, getPinterestStatus);
 
     return () => {
       cancelled = true;
@@ -801,7 +847,7 @@ export default function Channels({
         await disconnectTikTok();
 
         // Le profil n'est plus valable : on vide le cache.
-        if (userId) clearCache(userId);
+        if (userId) clearCache(userId, "tiktok");
 
         // Mise à jour de l'UI uniquement après succès du backend.
         setConnections((current) => ({
@@ -818,12 +864,51 @@ export default function Channels({
       }
     } catch (error) {
       console.error("[Stone] TikTok OAuth error:", error);
-      setErrorMessage(formatTikTokError(error));
+      setErrorMessage(formatOAuthError("TikTok", error));
     } finally {
       // Pendant la redirection, on garde le bouton désactivé.
       if (!redirecting) {
         setPendingKey(null);
         tiktokBusy.current = false;
+      }
+    }
+  };
+
+  /* ── Pinterest : vrai OAuth (app en mode sandbox/trial) ── */
+
+  const handlePinterestToggle = async () => {
+    if (pinterestBusy.current) return;
+    pinterestBusy.current = true;
+
+    setPendingKey("pinterest");
+
+    let redirecting = false;
+
+    try {
+      if (connections.pinterest.connected) {
+        console.log("[Stone] Disconnecting Pinterest");
+        await disconnectPinterest();
+
+        if (userId) clearCache(userId, "pinterest");
+
+        setConnections((current) => ({
+          ...current,
+          pinterest: { connected: false },
+        }));
+      } else {
+        console.log("[Stone] Starting Pinterest OAuth");
+
+        // POST /api/pinterest/auth/url puis window.location.assign(url).
+        await startPinterestLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] Pinterest OAuth error:", error);
+      setErrorMessage(formatOAuthError("Pinterest", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        pinterestBusy.current = false;
       }
     }
   };
@@ -834,7 +919,6 @@ export default function Channels({
     // TODO: implement Instagram OAuth
     // TODO: implement YouTube OAuth
     // TODO: implement Facebook OAuth
-    // TODO: implement Pinterest OAuth
     // TODO: implement Threads OAuth
     setPendingKey(key);
 
@@ -863,6 +947,12 @@ export default function Channels({
     if (key === "tiktok") {
       console.log("[Stone] TikTok button clicked");
       void handleTikTokToggle();
+      return;
+    }
+
+    if (key === "pinterest") {
+      console.log("[Stone] Pinterest button clicked");
+      void handlePinterestToggle();
       return;
     }
 

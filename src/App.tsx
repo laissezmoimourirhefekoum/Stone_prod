@@ -20,33 +20,45 @@ import Tos from "./pages/tos";
 import Privacy from "./pages/Privacy";
 import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
+import PinterestCallback from "./pages/PinterestCallback";
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { saveOAuthSession } from "./services/supabase";
 
 /* ──────────────────────────────────────────────────────────────
-   INTERCEPTION DU RETOUR TIKTOK
+   INTERCEPTION DU RETOUR TIKTOK / PINTEREST
    Exécuté AVANT le montage de React ET avant le handler OAuth
    Supabase ci-dessous.
 
    Cas normal : /tiktok/callback?code=...&state=...
+                /pinterest/callback?code=...&state=...
    Cas rattrapé (redirect_uri mal configuré) :
                 /#/tiktok/#/callback?code=...&state=...
+                /#/pinterest/#/callback?code=...&state=...
    On range les paramètres dans sessionStorage, puis on bascule
-   sur la route hash : /#/tiktok-callback
+   sur la route hash : /#/tiktok-callback ou /#/pinterest-callback
    ────────────────────────────────────────────────────────────── */
 
+// Doivent rester identiques à ceux de TikTokCallback.tsx / PinterestCallback.tsx
 const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
+const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
 
-(function handleTikTokRedirect() {
+/** Routes de retour OAuth : on les mémorise si l'utilisateur doit d'abord se connecter. */
+const OAUTH_CALLBACK_ROUTES = new Set(["tiktok-callback", "pinterest-callback"]);
+
+function interceptOAuthCallback(
+  provider: "tiktok" | "pinterest",
+  storageKey: string
+) {
   if (typeof window === "undefined") return;
 
   const { pathname, hash, search } = window.location;
 
-  const isPathCallback = pathname.replace(/\/+$/, "") === "/tiktok/callback";
-  const isHashCallback = /^#\/tiktok\/?(#\/)?callback/.test(hash);
+  const isPathCallback =
+    pathname.replace(/\/+$/, "") === `/${provider}/callback`;
+  const isHashCallback = new RegExp(`^#/${provider}/?(#/)?callback`).test(hash);
 
   if (!isPathCallback && !isHashCallback) return;
 
@@ -60,7 +72,7 @@ const POST_LOGIN_ROUTE_KEY = "post_login_route";
 
   try {
     sessionStorage.setItem(
-      TIKTOK_OAUTH_STORAGE_KEY,
+      storageKey,
       JSON.stringify({
         code: params.get("code"),
         state: params.get("state"),
@@ -72,8 +84,11 @@ const POST_LOGIN_ROUTE_KEY = "post_login_route";
     // sessionStorage indisponible : la page de callback affichera une erreur
   }
 
-  window.history.replaceState(null, "", "/#/tiktok-callback");
-})();
+  window.history.replaceState(null, "", `/#/${provider}-callback`);
+}
+
+interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
 
 /* ──────────────────────────────────────────────────────────────
    INTERCEPTION DU RETOUR OAUTH (Google, etc.)
@@ -326,6 +341,7 @@ const PROTECTED_ROUTES = new Set([
   "calendar",
   "channels",
   "tiktok-callback",
+  "pinterest-callback",
 ]);
 
 /** Routes qui affichent la page Templates (3 onglets). */
@@ -399,7 +415,7 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
   useGentleWheelScroll(isLanding || isPricing);
 
   /* Garde de routes :
-     - déconnecté + page privée  → signin (en mémorisant le callback TikTok)
+     - déconnecté + page privée  → signin (en mémorisant le callback TikTok / Pinterest)
      - connecté + route en attente (post_login_route) → on y retourne
      - connecté + signin/signup  → home
      La landing, pricing, faq, tos et privacy restent accessibles dans les deux cas. */
@@ -407,9 +423,9 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     if (loading) return;
 
     if (!user && isProtected) {
-      if (route === "tiktok-callback") {
+      if (OAUTH_CALLBACK_ROUTES.has(route)) {
         try {
-          sessionStorage.setItem(POST_LOGIN_ROUTE_KEY, "tiktok-callback");
+          sessionStorage.setItem(POST_LOGIN_ROUTE_KEY, route);
         } catch {
           // ignore
         }
@@ -499,6 +515,15 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <TikTokCallback />
+      </div>
+    );
+  }
+
+  /* Retour OAuth Pinterest (échange du code contre les tokens) */
+  if (route === "pinterest-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <PinterestCallback />
       </div>
     );
   }
