@@ -11,6 +11,15 @@ import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
+import {
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+} from "../components/IntegrationIcons";
 
 /**
  * Largeur réservée à la sidebar (68px + 16px d'inset + gap).
@@ -32,40 +41,131 @@ const userProfileCache = {
 };
 
 /* ──────────────────────────────────────────────────────────────
+   Réseaux sociaux : helpers pour retrouver l'icône à afficher
+   en badge sur la photo de profil de l'utilisateur.
+   ────────────────────────────────────────────────────────────── */
+
+type SocialNetworkKey =
+  | "x"
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "youtube"
+  | "pinterest";
+
+const NETWORK_ICONS: Record<
+  SocialNetworkKey,
+  (props: { className?: string }) => JSX.Element
+> = {
+  x: XIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  linkedin: LinkedInIcon,
+  tiktok: TikTokIcon,
+  youtube: YouTubeIcon,
+  pinterest: PinterestIcon,
+};
+
+/**
+ * Déduit le réseau (SocialNetworkKey) d'un canal connecté.
+ * On regarde d'abord un champ `platform` / `network` / `provider`
+ * s'il existe, puis la clé du canal.
+ */
+function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
+  const c = channel as unknown as Record<string, unknown>;
+  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
+    .toLowerCase()
+    .trim();
+
+  if (raw.includes("tiktok")) return "tiktok";
+  if (raw.includes("insta")) return "instagram";
+  if (raw.includes("youtube") || raw === "yt") return "youtube";
+  if (raw.includes("facebook") || raw === "fb") return "facebook";
+  if (raw.includes("linkedin")) return "linkedin";
+  if (raw.includes("pinterest")) return "pinterest";
+  if (raw === "x" || raw.includes("twitter")) return "x";
+  return null;
+}
+
+/* ──────────────────────────────────────────────────────────────
    Avatar de la barre "Bonjour, ..."
+   - Affiche la photo de profil de l'utilisateur.
+   - Si un canal connecté est fourni, affiche le badge du réseau
+     en bas à droite (même style que dans NewPostModal).
    ────────────────────────────────────────────────────────────── */
 
 function GreetingAvatar({
   avatarUrl,
   initials,
   isDark,
+  channel,
 }: {
   avatarUrl?: string | null;
   initials: string;
   isDark: boolean;
+  channel?: ConnectedChannel | null;
 }) {
   const [loadFailed, setLoadFailed] = useState(false);
 
+  // Si l'URL change (nouvelle photo), on retente le chargement.
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [avatarUrl]);
+
   const showImage = Boolean(avatarUrl) && !loadFailed;
 
-  return showImage ? (
-    <img
-      key={avatarUrl}
-      src={avatarUrl!}
-      alt="Profile"
-      style={{ width: 44, height: 44 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-      onError={() => setLoadFailed(true)}
-    />
-  ) : (
-    <div
-      style={{ width: 44, height: 44 }}
-      className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[14px] font-semibold",
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-      ].join(" ")}
-    >
-      {initials}
+  // Détermine l'icône du réseau à afficher en badge (si un canal est fourni).
+  let NetworkIcon:
+    | ((props: { className?: string }) => JSX.Element)
+    | null = null;
+
+  if (channel) {
+    const networkId = getNetworkId(channel);
+    if (networkId) {
+      NetworkIcon = NETWORK_ICONS[networkId];
+    }
+  }
+
+  // Légèrement agrandi (44 → 48) pour que le badge du réseau soit lisible.
+  const size = 48;
+
+  // Couleur du ring du badge : identique au fond de la page Home.
+  const badgeRing = isDark ? "ring-[#09090a]" : "ring-[#f3f1ed]";
+
+  return (
+    <div className="relative inline-block shrink-0">
+      {showImage ? (
+        <img
+          key={avatarUrl}
+          src={avatarUrl!}
+          alt="Profile"
+          style={{ width: size, height: size }}
+          className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+          onError={() => setLoadFailed(true)}
+        />
+      ) : (
+        <div
+          style={{ width: size, height: size }}
+          className={[
+            "flex aspect-square shrink-0 items-center justify-center rounded-full text-[14px] font-semibold",
+            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {initials}
+        </div>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black ring-[3px]",
+            badgeRing,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-3.5 w-3.5" />
+        </span>
+      )}
     </div>
   );
 }
@@ -865,6 +965,11 @@ export default function Home() {
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
 
+  // Premier canal connecté : utilisé pour afficher le badge du réseau
+  // sur la photo de profil utilisateur.
+  const primaryChannel =
+    connectedChannels.length > 0 ? connectedChannels[0] : null;
+
   /**
    * Point d'entrée unique pour la création d'un post depuis la popup.
    * TODO : brancher ici le vrai envoi (Supabase, file d'attente de
@@ -926,6 +1031,7 @@ export default function Home() {
                   avatarUrl={user?.avatar_url}
                   initials={initials}
                   isDark={isDark}
+                  channel={primaryChannel}
                 />
               </div>
 
