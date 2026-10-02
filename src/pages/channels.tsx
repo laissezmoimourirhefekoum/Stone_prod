@@ -1,5 +1,7 @@
+// src/pages/Channels.tsx
 import { useEffect, useMemo, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import { useTheme, type Theme } from "../hooks/useTheme";
@@ -8,9 +10,6 @@ import {
   startTikTokLogin,
   disconnectTikTok,
 } from "../services/tiktok";
-
-// Adapte ce chemin d'import à l'emplacement réel de ton fichier d'icônes
-// (celui qui exporte InstagramIcon, FacebookIcon, TikTokIcon, etc.)
 import {
   InstagramIcon,
   FacebookIcon,
@@ -28,23 +27,13 @@ type ToggleOrigin = { x: number; y: number };
 type ToggleThemeFn = (origin?: ToggleOrigin) => void;
 
 type ChannelsProps = {
-  /**
-   * Optionnels, comme pour DashboardSidebar : si la page est rendue
-   * sans props (accès direct), on retombe sur le contexte de thème
-   * partagé.
-   */
   theme?: Theme;
   onToggleTheme?: ToggleThemeFn;
 };
 
-type IconProps = {
-  className?: string;
-};
+type IconProps = { className?: string };
 
-type IconComponent = ComponentType<{
-  className?: string;
-  size?: number;
-}>;
+type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type ChannelKey =
   | "instagram"
@@ -60,31 +49,45 @@ type Channel = {
   icon: IconComponent;
 };
 
-type Connection = {
-  connected: boolean;
-  handle?: string;
-};
-
+type Connection = { connected: boolean; handle?: string };
 type ConnectionState = Record<ChannelKey, Connection>;
 
 type ThemeTokens = {
   page: string;
   title: string;
   muted: string;
-  card: string;
   cardConnected: string;
   divider: string;
   connectBtn: string;
   disconnectBtn: string;
   chipIdle: string;
-  iconWrap: string;
   titleIconWrap: string;
 };
 
 /* ============================================================================
-   Icône "Channels" (identique à celle du trigger de navigation dans
-   DashboardSidebar) : 4 cercles disposés en grille. Redéfinie ici car
-   ChannelsIcon n'est pas exportée depuis DashboardSidebar.
+   Réseaux + état initial
+============================================================================ */
+
+const CHANNELS: Channel[] = [
+  { key: "instagram", name: "Instagram", icon: InstagramIcon },
+  { key: "tiktok", name: "TikTok", icon: TikTokIcon },
+  { key: "youtube", name: "YouTube", icon: YouTubeIcon },
+  { key: "facebook", name: "Facebook", icon: FacebookIcon },
+  { key: "pinterest", name: "Pinterest", icon: PinterestIcon },
+  { key: "threads", name: "Threads", icon: ThreadsIcon },
+];
+
+const initialConnections: ConnectionState = {
+  instagram: { connected: false },
+  tiktok: { connected: false },
+  youtube: { connected: false },
+  facebook: { connected: false },
+  pinterest: { connected: false },
+  threads: { connected: false },
+};
+
+/* ============================================================================
+   Icônes locales
 ============================================================================ */
 
 function Svg({
@@ -135,33 +138,26 @@ function CloseIcon(props: IconProps) {
 }
 
 /* ============================================================================
-   Data
+   Helpers
 ============================================================================ */
 
-const CHANNELS: Channel[] = [
-  { key: "instagram", name: "Instagram", icon: InstagramIcon },
-  { key: "tiktok", name: "TikTok", icon: TikTokIcon },
-  { key: "youtube", name: "YouTube", icon: YouTubeIcon },
-  { key: "facebook", name: "Facebook", icon: FacebookIcon },
-  { key: "pinterest", name: "Pinterest", icon: PinterestIcon },
-  { key: "threads", name: "Threads", icon: ThreadsIcon },
-];
+function formatTikTokError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
 
-const initialConnections: ConnectionState = {
-  instagram: { connected: false },
-  tiktok: { connected: false },
-  youtube: { connected: false },
-  facebook: { connected: false },
-  pinterest: { connected: false },
-  threads: { connected: false },
-};
+  if (/failed to fetch|networkerror/i.test(raw)) {
+    return "Unable to connect to TikTok. The server can't be reached (network or CORS error).";
+  }
+
+  return raw
+    ? `Unable to connect to TikTok. ${raw}`
+    : "Unable to connect to TikTok.";
+}
 
 function mockHandleFor(key: ChannelKey): string {
-  // Placeholder pour les réseaux dont le vrai flux OAuth n'est pas
-  // encore branché (TikTok, lui, utilise le vrai compte).
+  // Valeurs fictives utilisées uniquement par les placeholders.
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
-    tiktok: "@ronan.studio",
+    tiktok: "",
     youtube: "Ronan Studio",
     facebook: "Ronan Studio Page",
     pinterest: "Ronan Studio",
@@ -172,9 +168,7 @@ function mockHandleFor(key: ChannelKey): string {
 }
 
 /* ============================================================================
-   Empty state — affiché quand aucun réseau n'est connecté. Le bouton
-   "Connect Channel" est volontairement toujours blanc (même en thème
-   sombre), avec une bordure fine pour rester lisible en thème clair.
+   EmptyState
 ============================================================================ */
 
 type EmptyStateProps = {
@@ -189,24 +183,16 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
       <span
         className={[
           "flex h-20 w-20 items-center justify-center rounded-full",
-          isDark
-            ? "bg-white/10 text-white/70"
-            : "bg-black/[0.06] text-black/45",
+          isDark ? "bg-white/10 text-white/70" : "bg-black/[0.06] text-black/45",
         ].join(" ")}
       >
         <PlusIcon className="h-8 w-8" />
       </span>
 
       <div className="flex flex-col gap-2">
-        <h2
-          className={[
-            "text-[19px] font-semibold",
-            t.title,
-          ].join(" ")}
-        >
+        <h2 className={["text-[19px] font-semibold", t.title].join(" ")}>
           Connect a channel to get started
         </h2>
-
         <p
           className={[
             "max-w-sm text-[14px] leading-relaxed",
@@ -235,10 +221,9 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
 }
 
 /* ============================================================================
-   Connect modal — popup listant tous les réseaux sociaux disponibles,
-   avec la même logique de connexion/déconnexion que la grille
-   principale. Se ferme au clic sur le fond, sur la croix, ou avec
-   la touche Échap.
+   ConnectModal
+   Rendu dans document.body via un portail : aucun parent (sidebar, overflow,
+   transform, pointer-events...) ne peut intercepter les clics.
 ============================================================================ */
 
 type ConnectModalProps = {
@@ -264,24 +249,30 @@ function ConnectModal({
 }: ConnectModalProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key === "Escape") onClose();
     };
 
     document.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  return (
+  const buttonLabel = (key: ChannelKey): string => {
+    const connected = connections[key].connected;
+
+    if (pendingKey === key) {
+      if (key === "tiktok") return connected ? "Disconnecting..." : "Connecting...";
+      return "...";
+    }
+
+    return connected ? "Disconnect" : "Connect";
+  };
+
+  return createPortal(
     <div
       role="presentation"
       onClick={onClose}
       className={[
-        "fixed inset-0 z-50 flex items-center justify-center px-4",
+        "fixed inset-0 z-[100] flex items-center justify-center px-4",
         "backdrop-blur-sm",
         isDark ? "bg-black/70" : "bg-black/40",
       ].join(" ")}
@@ -292,16 +283,14 @@ function ConnectModal({
         aria-label="Connect a channel"
         onClick={(event) => event.stopPropagation()}
         className={[
-          "sb-menu w-full max-w-md rounded-2xl border p-5",
+          "max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border p-5",
           isDark
             ? "border-white/10 bg-[#101011] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
             : "border-black/10 bg-white text-[#151515] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
         ].join(" ")}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-[16px] font-semibold">
-            Connect a channel
-          </h2>
+          <h2 className="text-[16px] font-semibold">Connect a channel</h2>
 
           <button
             type="button"
@@ -333,7 +322,7 @@ function ConnectModal({
           </p>
         )}
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {channels.map((channel) => {
             const connection = connections[channel.key];
             const Icon = channel.icon;
@@ -355,12 +344,7 @@ function ConnectModal({
                     : "border-black/[0.08] bg-white hover:border-black/[0.16]",
                 ].join(" ")}
               >
-                <span
-                  className={[
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    t.iconWrap,
-                  ].join(" ")}
-                >
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg">
                   <Icon className="h-5 w-5" />
                 </span>
 
@@ -371,32 +355,24 @@ function ConnectModal({
                 <button
                   type="button"
                   disabled={isPending}
-                  onClick={() => {
-  console.log("🔥 BOUTON CLIQUÉ :", channel.key);
-  onToggle(channel.key);
-}}
+                  onClick={() => onToggle(channel.key)}
                   className={[
                     "w-full rounded-lg py-1.5",
                     "text-[11.5px] font-semibold",
                     "transition-[background-color,opacity] duration-150",
                     "disabled:opacity-50",
-                    connection.connected
-                      ? t.disconnectBtn
-                      : t.connectBtn,
+                    connection.connected ? t.disconnectBtn : t.connectBtn,
                   ].join(" ")}
                 >
-                  {isPending
-                    ? "..."
-                    : connection.connected
-                    ? "Disconnect"
-                    : "Connect"}
+                  {buttonLabel(channel.key)}
                 </button>
               </div>
             );
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -412,50 +388,48 @@ export default function Channels({
 
   const theme = themeProp ?? themeContext.theme;
   const onToggleTheme = onToggleThemeProp ?? themeContext.toggle;
-
   const isDark = theme === "dark";
 
   const [connections, setConnections] =
     useState<ConnectionState>(initialConnections);
+  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [pendingKey, setPendingKey] =
-    useState<ChannelKey | null>(null);
-
-  const [showConnectModal, setShowConnectModal] =
-    useState(false);
-
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
-
-  const connectedCount = useMemo(
-    () =>
-      CHANNELS.filter(
-        (channel) => connections[channel.key].connected
-      ).length,
+  const connectedChannels = useMemo(
+    () => CHANNELS.filter((channel) => connections[channel.key].connected),
     [connections]
   );
+  const connectedCount = connectedChannels.length;
 
-  /* ── État réel de TikTok au chargement de la page ── */
+  /* ── Statut réel de TikTok (source de vérité : le backend) ── */
 
   useEffect(() => {
+    console.log("[Stone] Channels page mounted");
+
     let cancelled = false;
 
-    getTikTokStatus()
-      .then((status) => {
-        if (cancelled || !status.connected) return;
+    const loadTikTokStatus = async () => {
+      try {
+        const status = await getTikTokStatus();
+        if (cancelled) return;
 
         setConnections((current) => ({
           ...current,
-          tiktok: {
-            connected: true,
-            handle: status.account?.display_name ?? undefined,
-          },
+          tiktok: status.connected
+            ? {
+                connected: true,
+                handle: status.account?.display_name ?? undefined,
+              }
+            : { connected: false },
         }));
-      })
-      .catch((error) => {
-        // Non bloquant : TikTok est simplement affiché comme non connecté.
-        console.warn("Could not load TikTok status:", error);
-      });
+      } catch (error) {
+        // Non bloquant : TikTok reste affiché comme non connecté.
+        console.warn("[Stone] Could not load TikTok status:", error);
+      }
+    };
+
+    void loadTikTokStatus();
 
     return () => {
       cancelled = true;
@@ -469,125 +443,106 @@ export default function Channels({
             page: "bg-[#050506] text-[#f3f3ef]",
             title: "text-[#f3f3ef]",
             muted: "text-[#99a2a2]",
-            card: "border-white/10 bg-[#101011] hover:border-white/20",
             cardConnected: "border-white/20 bg-[#131316]",
             divider: "bg-white/10",
             connectBtn: "bg-white text-[#111111] hover:bg-[#e9e9e6]",
             disconnectBtn:
               "border border-white/15 text-[#d7d7d2] hover:bg-white/[0.06]",
             chipIdle: "bg-white/[0.06] text-[#99a2a2]",
-            iconWrap: "",
-            titleIconWrap:
-              "border-white/10 bg-white/[0.05] text-[#d7d7d2]",
+            titleIconWrap: "border-white/10 bg-white/[0.05] text-[#d7d7d2]",
           }
         : {
             page: "bg-[#faf9f7] text-[#151515]",
             title: "text-[#151515]",
             muted: "text-[#71706d]",
-            card: "border-black/[0.08] bg-white hover:border-black/[0.16]",
             cardConnected: "border-black/[0.12] bg-white",
             divider: "bg-black/[0.07]",
             connectBtn: "bg-[#151515] text-white hover:bg-[#2a2a2a]",
             disconnectBtn:
               "border border-black/10 text-[#3f3f3d] hover:bg-black/[0.04]",
             chipIdle: "bg-black/[0.04] text-[#71706d]",
-            iconWrap: "",
-            titleIconWrap:
-              "border-black/[0.08] bg-black/[0.03] text-[#4d4d4b]",
+            titleIconWrap: "border-black/[0.08] bg-black/[0.03] text-[#4d4d4b]",
           },
     [isDark]
   );
 
-  const handleToggle = async (key: ChannelKey) => {
-    setErrorMessage(null);
+  /* ── TikTok : vrai OAuth, aucune simulation ── */
 
-    /* ── TikTok : vrai flux OAuth ── */
-    if (key === "tiktok") {
-      setPendingKey(key);
+  const handleTikTokToggle = async () => {
+    setPendingKey("tiktok");
 
-      try {
-        if (connections.tiktok.connected) {
-          await disconnectTikTok();
+    try {
+      if (connections.tiktok.connected) {
+        console.log("[Stone] Disconnecting TikTok");
+        await disconnectTikTok();
 
-          setConnections((current) => ({
-            ...current,
-            tiktok: { connected: false },
-          }));
-        } else {
-          // Redirige le navigateur vers TikTok. Au retour, App.tsx
-          // intercepte /tiktok/callback puis TikTokCallback finalise.
-          await startTikTokLogin();
-          return;
-        }
-      } catch (error) {
-        console.error("TikTok connection error:", error);
+        // Mise à jour de l'UI uniquement après succès du backend.
+        setConnections((current) => ({
+          ...current,
+          tiktok: { connected: false },
+        }));
+      } else {
+        console.log("[Stone] Starting TikTok OAuth");
 
-        const raw =
-          error instanceof Error ? error.message : "Unknown error";
+        // POST /api/tiktok/auth/url puis redirection du navigateur
+        // (effectuée par startTikTokLogin lui-même).
+        await startTikTokLogin();
 
-        if (/route not found/i.test(raw)) {
-          setErrorMessage(
-            "The server doesn't have the TikTok routes yet. Redeploy the backend (Railway) with the new index.js."
-          );
-        } else if (/not configured/i.test(raw)) {
-          setErrorMessage(
-            "TikTok isn't configured on the server. Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET on Railway."
-          );
-        } else if (/failed to fetch|networkerror/i.test(raw)) {
-          setErrorMessage(
-            "Can't reach the server (network or CORS error). Check the Railway deployment."
-          );
-        } else {
-          setErrorMessage(raw);
-        }
-      } finally {
-        setPendingKey(null);
+        console.log("[Stone] TikTok OAuth request completed");
       }
-
-      return;
+    } catch (error) {
+      console.error("[Stone] TikTok OAuth error:", error);
+      setErrorMessage(formatTikTokError(error));
+    } finally {
+      setPendingKey(null);
     }
+  };
 
-    /* ── Autres réseaux : simulation (à remplacer plus tard) ── */
+  /* ── Autres réseaux : PLACEHOLDER uniquement (pas de vrai OAuth) ── */
+
+  const handlePlaceholderToggle = (key: ChannelKey) => {
+    // TODO: implement Instagram OAuth
+    // TODO: implement YouTube OAuth
+    // TODO: implement Facebook OAuth
+    // TODO: implement Pinterest OAuth
+    // TODO: implement Threads OAuth
     setPendingKey(key);
 
     window.setTimeout(() => {
-      setConnections((current) => {
-        const isConnected = current[key].connected;
-
-        return {
-          ...current,
-          [key]: isConnected
-            ? { connected: false }
-            : { connected: true, handle: mockHandleFor(key) },
-        };
-      });
-
+      setConnections((current) => ({
+        ...current,
+        [key]: current[key].connected
+          ? { connected: false }
+          : { connected: true, handle: mockHandleFor(key) },
+      }));
       setPendingKey(null);
     }, 500);
   };
 
+  const handleToggle = (key: ChannelKey) => {
+    setErrorMessage(null);
+
+    if (key === "tiktok") {
+      console.log("[Stone] TikTok button clicked");
+      void handleTikTokToggle();
+      return;
+    }
+
+    handlePlaceholderToggle(key);
+  };
+
+  const closeModal = () => setShowConnectModal(false);
+
   return (
     <div
-      className={[
-        "relative h-full w-full overflow-hidden",
-        t.page,
-      ].join(" ")}
+      className={["relative h-full w-full overflow-hidden", t.page].join(" ")}
     >
-      <DashboardSidebar
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-      />
+      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      {/* Le padding-left réserve l'espace occupé par la sidebar
-          (fixed, largeur repliée ~68px + décalage left-4 + marge).
-          La sidebar dépliée passe par-dessus le contenu (z-20). */}
-      <main className="h-full overflow-y-auto pl-[104px] pr-6 py-10 sm:pr-10">
+      <main className="h-full overflow-y-auto py-10 pl-[104px] pr-6 sm:pr-10">
         <div className="mx-auto max-w-3xl">
-          {/* ================================================================
-              Header
-          ================================================================ */}
-
-          <div className="flex items-center justify-between gap-4">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span
                 className={[
@@ -612,8 +567,7 @@ export default function Channels({
             <div className="flex shrink-0 items-center gap-2">
               <div
                 className={[
-                  "rounded-full px-3 py-1.5",
-                  "text-[12px] font-medium",
+                  "rounded-full px-3 py-1.5 text-[12px] font-medium",
                   t.chipIdle,
                 ].join(" ")}
               >
@@ -630,9 +584,7 @@ export default function Channels({
                     "flex h-8 w-8 items-center justify-center",
                     "rounded-full transition-colors duration-150",
                     t.chipIdle,
-                    isDark
-                      ? "hover:bg-white/10"
-                      : "hover:bg-black/[0.08]",
+                    isDark ? "hover:bg-white/10" : "hover:bg-black/[0.08]",
                   ].join(" ")}
                 >
                   <PlusIcon className="h-4 w-4" />
@@ -643,7 +595,8 @@ export default function Channels({
 
           <div className={["my-6 h-px", t.divider].join(" ")} />
 
-          {errorMessage && (
+          {/* Erreur (page) — masquée si le modal est ouvert, il l'affiche lui-même */}
+          {errorMessage && !showConnectModal && (
             <div
               role="alert"
               className={[
@@ -666,16 +619,7 @@ export default function Channels({
             </div>
           )}
 
-          {/* ================================================================
-              Channel grid
-
-              Grille fluide : au lieu de breakpoints fixes (2 puis 3
-              colonnes), chaque carte a une largeur minimale et le
-              nombre de colonnes s'ajuste automatiquement à l'espace
-              disponible (auto-fill). Ça évite les cartes trop
-              étirées sur grand écran et les sauts brusques au resize.
-          ================================================================ */}
-
+          {/* Contenu */}
           {connectedCount === 0 ? (
             <EmptyState
               t={t}
@@ -686,13 +630,10 @@ export default function Channels({
             <div
               className="grid gap-4"
               style={{
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(132px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(132px, 1fr))",
               }}
             >
-              {CHANNELS.filter(
-                (channel) => connections[channel.key].connected
-              ).map((channel) => {
+              {connectedChannels.map((channel) => {
                 const connection = connections[channel.key];
                 const Icon = channel.icon;
                 const isPending = pendingKey === channel.key;
@@ -707,20 +648,13 @@ export default function Channels({
                       t.cardConnected,
                     ].join(" ")}
                   >
-                    <span
-                      className={[
-                        "relative flex h-12 w-12 shrink-0",
-                        "items-center justify-center rounded-xl",
-                        t.iconWrap,
-                      ].join(" ")}
-                    >
+                    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl">
                       <Icon className="h-6 w-6" />
 
                       <span
                         aria-hidden="true"
                         className={[
-                          "absolute -right-1 -top-1 h-3 w-3",
-                          "rounded-full ring-2",
+                          "absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2",
                           isDark
                             ? "bg-[#7fe0a2] ring-[#101011]"
                             : "bg-[#1f7a42] ring-white",
@@ -730,15 +664,14 @@ export default function Channels({
 
                     <div className="flex flex-col items-center gap-0.5">
                       <span
-                        className={[
-                          "text-[13px] font-medium",
-                          t.title,
-                        ].join(" ")}
+                        className={["text-[13px] font-medium", t.title].join(
+                          " "
+                        )}
                       >
                         {channel.name}
                       </span>
 
-                      {/* Seul TikTok affiche un vrai nom de compte */}
+                      {/* Seul TikTok expose un vrai nom de compte */}
                       {channel.key === "tiktok" && connection.handle && (
                         <span
                           className={[
@@ -763,7 +696,11 @@ export default function Channels({
                         t.disconnectBtn,
                       ].join(" ")}
                     >
-                      {isPending ? "Working..." : "Disconnect"}
+                      {isPending
+                        ? channel.key === "tiktok"
+                          ? "Disconnecting..."
+                          : "Working..."
+                        : "Disconnect"}
                     </button>
                   </div>
                 );
@@ -779,7 +716,7 @@ export default function Channels({
           connections={connections}
           pendingKey={pendingKey}
           onToggle={handleToggle}
-          onClose={() => setShowConnectModal(false)}
+          onClose={closeModal}
           errorMessage={errorMessage}
           t={t}
           isDark={isDark}
