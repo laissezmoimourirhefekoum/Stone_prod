@@ -1007,21 +1007,16 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Ligne du haut : streak (largeur fixe) + 2 cartes qui
-                remplissent le reste, sur toute la largeur — alignée
-                avec la barre "Connectez votre premier réseau" en dessous. */}
-            <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-stretch">
-              <div className="w-full lg:w-[280px] lg:shrink-0">
-                <StreakStepsWidget isDark={isDark} />
-              </div>
-
-              <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-                <IntegrationsCard isDark={isDark} />
-                <UpcomingPostsCard
-                  isDark={isDark}
-                  onPlan={() => setIsNewPostOpen(true)}
-                />
-              </div>
+            {/* Ligne du haut : 3 colonnes de largeur égale.
+                Streak, Intégrations et Publications à venir se partagent
+                la largeur totale à parts égales. */}
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <StreakStepsWidget isDark={isDark} />
+              <IntegrationsCard isDark={isDark} />
+              <UpcomingPostsCard
+                isDark={isDark}
+                onPlan={() => setIsNewPostOpen(true)}
+              />
             </div>
 
             <ConnectFirstChannelWidget
