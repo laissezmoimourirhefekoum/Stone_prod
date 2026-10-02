@@ -555,6 +555,30 @@ export default function Channels({
     };
   }, []);
 
+  /* ── Retour de /tiktok/callback : ?tiktok=connected ou ?tiktok_error=... ── */
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tiktokError = params.get("tiktok_error");
+
+    if (!tiktokError && !params.has("tiktok")) return;
+
+    if (tiktokError) {
+      setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+    }
+    // En cas de succès, le statut est rechargé par l'effet ci-dessus.
+
+    // On nettoie l'URL pour ne pas réafficher le message au rafraîchissement.
+    params.delete("tiktok");
+    params.delete("tiktok_error");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (query ? `?${query}` : "")
+    );
+  }, []);
+
   const t = useMemo<ThemeTokens>(
     () =>
       isDark

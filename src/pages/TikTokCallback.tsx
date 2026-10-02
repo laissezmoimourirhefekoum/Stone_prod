@@ -1,90 +1,87 @@
 // src/pages/TikTokCallback.tsx
-import { useEffect, useRef, useState } from "react";
+//
+// Page atteinte après l'autorisation TikTok :
+//   /tiktok/callback?code=XXX&state=XXX
+// Elle envoie le code au backend (Railway), puis redirige vers /channels.
+
+import { useEffect } from "react";
+
+import { useTheme } from "../hooks/useTheme";
 import { completeTikTokLogin } from "../services/tiktok";
-import { navigate } from "../hooks/useHashRoute";
 
-// App.tsx intercepte /tiktok/callback?code=...&state=... avant le
-// montage de React, range les paramètres dans sessionStorage puis
-// bascule sur la route hash /#/tiktok-callback (cette page).
+// Le code TikTok est à usage unique. En dev, React StrictMode exécute les
+// effets deux fois : on mémorise la requête par code pour ne l'envoyer qu'une fois.
+const inflight = new Map<string, Promise<unknown>>();
 
-const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params"; // même clé que App.tsx
-
-type StoredParams = {
-  code: string | null;
-  state: string | null;
-  error: string | null;
-  error_description: string | null;
-};
-
-function readStoredParams(): StoredParams | null {
-  try {
-    const raw = sessionStorage.getItem(TIKTOK_OAUTH_STORAGE_KEY);
-    sessionStorage.removeItem(TIKTOK_OAUTH_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredParams) : null;
-  } catch {
-    return null;
-  }
+function goToChannels(query = "") {
+  // replace : le callback (avec son code) ne reste pas dans l'historique.
+  window.location.replace(`/channels${query}`);
 }
 
 export default function TikTokCallback() {
-  const [message, setMessage] = useState("Connecting your TikTok account...");
-  const [failed, setFailed] = useState(false);
-
-  // Le code TikTok n'est utilisable qu'une seule fois : on empêche
-  // le double appel de React StrictMode.
-  const started = useRef(false);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    const params = new URLSearchParams(window.location.search);
 
-    const params = readStoredParams();
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+    const errorDescription = params.get("error_description");
 
-    if (!params) {
-      setFailed(true);
-      setMessage("No TikTok response found. Please try connecting again.");
-      return;
-    }
-
-    if (params.error || !params.code || !params.state) {
-      setFailed(true);
-      setMessage(
-        params.error === "access_denied"
-          ? "TikTok connection was cancelled."
-          : params.error_description || "Invalid TikTok response."
+    // L'utilisateur a refusé, ou TikTok a renvoyé une erreur.
+    if (error) {
+      goToChannels(
+        `?tiktok_error=${encodeURIComponent(errorDescription || error)}`
       );
       return;
     }
 
-    completeTikTokLogin(params.code, params.state)
-      .then(() => {
-        setMessage("TikTok connected! Redirecting...");
-        window.setTimeout(() => navigate("channels", { replace: true }), 800);
-      })
+    if (!code || !state) {
+      goToChannels(
+        `?tiktok_error=${encodeURIComponent(
+          "Missing authorization code from TikTok."
+        )}`
+      );
+      return;
+    }
+
+    let request = inflight.get(code);
+    if (!request) {
+      request = completeTikTokLogin(code, state);
+      inflight.set(code, request);
+    }
+
+    request
+      .then(() => goToChannels("?tiktok=connected"))
       .catch((err: unknown) => {
-        setFailed(true);
-        setMessage(
-          err instanceof Error ? err.message : "Could not connect TikTok."
+        console.error("[Stone] TikTok callback error:", err);
+        goToChannels(
+          `?tiktok_error=${encodeURIComponent(
+            err instanceof Error ? err.message : "Something went wrong."
+          )}`
         );
       });
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[#faf9f7] px-6 text-center text-[#151515] dark:bg-[#050506] dark:text-[#f3f3ef]">
-      <p className="text-[15px] font-medium">{message}</p>
-
-      {failed && (
-        <a
-          href="#/channels"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("channels", { replace: true });
-          }}
-          className="rounded-xl border border-black/10 bg-white px-5 py-2 text-[13px] font-semibold text-[#151515]"
-        >
-          Back to channels
-        </a>
-      )}
+    <div
+      className={[
+        "flex h-full min-h-screen w-full flex-col items-center justify-center gap-4",
+        isDark ? "bg-[#050506] text-[#f3f3ef]" : "bg-[#faf9f7] text-[#151515]",
+      ].join(" ")}
+    >
+      <span
+        aria-hidden="true"
+        className={[
+          "h-8 w-8 animate-spin rounded-full border-2",
+          isDark
+            ? "border-white/20 border-t-white"
+            : "border-black/15 border-t-black",
+        ].join(" ")}
+      />
+      <p className="text-[14px] font-medium">Connecting your TikTok account...</p>
     </div>
   );
 }
