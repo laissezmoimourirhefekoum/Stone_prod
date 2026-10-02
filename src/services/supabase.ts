@@ -4,37 +4,10 @@
 // API CONFIGURATION
 // ============================================================
 //
-// Production (Vercel) : définir VITE_API_BASE_URL dans les variables
-// d'environnement, par exemple :
-//   VITE_API_BASE_URL=https://stoneserv-production.up.railway.app
-//
-// Développement local : le fallback http://localhost:3002 est utilisé.
-//
-// Le .replace(/\/$/, "") retire un éventuel "/" final afin d'éviter
-// des URLs de la forme https://.../​/api/auth/login.
+// URL publique du backend déployé sur Railway.
+// Aucune variable d'environnement frontend n'est utilisée.
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:3002"
-).replace(/\/$/, "");
-
-// Vérification en développement uniquement (ne bloque jamais la production).
-if (import.meta.env.DEV) {
-  try {
-    const parsed = new URL(API_BASE_URL);
-
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      console.warn(
-        `[api] VITE_API_BASE_URL a un protocole inattendu : ${API_BASE_URL}`
-      );
-    }
-  } catch {
-    console.warn(
-      `[api] VITE_API_BASE_URL semble invalide : "${API_BASE_URL}". ` +
-        "Elle doit ressembler à https://stoneserv-production.up.railway.app"
-    );
-  }
-}
+const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
 // ============================================================
 // STORAGE KEYS
