@@ -17,11 +17,12 @@ const HALF = Math.ceil(LINKS.length / 2);
 const LINKS_LEFT = LINKS.slice(0, HALF);
 const LINKS_RIGHT = LINKS.slice(HALF);
 
-/* Correspondance libellé → route du hash-router. */
+/* Correspondance libellé → route du hash-router.
+   Les clés doivent correspondre EXACTEMENT aux libellés de LINKS. */
 const LINK_ROUTES: Record<string, string> = {
   Home: "",
-  Faq: "faq",
   Blogs: "blogs",
+  FAQs: "faq",
   "Privacy policy": "privacy",
   Tos: "tos",
   "Contact us": "contact",
@@ -97,7 +98,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
 
   const hrefFor = (label: string) => {
     const route = LINK_ROUTES[label];
-    return route !== undefined ? `#/${route}` : "/";
+    return route !== undefined ? `#/${route}` : "#/";
   };
 
   const renderLink = (label: string) => (
@@ -106,7 +107,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
         href={hrefFor(label)}
         tabIndex={open ? 0 : -1}
         onClick={(e) => {
-          if (LINK_ROUTES[label] !== undefined) e.preventDefault();
+          e.preventDefault();
           go(label);
         }}
         className="block select-none text-center text-[clamp(12px,1.2vw,15px)] font-medium text-white/85 transition hover:text-white"
@@ -156,7 +157,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
             </button>
 
             <a
-              href="/signup"
+              href="#/signup"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("signup");
