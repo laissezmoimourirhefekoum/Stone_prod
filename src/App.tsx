@@ -19,10 +19,51 @@ import Faq from "./pages/Faq";
 import Tos from "./pages/tos";
 import Privacy from "./pages/Privacy";
 import TemplatesPage from "./pages/template";
+import TikTokCallback from "./pages/TikTokCallback";
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { saveOAuthSession } from "./services/supabase";
+
+/* ──────────────────────────────────────────────────────────────
+   INTERCEPTION DU RETOUR TIKTOK
+   Exécuté AVANT le montage de React ET avant le handler OAuth
+   Supabase ci-dessous (l'ordre est important : sans ça, le
+   paramètre ?code=... de TikTok serait pris pour une erreur PKCE).
+
+   TikTok renvoie vers un vrai chemin (pas un hash) :
+     https://ton-frontend/tiktok/callback?code=...&state=...
+   On range les paramètres dans sessionStorage, puis on bascule
+   sur la route hash : /#/tiktok-callback
+   ────────────────────────────────────────────────────────────── */
+
+const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
+
+(function handleTikTokRedirect() {
+  if (typeof window === "undefined") return;
+
+  const pathname = window.location.pathname.replace(/\/+$/, "");
+
+  if (pathname !== "/tiktok/callback") return;
+
+  const params = new URLSearchParams(window.location.search);
+
+  try {
+    sessionStorage.setItem(
+      TIKTOK_OAUTH_STORAGE_KEY,
+      JSON.stringify({
+        code: params.get("code"),
+        state: params.get("state"),
+        error: params.get("error"),
+        error_description: params.get("error_description"),
+      })
+    );
+  } catch {
+    // sessionStorage indisponible : la page de callback affichera une erreur
+  }
+
+  window.history.replaceState(null, "", "/#/tiktok-callback");
+})();
 
 /* ──────────────────────────────────────────────────────────────
    INTERCEPTION DU RETOUR OAUTH (Google, etc.)
@@ -274,6 +315,7 @@ const PROTECTED_ROUTES = new Set([
   "schedule",
   "calendar",
   "channels",
+  "tiktok-callback",
 ]);
 
 /** Routes qui affichent la page Templates (3 onglets). */
@@ -409,6 +451,15 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
         <Pricing />
+      </div>
+    );
+  }
+
+  /* Retour OAuth TikTok (échange du code contre les tokens) */
+  if (route === "tiktok-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <TikTokCallback />
       </div>
     );
   }

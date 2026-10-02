@@ -3,6 +3,11 @@ import type { ComponentType, ReactNode } from "react";
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import { useTheme, type Theme } from "../hooks/useTheme";
+import {
+  getTikTokStatus,
+  startTikTokLogin,
+  disconnectTikTok,
+} from "../services/tiktok";
 
 // Adapte ce chemin d'import à l'emplacement réel de ton fichier d'icônes
 // (celui qui exporte InstagramIcon, FacebookIcon, TikTokIcon, etc.)
@@ -152,8 +157,8 @@ const initialConnections: ConnectionState = {
 };
 
 function mockHandleFor(key: ChannelKey): string {
-  // Placeholder tant que le vrai flux OAuth ne renvoie pas le
-  // handle réel du compte connecté.
+  // Placeholder pour les réseaux dont le vrai flux OAuth n'est pas
+  // encore branché (TikTok, lui, utilise le vrai compte).
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
     tiktok: "@ronan.studio",
@@ -400,6 +405,9 @@ export default function Channels({
   const [showConnectModal, setShowConnectModal] =
     useState(false);
 
+  const [errorMessage, setErrorMessage] =
+    useState<string | null>(null);
+
   const connectedCount = useMemo(
     () =>
       CHANNELS.filter(
@@ -407,6 +415,33 @@ export default function Channels({
       ).length,
     [connections]
   );
+
+  /* ── État réel de TikTok au chargement de la page ── */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getTikTokStatus()
+      .then((status) => {
+        if (cancelled || !status.connected) return;
+
+        setConnections((current) => ({
+          ...current,
+          tiktok: {
+            connected: true,
+            handle: status.account?.display_name ?? undefined,
+          },
+        }));
+      })
+      .catch((error) => {
+        // Non bloquant : TikTok est simplement affiché comme non connecté.
+        console.warn("Could not load TikTok status:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const t = useMemo<ThemeTokens>(
     () =>
@@ -444,11 +479,43 @@ export default function Channels({
     [isDark]
   );
 
-  const handleToggle = (key: ChannelKey) => {
+  const handleToggle = async (key: ChannelKey) => {
+    setErrorMessage(null);
+
+    /* ── TikTok : vrai flux OAuth ── */
+    if (key === "tiktok") {
+      setPendingKey(key);
+
+      try {
+        if (connections.tiktok.connected) {
+          await disconnectTikTok();
+
+          setConnections((current) => ({
+            ...current,
+            tiktok: { connected: false },
+          }));
+        } else {
+          // Redirige le navigateur vers TikTok. Au retour, App.tsx
+          // intercepte /tiktok/callback puis TikTokCallback finalise.
+          await startTikTokLogin();
+          return;
+        }
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not update the TikTok connection."
+        );
+      } finally {
+        setPendingKey(null);
+      }
+
+      return;
+    }
+
+    /* ── Autres réseaux : simulation (à remplacer plus tard) ── */
     setPendingKey(key);
 
-    // Simule l'aller-retour OAuth. Remplace ce timeout par le vrai
-    // flux de connexion (redirection vers le provider, callback, etc.)
     window.setTimeout(() => {
       setConnections((current) => {
         const isConnected = current[key].connected;
@@ -542,6 +609,29 @@ export default function Channels({
 
           <div className={["my-6 h-px", t.divider].join(" ")} />
 
+          {errorMessage && (
+            <div
+              role="alert"
+              className={[
+                "mb-4 flex items-start justify-between gap-3",
+                "rounded-xl border px-4 py-3 text-[13px]",
+                isDark
+                  ? "border-red-400/30 bg-red-500/10 text-red-300"
+                  : "border-red-300 bg-red-50 text-red-700",
+              ].join(" ")}
+            >
+              <span>{errorMessage}</span>
+
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={() => setErrorMessage(null)}
+              >
+                <CloseIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* ================================================================
               Channel grid
 
@@ -604,14 +694,28 @@ export default function Channels({
                       />
                     </span>
 
-                    <span
-                      className={[
-                        "text-[13px] font-medium",
-                        t.title,
-                      ].join(" ")}
-                    >
-                      {channel.name}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span
+                        className={[
+                          "text-[13px] font-medium",
+                          t.title,
+                        ].join(" ")}
+                      >
+                        {channel.name}
+                      </span>
+
+                      {/* Seul TikTok affiche un vrai nom de compte */}
+                      {channel.key === "tiktok" && connection.handle && (
+                        <span
+                          className={[
+                            "max-w-[110px] truncate text-[11.5px]",
+                            t.muted,
+                          ].join(" ")}
+                        >
+                          {connection.handle}
+                        </span>
+                      )}
+                    </div>
 
                     <button
                       type="button"
