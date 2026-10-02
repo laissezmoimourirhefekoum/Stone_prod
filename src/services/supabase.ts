@@ -188,7 +188,7 @@ const NO_REFRESH_ENDPOINTS = [
   "/api/auth/refresh",
 ];
 
-async function apiRequest<T>(
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
   isRetry = false
