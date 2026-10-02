@@ -258,10 +258,10 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 /**
- * Libellés courts des jours de la semaine en français.
+ * Initiales des jours de la semaine en français.
  * Index aligné sur Date.getDay() : 0 = dimanche … 6 = samedi.
  */
-const WEEKDAYS_FR_SHORT = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
 function StreakStepsWidget({ isDark }: { isDark: boolean }) {
   // TODO: brancher ici le vrai nombre de jours consécutifs avec un post.
@@ -311,7 +311,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
         <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
       </div>
 
-      {/* 7 jours : libellé du jour au-dessus de chaque rond.
+      {/* 7 jours : initiale du jour au-dessus de chaque rond.
           Le premier rond correspond à aujourd'hui. */}
       <div className="mt-3.5 flex items-start justify-between gap-1">
         {days.map((dayLabel, index) => {
@@ -323,7 +323,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
             >
               <span
                 className={[
-                  "text-[10px] font-semibold uppercase tracking-wide leading-none",
+                  "text-[10px] font-semibold uppercase leading-none",
                   tokens.subtitle,
                 ].join(" ")}
               >
