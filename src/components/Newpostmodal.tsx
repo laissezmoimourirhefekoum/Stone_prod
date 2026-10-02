@@ -246,10 +246,10 @@ function ChannelTile({
       aria-pressed={isSelected}
       className={[
         "relative h-14 w-14 shrink-0 rounded-2xl transition",
+        // La bordure (ring) a été retirée ici. On garde uniquement
+        // la différence d'opacité pour indiquer la sélection.
         isSelected
-          ? isDark
-            ? "opacity-100 ring-2 ring-white/70 ring-offset-2 ring-offset-[#141416]"
-            : "opacity-100 ring-2 ring-neutral-900 ring-offset-2 ring-offset-white"
+          ? "opacity-100"
           : "opacity-50 hover:opacity-80",
       ].join(" ")}
     >
