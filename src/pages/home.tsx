@@ -132,21 +132,22 @@ function GreetingAvatar({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Horloge : heure en gros, date juste en dessous.
+   Horloge : heure (HH:MM) en gros, date juste en dessous.
    ────────────────────────────────────────────────────────────── */
 
 function ClockDisplay({ isDark }: { isDark: boolean }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
+    // Rafraîchit toutes les 15s : suffisant pour rester synchro à la
+    // minute (plus de secondes affichées).
+    const interval = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(interval);
   }, []);
 
   const time = now.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
   });
 
   const date = now.toLocaleDateString("fr-FR", {
@@ -256,16 +257,27 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+/**
+ * Libellés courts des jours de la semaine en français.
+ * Index aligné sur Date.getDay() : 0 = dimanche … 6 = samedi.
+ */
+const WEEKDAYS_FR_SHORT = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+
 function StreakStepsWidget({ isDark }: { isDark: boolean }) {
   // TODO: brancher ici le vrai nombre de jours consécutifs avec un post.
   const streakCount = 0;
   const challengeName = "0 day of post";
 
-  // Nombre de pastilles affichées : les `streakCount` premières sont
-  // cochées, les autres restent vides.
-  const totalSlots = 6;
-
   const tokens = buildStreakTokens(!isDark);
+
+  // 7 jours à partir d'aujourd'hui : le premier est aujourd'hui,
+  // puis les 6 jours suivants.
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return WEEKDAYS_FR_SHORT[d.getDay()];
+  });
 
   return (
     <div
@@ -299,28 +311,48 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
         <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
       </div>
 
-      <div className="mt-3.5 flex items-center gap-2">
-        {Array.from({ length: totalSlots }).map((_, index) =>
-          index < streakCount ? (
+      {/* 7 jours : libellé du jour au-dessus de chaque rond.
+          Le premier rond correspond à aujourd'hui. */}
+      <div className="mt-3.5 flex items-start justify-between gap-1">
+        {days.map((dayLabel, index) => {
+          const isChecked = index < streakCount;
+          return (
             <div
-              key={index}
-              className={[
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                tokens.checkBg,
-              ].join(" ")}
+              key={`${dayLabel}-${index}`}
+              className="flex flex-1 flex-col items-center gap-1.5"
             >
-              <CheckIcon className={["h-3.5 w-3.5", tokens.checkIcon].join(" ")} />
-            </div>
-          ) : (
-            <div
-              key={index}
-              aria-hidden="true"
-              className={["h-8 w-8 shrink-0 rounded-full", tokens.badgeBg].join(
-                " "
+              <span
+                className={[
+                  "text-[10px] font-semibold uppercase tracking-wide leading-none",
+                  tokens.subtitle,
+                ].join(" ")}
+              >
+                {dayLabel}
+              </span>
+
+              {isChecked ? (
+                <div
+                  className={[
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    tokens.checkBg,
+                  ].join(" ")}
+                >
+                  <CheckIcon
+                    className={["h-3 w-3", tokens.checkIcon].join(" ")}
+                  />
+                </div>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className={[
+                    "h-7 w-7 shrink-0 rounded-full",
+                    tokens.badgeBg,
+                  ].join(" ")}
+                />
               )}
-            />
-          )
-        )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
