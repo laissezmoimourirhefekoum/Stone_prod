@@ -47,13 +47,21 @@ export async function getTikTokStatus(): Promise<{
   return apiRequest("/api/tiktok/status", { method: "GET" });
 }
 
-/** Demande l'URL d'autorisation puis redirige le navigateur vers TikTok. */
 export async function startTikTokLogin(): Promise<void> {
+  console.log("1 - appel backend TikTok");
+
   const data = await apiRequest<{ url: string }>("/api/tiktok/auth/url", {
     method: "POST",
   });
 
-  window.location.href = data.url;
+  console.log("2 - réponse backend :", data);
+  console.log("3 - URL TikTok :", data.url);
+
+  if (!data.url) {
+    throw new Error("Le backend n'a pas renvoyé d'URL TikTok");
+  }
+
+  window.location.assign(data.url);
 }
 
 /** Appelé par la page /tiktok/callback avec les paramètres de l'URL. */
