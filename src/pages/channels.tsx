@@ -508,13 +508,8 @@ function ConnectModal({
             : "border-black/10 bg-white text-[#151515] shadow-[0_24px_60px_rgba(0,0,0,0.18)]",
         ].join(" ")}
       >
-        {/* Header */}
-        <div
-          className={[
-            "relative flex shrink-0 items-center justify-center border-b px-14 py-4",
-            isDark ? "border-white/10" : "border-black/10",
-          ].join(" ")}
-        >
+        {/* Header (sans barre de séparation) */}
+        <div className="relative flex shrink-0 items-center justify-center px-14 py-4">
           <h2 className="text-[17px] font-medium">Connect a New Channel</h2>
 
           <button

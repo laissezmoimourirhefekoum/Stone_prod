@@ -16,14 +16,6 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
-import {
-  getTikTokCreatorInfo,
-  publishToTikTok,
-  waitForTikTokPublish,
-  type TikTokCreatorInfo,
-  type TikTokPostOptions,
-  type TikTokPrivacy,
-} from "../services/tiktok";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin" 
@@ -40,11 +32,6 @@ type MediaItem = {
 
 export type ScheduleAction = "save_in_folder" | "now" | "set_date";
 
-export type TikTokPayload = TikTokPostOptions & {
-  /** "direct" = publication immédiate, "draft" = brouillon dans l'app TikTok */
-  mode: "direct" | "draft";
-};
-
 export type NewPostPayload = {
   title: string;
   content: string;
@@ -53,12 +40,6 @@ export type NewPostPayload = {
   scheduleMode: "now" | "save_in_folder" | "later";
   scheduledAt: string | null;
   media: File[];
-  /**
-   * Renseigné uniquement si TikTok est sélectionné avec "Now".
-   * La publication TikTok est déjà effectuée par le modal lui-même
-   * quand onSubmit est appelé : le parent n'a rien à faire pour TikTok.
-   */
-  tiktok?: TikTokPayload;
 };
 
 interface NewPostModalProps {
@@ -69,24 +50,6 @@ interface NewPostModalProps {
 }
 
 const MAX_MEDIA = 20;
-
-// Doit correspondre au MAX_VIDEO_SIZE et aux types du backend.
-const TIKTOK_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
-const TIKTOK_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
-
-const TIKTOK_PRIVACY_LABELS: Record<TikTokPrivacy, string> = {
-  PUBLIC_TO_EVERYONE: "Everyone",
-  MUTUAL_FOLLOW_FRIENDS: "Friends",
-  FOLLOWER_OF_CREATOR: "Followers",
-  SELF_ONLY: "Only me",
-};
-
-const DEFAULT_TIKTOK_OPTIONS: TikTokPostOptions = {
-  privacy_level: "",
-  disable_comment: false,
-  disable_duet: false,
-  disable_stitch: false,
-};
 
 const SOCIAL_NETWORKS: {
   id: SocialNetworkId;
@@ -246,8 +209,6 @@ function ChannelTile({
       aria-pressed={isSelected}
       className={[
         "relative h-14 w-14 shrink-0 rounded-2xl transition",
-        // La bordure (ring) a été retirée ici. On garde uniquement
-        // la différence d'opacité pour indiquer la sélection.
         isSelected
           ? "opacity-100"
           : "opacity-50 hover:opacity-80",
@@ -306,26 +267,17 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const [editingItem, setEditingItem] = useState<MediaItem | null>(null);
   const [hoveredMediaId, setHoveredMediaId] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitProgress, setSubmitProgress] = useState<string | null>(null);
 
   // Réseaux connectés (cache partagé avec la page Channels).
   const connectedChannels = useConnectedChannels();
-
-  // ── TikTok ──
-  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
-  const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
-  const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(DEFAULT_TIKTOK_OPTIONS);
-  const [tiktokDraftMode, setTiktokDraftMode] = useState(false);
-  const [tiktokConsent, setTiktokConsent] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitProgress, setSubmitProgress] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaItem[]>(media);
   mediaRef.current = media;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
-
-  const tiktokSelected = networks.includes("tiktok");
 
   const timeMin = useMemo(() => {
     const now = new Date();
@@ -366,33 +318,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     setPendingDraft(isOpen ? savedDraft : null);
   }, [isOpen]);
 
-  // Charge les options autorisées du créateur TikTok (confidentialité,
-  // interactions désactivées…) dès que TikTok est sélectionné.
-  useEffect(() => {
-    if (!isOpen || !tiktokSelected || tiktokInfo) return;
-
-    let cancelled = false;
-
-    getTikTokCreatorInfo()
-      .then((info) => {
-        if (cancelled) return;
-        setTiktokInfo(info);
-        setTiktokInfoError(null);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setTiktokInfoError(
-          error instanceof Error && error.message
-            ? error.message
-            : "Could not load your TikTok settings."
-        );
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, tiktokSelected, tiktokInfo]);
-
   useEffect(() => {
     if (!showActionMenu && !showDateTimePanel) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -432,9 +357,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     setShowActionMenu(false);
     setShowDateTimePanel(false);
     setEditingItem(null);
-    setTiktokOptions(DEFAULT_TIKTOK_OPTIONS);
-    setTiktokDraftMode(false);
-    setTiktokConsent(false);
     setSubmitError(null);
     setSubmitProgress(null);
   };
@@ -448,7 +370,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
 
   // Fermeture manuelle (X, fond, Escape) : on garde un brouillon
   const closeWithDraft = () => {
-    // Pendant un envoi, on ne ferme pas : l'upload TikTok est en cours.
     if (isSubmitting) return;
 
     if (hasDraftContent) {
@@ -576,44 +497,14 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     setEditingItem(null);
   };
 
-  /* ── Règles TikTok ──
-     - publication TikTok uniquement avec "Now" (l'API TikTok ne
-       programme pas les posts) ;
-     - une vidéo valide (mp4 / mov / webm, ≤ 100 Mo) est obligatoire ;
-     - en publication directe : confidentialité choisie + consentement ;
-       en brouillon, TikTok demande ces choix dans son app. */
-
-  const tiktokVideo = media.find((item) => item.kind === "video") ?? null;
-
-  const tiktokVideoProblem: string | null = !tiktokVideo
-    ? "TikTok requires a video."
-    : !TIKTOK_VIDEO_TYPES.includes(tiktokVideo.file.type)
-    ? "TikTok only accepts MP4, MOV or WebM videos."
-    : tiktokVideo.file.size > TIKTOK_MAX_VIDEO_BYTES
-    ? `The video is too large (max ${TIKTOK_MAX_VIDEO_BYTES / 1024 / 1024} MB).`
-    : null;
-
-  const tiktokActive = tiktokSelected && scheduleAction === "now";
-  const tiktokBlockedBySchedule = tiktokSelected && scheduleAction === "set_date";
-
-  const tiktokReady =
-    !tiktokActive ||
-    (tiktokVideoProblem === null &&
-      (tiktokDraftMode ||
-        (tiktokOptions.privacy_level !== "" && tiktokConsent)));
-
   const canSubmit =
     networks.length > 0 &&
     (content.trim().length > 0 || media.length > 0) &&
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
-    !tiktokBlockedBySchedule &&
-    tiktokReady &&
     !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-
-    const tiktokMode: "direct" | "draft" = tiktokDraftMode ? "draft" : "direct";
 
     const payload: NewPostPayload = {
       title: title.trim(),
@@ -624,36 +515,13 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
-      tiktok: tiktokActive ? { ...tiktokOptions, mode: tiktokMode } : undefined,
     };
 
     try {
       setIsSubmitting(true);
       setSubmitError(null);
-
-      if (tiktokActive && tiktokVideo) {
-        const caption = [
-          content.trim(),
-          hashtags.map((tag) => `#${tag}`).join(" "),
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        setSubmitProgress("Uploading video to TikTok…");
-
-        const publishId = await publishToTikTok({
-          video: tiktokVideo.file,
-          caption,
-          mode: tiktokMode,
-          options: tiktokOptions,
-        });
-
-        setSubmitProgress("TikTok is processing your video…");
-
-        await waitForTikTokPublish(publishId);
-      }
-
       setSubmitProgress(null);
+
       await onSubmit?.(payload);
       discardAndClose();
     } catch (error) {
@@ -716,9 +584,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const accentCheck = isDark ? "text-white" : "text-neutral-900";
   const accentSolid = isDark ? "bg-white/5" : "bg-neutral-100";
   const accentBorder = isDark ? "border-white/15" : "border-black/10";
-
-  const tiktokNotConnected =
-    tiktokInfoError !== null && /not connected|reconnect|expired/i.test(tiktokInfoError);
 
   return (
     <div
@@ -932,144 +797,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
             </div>
 
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
-
-            {/* ── Réglages TikTok ── */}
-            {tiktokSelected && (
-              <div
-                className={[
-                  "mt-3 max-h-[230px] shrink-0 overflow-y-auto rounded-xl border p-3 text-[12.5px]",
-                  border,
-                  isDark ? "bg-white/[0.03]" : "bg-neutral-50",
-                  textPrimary,
-                ].join(" ")}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <TikTokIcon className="h-4 w-4" />
-                  <p className="text-[13px] font-semibold">TikTok settings</p>
-                </div>
-
-                {tiktokBlockedBySchedule && (
-                  <p className="mb-2 text-amber-500">
-                    TikTok can't schedule posts. Choose "Now" to publish on TikTok, or
-                    unselect TikTok.
-                  </p>
-                )}
-
-                {scheduleAction === "save_in_folder" && (
-                  <p className={["mb-2", textSecondary].join(" ")}>
-                    TikTok is only sent when you choose "Now".
-                  </p>
-                )}
-
-                {tiktokVideoProblem && (
-                  <p className="mb-2 text-red-500">{tiktokVideoProblem}</p>
-                )}
-
-                {tiktokInfoError && (
-                  <p className="mb-2 text-red-500">
-                    {tiktokInfoError}{" "}
-                    {tiktokNotConnected && (
-                      <a href="#/channels" className="underline">
-                        Open Channels
-                      </a>
-                    )}
-                  </p>
-                )}
-
-                {!tiktokInfo && !tiktokInfoError && (
-                  <p className={textSecondary}>Loading your TikTok settings…</p>
-                )}
-
-                {tiktokInfo && (
-                  <>
-                    {tiktokInfo.creator_nickname && (
-                      <p className={["mb-2", textSecondary].join(" ")}>
-                        Posting as <span className="font-semibold">{tiktokInfo.creator_nickname}</span>
-                      </p>
-                    )}
-
-                    <label className="mb-2 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={tiktokDraftMode}
-                        onChange={(e) => setTiktokDraftMode(e.target.checked)}
-                      />
-                      Send as a draft to my TikTok inbox (finish it in the TikTok app)
-                    </label>
-
-                    {!tiktokDraftMode && (
-                      <>
-                        <select
-                          value={tiktokOptions.privacy_level}
-                          onChange={(e) =>
-                            setTiktokOptions((o) => ({
-                              ...o,
-                              privacy_level: e.target.value as TikTokPostOptions["privacy_level"],
-                            }))
-                          }
-                          className={[
-                            "mb-2 w-full rounded-lg border px-2 py-1.5 outline-none",
-                            border,
-                            isDark ? "bg-[#1c1c1e] text-white" : "bg-white text-neutral-900",
-                          ].join(" ")}
-                        >
-                          <option value="">Who can view this video? (required)</option>
-                          {tiktokInfo.privacy_level_options.map((level) => (
-                            <option key={level} value={level}>
-                              {TIKTOK_PRIVACY_LABELS[level as TikTokPrivacy] ?? level}
-                            </option>
-                          ))}
-                        </select>
-
-                        {(
-                          [
-                            ["disable_comment", "Disable comments", tiktokInfo.comment_disabled],
-                            ["disable_duet", "Disable Duet", tiktokInfo.duet_disabled],
-                            ["disable_stitch", "Disable Stitch", tiktokInfo.stitch_disabled],
-                          ] as const
-                        ).map(([key, label, forced]) => (
-                          <label key={key} className="mb-1 flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={forced || tiktokOptions[key]}
-                              disabled={forced}
-                              onChange={(e) =>
-                                setTiktokOptions((o) => ({ ...o, [key]: e.target.checked }))
-                              }
-                            />
-                            {label}
-                            {forced && (
-                              <span className={textSecondary}>(disabled in your TikTok settings)</span>
-                            )}
-                          </label>
-                        ))}
-
-                        <label className="mt-2 flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={tiktokConsent}
-                            onChange={(e) => setTiktokConsent(e.target.checked)}
-                          />
-                          <span>
-                            By posting, you agree to TikTok's{" "}
-                            <a
-                              href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline"
-                            >
-                              Music Usage Confirmation
-                            </a>
-                            .
-                          </span>
-                        </label>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
 
             {submitProgress && (
               <p className={["mt-2 text-[12px]", textSecondary].join(" ")}>{submitProgress}</p>

@@ -583,7 +583,7 @@ function ConnectFirstChannelWidget({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Grille de droite : trois cartes
+   Grille de droite : deux cartes (Performance retirée)
    ────────────────────────────────────────────────────────────── */
 
 function DashboardCard({
@@ -668,7 +668,7 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
-          Aucune intégration active
+          Aucune intégration
         </p>
       </div>
 
@@ -682,16 +682,15 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
             : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
         ].join(" ")}
       >
-        Gérer les intégrations
+        Gérer
       </button>
     </DashboardCard>
   );
 }
 
 /**
- * Empty state reproduit d'après la maquette fournie :
- * gros cercle avec un "+", titre en gras, sous-titre gris,
- * puis bouton d'action. Adapté à la carte "Publications à venir".
+ * Empty state : cercle avec "+", titre court, bouton.
+ * Textes volontairement très courts.
  */
 function UpcomingPostsCard({
   isDark,
@@ -705,10 +704,9 @@ function UpcomingPostsCard({
       <CardHeading isDark={isDark} title="Publications à venir" />
 
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        {/* Cercle avec le "+" au centre */}
         <div
           className={[
-            "flex h-16 w-16 items-center justify-center rounded-full",
+            "flex h-14 w-14 items-center justify-center rounded-full",
             isDark ? "bg-white/[0.06]" : "bg-neutral-100",
           ].join(" ")}
         >
@@ -727,24 +725,14 @@ function UpcomingPostsCard({
           </svg>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <p
-            className={[
-              "text-[16px] font-bold leading-tight",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            Planifiez votre première publication
-          </p>
-          <p
-            className={[
-              "text-[12px] font-medium leading-snug",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            Une fois planifiées, vous verrez vos publications ici.
-          </p>
-        </div>
+        <p
+          className={[
+            "text-[15px] font-bold leading-tight",
+            isDark ? "text-white" : "text-neutral-900",
+          ].join(" ")}
+        >
+          Aucune publication
+        </p>
       </div>
 
       <button
@@ -757,54 +745,8 @@ function UpcomingPostsCard({
             : "bg-neutral-900 text-white hover:bg-neutral-800",
         ].join(" ")}
       >
-        Planifier une publication
+        Planifier
       </button>
-    </DashboardCard>
-  );
-}
-
-function PerformanceCard({ isDark }: { isDark: boolean }) {
-  const stats = [
-    { label: "Publications", value: "0" },
-    { label: "Portée totale", value: "0" },
-    { label: "Engagement", value: "—" },
-  ];
-
-  return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Performance" />
-
-      <div className="grid grid-cols-3 gap-2">
-        {stats.map((stat) => (
-          <div key={stat.label} className="flex flex-col">
-            <span
-              className={[
-                "font-display text-[20px] font-semibold leading-none tracking-[-0.01em]",
-                isDark ? "text-white" : "text-neutral-900",
-              ].join(" ")}
-            >
-              {stat.value}
-            </span>
-            <span
-              className={[
-                "mt-1 text-[11px] font-medium leading-tight",
-                isDark ? "text-neutral-500" : "text-neutral-400",
-              ].join(" ")}
-            >
-              {stat.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <p
-        className={[
-          "mt-3 text-[11.5px] font-medium",
-          isDark ? "text-neutral-500" : "text-neutral-400",
-        ].join(" ")}
-      >
-        Connectez un réseau pour voir vos statistiques.
-      </p>
     </DashboardCard>
   );
 }
@@ -1065,20 +1007,19 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Ligne du haut : streak (largeur fixe) à gauche,
-                grille des 3 cartes à droite sur la même ligne. */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+            {/* Ligne du haut : streak + 2 cartes, centrées.
+                Performance a été retirée. */}
+            <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-stretch lg:justify-center">
               <div className="w-full lg:w-[280px] lg:shrink-0">
                 <StreakStepsWidget isDark={isDark} />
               </div>
 
-              <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid w-full max-w-[560px] grid-cols-1 gap-4 sm:grid-cols-2 lg:max-w-[580px]">
                 <IntegrationsCard isDark={isDark} />
                 <UpcomingPostsCard
                   isDark={isDark}
                   onPlan={() => setIsNewPostOpen(true)}
                 />
-                <PerformanceCard isDark={isDark} />
               </div>
             </div>
 
