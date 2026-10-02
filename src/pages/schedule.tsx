@@ -357,8 +357,8 @@ function CategoryEditorPopover({
           className={[
             "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
             isDark
-              ? "bg-white text-neutral-900 hover:bg-neutral-200"
-              : "bg-neutral-900 text-white hover:bg-neutral-800",
+              ? "bg-neutral-900 text-white hover:bg-neutral-800"
+              : "bg-white text-neutral-900 hover:bg-neutral-100",
           ].join(" ")}
         >
           {submitLabel}
@@ -990,8 +990,8 @@ export default function Schedule() {
                       "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition",
                       activeCategory === "All"
                         ? isDark
-                          ? "bg-white text-neutral-900"
-                          : "bg-neutral-900 text-white"
+                          ? "bg-neutral-900 text-white"
+                          : "bg-white text-neutral-900"
                         : isDark
                           ? "bg-[#1c1c1e] text-neutral-300 hover:bg-[#242427]"
                           : "bg-white text-neutral-600 hover:bg-neutral-50",
@@ -1228,7 +1228,9 @@ export default function Schedule() {
                   onClick={handleAddEvent}
                   className={[
                     "flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition",
-                    isDark ? "bg-white text-neutral-900 hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
+                    isDark
+                      ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                      : "bg-white text-neutral-900 hover:bg-neutral-100",
                   ].join(" ")}
                 >
                   <PlusIcon />
