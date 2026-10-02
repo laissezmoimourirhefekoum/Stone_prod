@@ -48,8 +48,6 @@ type Channel = {
   name: string;
   subtitle: string;
   icon: IconComponent;
-  /** Couleur de fond + couleur de l'icône de la pastille (modal + badge). */
-  tile: string;
 };
 
 type Connection = {
@@ -75,51 +73,42 @@ type ThemeTokens = {
    Réseaux + état initial
 ============================================================================ */
 
-// URL / mailto utilisé par la carte "Can't find it? Request a channel".
-const REQUEST_CHANNEL_URL = "mailto:hello@example.com?subject=Channel%20request";
-
 const CHANNELS: Channel[] = [
   {
     key: "instagram",
     name: "Instagram",
     subtitle: "Business or Creator",
     icon: InstagramIcon,
-    tile: "bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white",
   },
   {
     key: "facebook",
     name: "Facebook",
     subtitle: "Page",
     icon: FacebookIcon,
-    tile: "bg-[#1877f2] text-white",
   },
   {
     key: "threads",
     name: "Threads",
     subtitle: "Profile",
     icon: ThreadsIcon,
-    tile: "bg-black text-white",
   },
   {
     key: "youtube",
     name: "YouTube",
     subtitle: "Channel",
     icon: YouTubeIcon,
-    tile: "bg-[#ff0000] text-white",
   },
   {
     key: "tiktok",
     name: "TikTok",
     subtitle: "Business or Personal",
     icon: TikTokIcon,
-    tile: "bg-white text-black",
   },
   {
     key: "pinterest",
     name: "Pinterest",
     subtitle: "Business or Profile",
     icon: PinterestIcon,
-    tile: "bg-[#e60023] text-white",
   },
 ];
 
@@ -269,12 +258,11 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
       <span
         className={[
           "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
-          "rounded-md ring-2",
-          channel.tile,
+          "rounded-md bg-white ring-2",
           isDark ? "ring-[#131316]" : "ring-white",
         ].join(" ")}
       >
-        <Icon className="h-3 w-3" />
+        <Icon className="h-3 w-3" size={12} />
       </span>
     </span>
   );
@@ -462,13 +450,8 @@ function ConnectModal({
                     isPending ? "opacity-60" : "",
                   ].join(" ")}
                 >
-                  <span
-                    className={[
-                      "mb-4 flex h-[70px] w-[70px] items-center justify-center rounded-2xl",
-                      channel.tile,
-                    ].join(" ")}
-                  >
-                    <Icon className="h-9 w-9" />
+                  <span className="mb-4 flex h-[70px] w-[70px] items-center justify-center rounded-2xl bg-white">
+                    <Icon className="h-9 w-9" size={36} />
                   </span>
 
                   <span className="text-[19px] font-semibold leading-tight">
@@ -491,19 +474,6 @@ function ConnectModal({
               );
             })}
 
-            {/* Demander un réseau */}
-            <a
-              href={REQUEST_CHANNEL_URL}
-              className={[cardBase, cardHover].join(" ")}
-            >
-              <PlusIcon className="mb-4 h-8 w-8 opacity-80" />
-              <span className="text-[19px] font-semibold leading-tight">
-                Can't find it?
-              </span>
-              <span className={["text-[16px] leading-snug", subtitleColor].join(" ")}>
-                Request a channel
-              </span>
-            </a>
           </div>
         </div>
       </div>
