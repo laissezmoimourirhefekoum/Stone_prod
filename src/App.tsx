@@ -28,25 +28,35 @@ import { saveOAuthSession } from "./services/supabase";
 /* ──────────────────────────────────────────────────────────────
    INTERCEPTION DU RETOUR TIKTOK
    Exécuté AVANT le montage de React ET avant le handler OAuth
-   Supabase ci-dessous (l'ordre est important : sans ça, le
-   paramètre ?code=... de TikTok serait pris pour une erreur PKCE).
+   Supabase ci-dessous.
 
-   TikTok renvoie vers un vrai chemin (pas un hash) :
-     https://ton-frontend/tiktok/callback?code=...&state=...
+   Cas normal : /tiktok/callback?code=...&state=...
+   Cas rattrapé (redirect_uri mal configuré) :
+                /#/tiktok/#/callback?code=...&state=...
    On range les paramètres dans sessionStorage, puis on bascule
    sur la route hash : /#/tiktok-callback
    ────────────────────────────────────────────────────────────── */
 
 const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
+const POST_LOGIN_ROUTE_KEY = "post_login_route";
 
 (function handleTikTokRedirect() {
   if (typeof window === "undefined") return;
 
-  const pathname = window.location.pathname.replace(/\/+$/, "");
+  const { pathname, hash, search } = window.location;
 
-  if (pathname !== "/tiktok/callback") return;
+  const isPathCallback = pathname.replace(/\/+$/, "") === "/tiktok/callback";
+  const isHashCallback = /^#\/tiktok\/?(#\/)?callback/.test(hash);
 
-  const params = new URLSearchParams(window.location.search);
+  if (!isPathCallback && !isHashCallback) return;
+
+  const queryString = isPathCallback
+    ? search
+    : hash.includes("?")
+      ? hash.slice(hash.indexOf("?"))
+      : "";
+
+  const params = new URLSearchParams(queryString);
 
   try {
     sessionStorage.setItem(
@@ -389,21 +399,50 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
   useGentleWheelScroll(isLanding || isPricing);
 
   /* Garde de routes :
-     - déconnecté + page privée  → signin
+     - déconnecté + page privée  → signin (en mémorisant le callback TikTok)
+     - connecté + route en attente (post_login_route) → on y retourne
      - connecté + signin/signup  → home
      La landing, pricing, faq, tos et privacy restent accessibles dans les deux cas. */
   useEffect(() => {
     if (loading) return;
 
     if (!user && isProtected) {
+      if (route === "tiktok-callback") {
+        try {
+          sessionStorage.setItem(POST_LOGIN_ROUTE_KEY, "tiktok-callback");
+        } catch {
+          // ignore
+        }
+      }
       navigate("signin", { replace: true });
       return;
     }
 
-    if (user && isAuth) {
-      navigate("home", { replace: true });
+    if (user) {
+      let pending: string | null = null;
+      try {
+        pending = sessionStorage.getItem(POST_LOGIN_ROUTE_KEY);
+      } catch {
+        // ignore
+      }
+
+      if (pending) {
+        try {
+          sessionStorage.removeItem(POST_LOGIN_ROUTE_KEY);
+        } catch {
+          // ignore
+        }
+        if (route !== pending) {
+          navigate(pending, { replace: true });
+          return;
+        }
+      }
+
+      if (isAuth) {
+        navigate("home", { replace: true });
+      }
     }
-  }, [user, loading, isProtected, isAuth]);
+  }, [user, loading, isProtected, isAuth, route]);
 
   // Pendant la vérification de session : écran neutre sur les pages
   // qui dépendent de l'état connecté (évite les flashs et les appels API sans session).
