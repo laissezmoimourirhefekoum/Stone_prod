@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import { useTheme, type Theme } from "../hooks/useTheme";
+import { useUser } from "../contexts/UserContext";
 import {
   getTikTokStatus,
   startTikTokLogin,
@@ -120,6 +121,57 @@ const initialConnections: ConnectionState = {
   pinterest: { connected: false },
   threads: { connected: false },
 };
+
+/* ============================================================================
+   Cache du profil TikTok
+   Mémoire (navigation dans l'app) + localStorage (rechargement de page),
+   séparé par utilisateur. Préfixe "stone_" : volontairement différent de
+   "crossflow_" pour ne pas déclencher la synchro de session de UserContext.
+============================================================================ */
+
+const CACHE_PREFIX = "stone_tiktok_profile_";
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
+
+type CachedTikTok = { connection: Connection; savedAt: number };
+
+const memoryCache = new Map<string, CachedTikTok>();
+
+function readCache(userId: string): CachedTikTok | null {
+  const inMemory = memoryCache.get(userId);
+  if (inMemory) return inMemory;
+
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + userId);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as CachedTikTok;
+    memoryCache.set(userId, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(userId: string, connection: Connection): void {
+  const entry: CachedTikTok = { connection, savedAt: Date.now() };
+  memoryCache.set(userId, entry);
+
+  try {
+    localStorage.setItem(CACHE_PREFIX + userId, JSON.stringify(entry));
+  } catch {
+    // localStorage indisponible : le cache mémoire suffit
+  }
+}
+
+function clearCache(userId: string): void {
+  memoryCache.delete(userId);
+
+  try {
+    localStorage.removeItem(CACHE_PREFIX + userId);
+  } catch {
+    // ignore
+  }
+}
 
 /* ============================================================================
    Icônes locales
@@ -496,8 +548,18 @@ export default function Channels({
   const onToggleTheme = onToggleThemeProp ?? themeContext.toggle;
   const isDark = theme === "dark";
 
-  const [connections, setConnections] =
-    useState<ConnectionState>(initialConnections);
+  const { user } = useUser();
+  const userId = user?.id ?? null;
+
+  // État initial lu depuis le cache : le profil TikTok s'affiche tout de suite
+  // quand on revient sur la page, sans rechargement ni clignotement.
+  const [connections, setConnections] = useState<ConnectionState>(() => {
+    const cached = userId ? readCache(userId) : null;
+
+    return cached
+      ? { ...initialConnections, tiktok: cached.connection }
+      : initialConnections;
+  });
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -511,9 +573,57 @@ export default function Channels({
   );
   const connectedCount = connectedChannels.length;
 
-  /* ── Statut réel de TikTok (source de vérité : le backend) ── */
+  /* ── Retour de TikTok + statut du compte (avec cache) ── */
 
   useEffect(() => {
+    if (!userId) return;
+
+    /* 1) Retour de TikTok : /#/channels?tiktok=connected ou ?tiktok_error=...
+          Avec le routage par hash, la query est DANS le hash, pas dans
+          window.location.search. */
+    const hash = window.location.hash;
+    const queryIndex = hash.indexOf("?");
+    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
+    const params = new URLSearchParams(
+      queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
+    );
+
+    const tiktokError = params.get("tiktok_error");
+    const justReturned = params.has("tiktok") || Boolean(tiktokError);
+
+    if (justReturned) {
+      if (tiktokError) {
+        setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+      }
+
+      // Nouvelle connexion : on force un rechargement du profil.
+      clearCache(userId);
+
+      params.delete("tiktok");
+      params.delete("tiktok_error");
+      const query = params.toString();
+
+      // On nettoie l'URL pour ne pas réafficher le message au rafraîchissement.
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${basePath}${
+          query ? `?${query}` : ""
+        }`
+      );
+    }
+
+    /* 2) Cache : affiché immédiatement, aucun appel réseau s'il est récent. */
+    const cached = justReturned ? null : readCache(userId);
+
+    if (cached) {
+      setConnections((current) => ({ ...current, tiktok: cached.connection }));
+
+      if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
+      // Cache ancien : on l'affiche quand même, puis on le met à jour en silence.
+    }
+
+    /* 3) Chargement depuis le backend (une seule fois, puis mis en cache). */
     let cancelled = false;
 
     const loadTikTokStatus = async () => {
@@ -532,18 +642,23 @@ export default function Channels({
           | null
           | undefined;
 
-        setConnections((current) => ({
-          ...current,
-          tiktok: status.connected
-            ? {
-                connected: true,
-                handle: account?.display_name ?? undefined,
-                avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
-              }
-            : { connected: false },
-        }));
+        const tiktok: Connection = status.connected
+          ? {
+              connected: true,
+              handle: account?.display_name ?? undefined,
+              avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
+            }
+          : { connected: false };
+
+        if (tiktok.connected) {
+          writeCache(userId, tiktok);
+        } else {
+          clearCache(userId);
+        }
+
+        setConnections((current) => ({ ...current, tiktok }));
       } catch (error) {
-        // Non bloquant : TikTok reste affiché comme non connecté.
+        // Non bloquant : on garde ce qui est affiché (cache éventuel).
         console.warn("[Stone] Could not load TikTok status:", error);
       }
     };
@@ -553,31 +668,7 @@ export default function Channels({
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  /* ── Retour de /tiktok/callback : ?tiktok=connected ou ?tiktok_error=... ── */
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tiktokError = params.get("tiktok_error");
-
-    if (!tiktokError && !params.has("tiktok")) return;
-
-    if (tiktokError) {
-      setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
-    }
-    // En cas de succès, le statut est rechargé par l'effet ci-dessus.
-
-    // On nettoie l'URL pour ne pas réafficher le message au rafraîchissement.
-    params.delete("tiktok");
-    params.delete("tiktok_error");
-    const query = params.toString();
-    window.history.replaceState(
-      {},
-      "",
-      window.location.pathname + (query ? `?${query}` : "")
-    );
-  }, []);
+  }, [userId]);
 
   const t = useMemo<ThemeTokens>(
     () =>
@@ -623,6 +714,9 @@ export default function Channels({
       if (connections.tiktok.connected) {
         console.log("[Stone] Disconnecting TikTok");
         await disconnectTikTok();
+
+        // Le profil n'est plus valable : on vide le cache.
+        if (userId) clearCache(userId);
 
         // Mise à jour de l'UI uniquement après succès du backend.
         setConnections((current) => ({
