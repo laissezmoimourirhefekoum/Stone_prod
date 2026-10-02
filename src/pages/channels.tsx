@@ -148,17 +148,6 @@ function Svg({
   );
 }
 
-function ChannelsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="7.5" cy="7.5" r="2.5" />
-      <circle cx="16.5" cy="7.5" r="2.5" />
-      <circle cx="7.5" cy="16.5" r="2.5" />
-      <circle cx="16.5" cy="16.5" r="2.5" />
-    </Svg>
-  );
-}
-
 function PlusIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -180,6 +169,30 @@ function CheckIcon(props: IconProps) {
     <Svg {...props}>
       <path d="m5 12.5 4.5 4.5L19 7.5" />
     </Svg>
+  );
+}
+
+function GearIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+    </Svg>
+  );
+}
+
+function DotsVerticalIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={props.className ?? "h-4 w-4"}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="5" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="12" cy="19" r="1.7" />
+    </svg>
   );
 }
 
@@ -237,20 +250,20 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
   }, [connection.avatarUrl]);
 
   return (
-    <span className="relative flex h-11 w-11 shrink-0">
+    <span className="relative flex h-[60px] w-[60px] shrink-0">
       {showImage ? (
         <img
           src={connection.avatarUrl}
           alt=""
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
-          className="h-11 w-11 rounded-full object-cover"
+          className="h-[60px] w-[60px] rounded-2xl object-cover"
         />
       ) : (
         <span
           className={[
-            "flex h-11 w-11 items-center justify-center rounded-full",
-            "text-[15px] font-semibold",
+            "flex h-[60px] w-[60px] items-center justify-center rounded-2xl",
+            "text-[20px] font-semibold",
             isDark ? "bg-white/10 text-white/80" : "bg-black/[0.07] text-black/60",
           ].join(" ")}
         >
@@ -260,14 +273,137 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
 
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
-          "rounded-md bg-white ring-2",
+          "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center",
+          "rounded-lg bg-white ring-[3px]",
           isDark ? "ring-[#131316]" : "ring-white",
         ].join(" ")}
       >
-        <Icon className="h-3 w-3" size={12} />
+        <Icon className="h-3.5 w-3.5" size={14} />
       </span>
     </span>
+  );
+}
+
+/* ============================================================================
+   Menu "⋮" d'une carte de canal
+============================================================================ */
+
+type ChannelMenuProps = {
+  isDark: boolean;
+  disabled: boolean;
+  buttonClass: string;
+  onDisconnect: () => void;
+};
+
+function ChannelMenu({
+  isDark,
+  disabled,
+  buttonClass,
+  onDisconnect,
+}: ChannelMenuProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label="More options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More options"
+        disabled={disabled}
+        onClick={() => setOpen((value) => !value)}
+        className={[buttonClass, "disabled:opacity-50"].join(" ")}
+      >
+        <DotsVerticalIcon className="h-[18px] w-[18px]" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={[
+            "absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border p-1 shadow-2xl",
+            isDark
+              ? "border-white/10 bg-[#1f2020]"
+              : "border-black/10 bg-white",
+          ].join(" ")}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onDisconnect();
+            }}
+            className={[
+              "flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-semibold transition-colors",
+              isDark
+                ? "text-red-400 hover:bg-white/[0.06]"
+                : "text-red-600 hover:bg-black/[0.04]",
+            ].join(" ")}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================================
+   Segments de progression (un segment par réseau, vert = connecté)
+============================================================================ */
+
+function ConnectionSegments({
+  total,
+  connected,
+  isDark,
+}: {
+  total: number;
+  connected: number;
+  isDark: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      role="img"
+      aria-label={`${connected} of ${total} channels connected`}
+    >
+      {Array.from({ length: total }).map((_, index) => (
+        <span
+          key={index}
+          className={[
+            "h-1.5 w-7 rounded-full transition-colors duration-300",
+            index < connected
+              ? isDark
+                ? "bg-[#4d7a56]"
+                : "bg-emerald-500"
+              : isDark
+              ? "bg-white/10"
+              : "bg-black/10",
+          ].join(" ")}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -729,6 +865,14 @@ export default function Channels({
 
   const closeModal = () => setShowConnectModal(false);
 
+  const iconButtonClass = [
+    "flex h-9 w-9 items-center justify-center rounded-full",
+    "transition-colors duration-150",
+    isDark
+      ? "text-[#99a2a2] hover:bg-white/10 hover:text-white"
+      : "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
+  ].join(" ");
+
   return (
     <div
       className={["relative h-full w-full overflow-hidden", t.page].join(" ")}
@@ -738,38 +882,17 @@ export default function Channels({
       <main className="h-full overflow-y-auto py-10 pl-[104px] pr-6 sm:pr-10">
         <div className="mx-auto max-w-3xl">
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span
-                className={[
-                  "flex h-9 w-9 shrink-0 items-center justify-center",
-                  "rounded-[11px] border",
-                  t.titleIconWrap,
-                ].join(" ")}
-              >
-                <ChannelsIcon className="h-5 w-5" />
-              </span>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <h1
+              className={[
+                "text-[22px] font-semibold tracking-tight",
+                t.title,
+              ].join(" ")}
+            >
+              {connectedCount}/{CHANNELS.length} Channels connected
+            </h1>
 
-              <h1
-                className={[
-                  "text-[22px] font-semibold tracking-tight",
-                  t.title,
-                ].join(" ")}
-              >
-                Channels
-              </h1>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <div
-                className={[
-                  "rounded-full px-3 py-1.5 text-[12px] font-medium",
-                  t.chipIdle,
-                ].join(" ")}
-              >
-                {connectedCount} of {CHANNELS.length} connected
-              </div>
-
+            <div className="flex shrink-0 items-center gap-3">
               {connectedCount > 0 && (
                 <button
                   type="button"
@@ -786,10 +909,14 @@ export default function Channels({
                   <PlusIcon className="h-4 w-4" />
                 </button>
               )}
+
+              <ConnectionSegments
+                total={CHANNELS.length}
+                connected={connectedCount}
+                isDark={isDark}
+              />
             </div>
           </div>
-
-          <div className={["my-6 h-px", t.divider].join(" ")} />
 
           {/* Erreur (page) — masquée si le modal est ouvert, il l'affiche lui-même */}
           {errorMessage && !showConnectModal && (
@@ -823,12 +950,7 @@ export default function Channels({
               onConnect={() => setShowConnectModal(true)}
             />
           ) : (
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              }}
-            >
+            <div className="flex flex-col gap-3">
               {connectedChannels.map((channel) => {
                 const connection = connections[channel.key];
                 const isPending = pendingKey === channel.key;
@@ -837,8 +959,8 @@ export default function Channels({
                   <div
                     key={channel.key}
                     className={[
-                      "flex items-center gap-3",
-                      "rounded-2xl border px-4 py-3.5",
+                      "flex items-center gap-4",
+                      "rounded-[22px] border px-5 py-4",
                       "transition-colors duration-150",
                       t.cardConnected,
                     ].join(" ")}
@@ -849,32 +971,44 @@ export default function Channels({
                       isDark={isDark}
                     />
 
-                    <span
-                      className={[
-                        "min-w-0 flex-1 truncate text-[16px] font-semibold",
-                        t.title,
-                      ].join(" ")}
-                      title={connection.handle || channel.name}
-                    >
-                      {connection.handle || channel.name}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={[
+                          "truncate text-[19px] font-semibold leading-tight",
+                          t.title,
+                        ].join(" ")}
+                        title={connection.handle || channel.name}
+                      >
+                        {connection.handle || channel.name}
+                      </p>
+                      <p
+                        className={[
+                          "mt-0.5 truncate text-[16px] leading-snug",
+                          t.muted,
+                        ].join(" ")}
+                      >
+                        {channel.name} Account
+                      </p>
+                    </div>
 
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => handleToggle(channel.key)}
-                      aria-label={`Disconnect ${channel.name}`}
-                      title="Disconnect"
-                      className={[
-                        "shrink-0 rounded-lg px-3 py-1.5",
-                        "text-[12px] font-semibold",
-                        "transition-[background-color,opacity] duration-150",
-                        "disabled:opacity-50",
-                        t.disconnectBtn,
-                      ].join(" ")}
-                    >
-                      {isPending ? "..." : "Disconnect"}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {/* TODO: brancher les réglages du canal */}
+                      <button
+                        type="button"
+                        aria-label={`${channel.name} settings`}
+                        title="Settings"
+                        className={iconButtonClass}
+                      >
+                        <GearIcon className="h-[18px] w-[18px]" />
+                      </button>
+
+                      <ChannelMenu
+                        isDark={isDark}
+                        disabled={isPending}
+                        buttonClass={iconButtonClass}
+                        onDisconnect={() => handleToggle(channel.key)}
+                      />
+                    </div>
                   </div>
                 );
               })}
