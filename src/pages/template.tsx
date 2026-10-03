@@ -8,7 +8,6 @@ import {
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import { useTheme } from "../hooks/useTheme";
-import { navigate, useHashRoute } from "../hooks/useHashRoute";
 
 /* ============================================================================
    Types
@@ -300,10 +299,11 @@ function PromptCard({
 export default function TemplatesPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const route = useHashRoute();
   const sidebarCollapsed = useSidebarCollapsed();
 
-  const activeTab: ViewTab = route === "discover" ? "discover" : "mine";
+  /* Onglet actif — state local, aucun impact sur le hash de l'URL.
+     La sidebar a une seule entrée "Templates" → route "template". */
+  const [activeTab, setActiveTab] = useState<ViewTab>("mine");
 
   const [templates, setTemplates] = useState<Template[]>(initialTemplates);
   const [query, setQuery] = useState("");
@@ -688,7 +688,7 @@ export default function TemplatesPage() {
                       type="button"
                       role="tab"
                       aria-selected={active}
-                      onClick={() => navigate(tab)}
+                      onClick={() => setActiveTab(tab)}
                       className={[
                         "rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium",
                         "transition-colors duration-150",
