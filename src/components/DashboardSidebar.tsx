@@ -426,9 +426,8 @@ const navSections: NavSection[] = [
         label: "Templates",
         icon: TemplatesIcon,
         children: [
-          { label: "Captions", route: "captions" },
-          { label: "Hashtags", route: "hashtags" },
-          { label: "Replies", route: "replies" },
+          { label: "My template", route: "mine" },
+          { label: "Discover", route: "discover" },
         ],
       },
     ],
