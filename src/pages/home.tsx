@@ -371,12 +371,10 @@ function LinkStackIcon({ isDark }: { isDark: boolean }) {
 function ChannelAvatar({
   channel,
   isDark,
-  overlap,
   NetworkIcon,
 }: {
   channel: ConnectedChannel;
   isDark: boolean;
-  overlap: boolean;
   NetworkIcon?: (props: { className?: string }) => JSX.Element;
 }) {
   const [failed, setFailed] = useState(false);
@@ -394,7 +392,6 @@ function ChannelAvatar({
   return (
     <div
       title={label}
-      style={{ marginLeft: overlap ? -10 : 0 }}
       className="relative h-10 w-10 shrink-0"
     >
       {showImage ? (
@@ -459,8 +456,8 @@ function ConnectFirstChannelWidget({
   if (channels.length > 0) {
     return (
       <div className={cardClasses}>
-        <div className="flex items-center">
-          {channels.map((channel, index) => {
+        <div className="flex flex-wrap items-center gap-4">
+          {channels.map((channel) => {
             const networkId = getNetworkId(channel);
             const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
             return (
@@ -468,7 +465,6 @@ function ConnectFirstChannelWidget({
                 key={channel.key}
                 channel={channel}
                 isDark={isDark}
-                overlap={index > 0}
                 NetworkIcon={NetworkIcon}
               />
             );
