@@ -1,5 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { motion, useDragControls } from "framer-motion";
+﻿import { useEffect, useMemo, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -24,16 +23,25 @@ import {
 } from "../components/IntegrationIcons";
 
 const SIDEBAR_OFFSET = 104;
-const userProfileCache = { profile: null as UserProfile | null };
 
-/* ============================== Réseaux ============================== */
+const userProfileCache = {
+  profile: null as UserProfile | null,
+};
 
-type IconFC = (props: { className?: string }) => JSX.Element;
-type NetworkKey =
-  | "x" | "facebook" | "instagram" | "linkedin"
-  | "tiktok" | "youtube" | "pinterest" | "threads";
+type SocialNetworkKey =
+  | "x"
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "youtube"
+  | "pinterest"
+  | "threads";
 
-const NETWORK_ICONS: Record<NetworkKey, IconFC> = {
+const NETWORK_ICONS: Record<
+  SocialNetworkKey,
+  (props: { className?: string }) => JSX.Element
+> = {
   x: XIcon,
   facebook: FacebookIcon,
   instagram: InstagramIcon,
@@ -41,12 +49,15 @@ const NETWORK_ICONS: Record<NetworkKey, IconFC> = {
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
-  threads: ThreadsIcon as IconFC,
+  threads: ThreadsIcon as (props: { className?: string }) => JSX.Element,
 };
 
-function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
+function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key).toLowerCase().trim();
+  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
+    .toLowerCase()
+    .trim();
+
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
@@ -58,9 +69,9 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-const FOLLOWER_KEYS = ["followers", "followersCount", "followers_count", "subscribers", "subscribersCount"];
-const LIKE_KEYS = ["likes", "likesCount", "likes_count"];
-const COMMENT_KEYS = ["comments", "commentsCount", "comments_count"];
+/* -------------------------------------------------------------------------- */
+/*  Statistiques (abonnés / likes / commentaires)                             */
+/* -------------------------------------------------------------------------- */
 
 function readStat(channel: ConnectedChannel, keys: string[]): number {
   const c = channel as unknown as Record<string, unknown>;
@@ -73,565 +84,863 @@ function readStat(channel: ConnectedChannel, keys: string[]): number {
   return 0;
 }
 
-const fmt = new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 });
+const numberFormatter = new Intl.NumberFormat("fr-FR", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 function computeTotals(channels: ConnectedChannel[]) {
   return channels.reduce(
-    (a, ch) => ({
-      followers: a.followers + readStat(ch, FOLLOWER_KEYS),
-      likes: a.likes + readStat(ch, LIKE_KEYS),
-      comments: a.comments + readStat(ch, COMMENT_KEYS),
+    (acc, ch) => ({
+      followers:
+        acc.followers +
+        readStat(ch, [
+          "followers",
+          "followersCount",
+          "followers_count",
+          "subscribers",
+          "subscribersCount",
+        ]),
+      likes:
+        acc.likes + readStat(ch, ["likes", "likesCount", "likes_count"]),
+      comments:
+        acc.comments +
+        readStat(ch, ["comments", "commentsCount", "comments_count"]),
     }),
     { followers: 0, likes: 0, comments: 0 }
   );
 }
 
-/* Publications planifiées : à brancher. date = "YYYY-MM-DD" */
-type Scheduled = { date: string; network: NetworkKey; title: string };
-const SCHEDULED: Scheduled[] = [];
-const dayKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function GreetingAvatar({
+  avatarUrl,
+  initials,
+  isDark,
+}: {
+  avatarUrl?: string | null;
+  initials: string;
+  isDark: boolean;
+}) {
+  const [loadFailed, setLoadFailed] = useState(false);
 
-/* ============================== Layout ============================== */
-
-type Size = "s" | "m" | "l";
-type WidgetId = "audience" | "compose" | "week" | "channels" | "blog";
-
-interface Layout {
-  order: WidgetId[];
-  sizes: Record<WidgetId, Size>;
-  hidden: WidgetId[];
-}
-
-const ALL_IDS: WidgetId[] = ["audience", "compose", "week", "channels", "blog"];
-const TITLES: Record<WidgetId, string> = {
-  audience: "Audience",
-  compose: "Nouvelle publication",
-  week: "Semaine",
-  channels: "Réseaux",
-  blog: "À lire",
-};
-const SPAN: Record<Size, string> = { s: "lg:col-span-4", m: "lg:col-span-8", l: "lg:col-span-12" };
-const NEXT: Record<Size, Size> = { s: "m", m: "l", l: "s" };
-const SIZE_LABEL: Record<Size, string> = { s: "Petit", m: "Moyen", l: "Large" };
-
-const DEFAULT_LAYOUT: Layout = {
-  order: ["audience", "compose", "week", "channels", "blog"],
-  sizes: { audience: "m", compose: "s", week: "l", channels: "m", blog: "s" },
-  hidden: [],
-};
-
-const STORAGE_KEY = "home-layout-v1";
-
-function loadLayout(): Layout {
-  try {
-    const p = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") as Layout | null;
-    if (!p) return DEFAULT_LAYOUT;
-    const seen = [...p.order, ...p.hidden];
-    const ok = ALL_IDS.every((id) => seen.includes(id)) && seen.length === ALL_IDS.length;
-    return ok ? { ...p, sizes: { ...DEFAULT_LAYOUT.sizes, ...p.sizes } } : DEFAULT_LAYOUT;
-  } catch {
-    return DEFAULT_LAYOUT;
-  }
-}
-
-/* ============================== Thème ============================== */
-
-function tone(isDark: boolean) {
-  return {
-    text: isDark ? "text-white" : "text-neutral-900",
-    muted: isDark ? "text-neutral-400" : "text-neutral-500",
-    faint: isDark ? "text-neutral-600" : "text-neutral-400",
-    surface: isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
-    soft: isDark ? "bg-white/[0.06]" : "bg-black/[0.045]",
-    hover: isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
-    focus:
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
-      (isDark
-        ? "focus-visible:ring-white focus-visible:ring-offset-[#09090a]"
-        : "focus-visible:ring-neutral-900 focus-visible:ring-offset-[#f3f1ed]"),
-  };
-}
-
-const Svg = ({ d, className = "h-4 w-4", sw = 2 }: { d: string; className?: string; sw?: number }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d={d} />
-  </svg>
-);
-const ICON = {
-  plus: "M12 5v14M5 12h14",
-  close: "M6 6l12 12M18 6 6 18",
-  grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
-  left: "m15 6-6 6 6 6",
-  right: "m9 6 6 6-6 6",
-  resize: "M4 14v6h6M20 10V4h-6M4 20l6-6M20 4l-6 6",
-  sliders: "M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6",
-};
-
-function useNow(ms = 30000) {
-  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), ms);
-    return () => clearInterval(id);
-  }, [ms]);
-  return now;
-}
+    setLoadFailed(false);
+  }, [avatarUrl]);
 
-function Avatar({ src, label, isDark, size = 40 }: { src?: string | null; label: string; isDark: boolean; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
-  return src && !failed ? (
-    <img src={src} alt="" style={{ width: size, height: size }} referrerPolicy="no-referrer" onError={() => setFailed(true)} className="shrink-0 rounded-full object-cover" />
+  const showImage = Boolean(avatarUrl) && !loadFailed;
+
+  return showImage ? (
+    <img
+      key={avatarUrl}
+      src={avatarUrl!}
+      alt="Profile"
+      style={{ width: 40, height: 40 }}
+      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+      onError={() => setLoadFailed(true)}
+    />
   ) : (
     <div
-      style={{ width: size, height: size, fontSize: size * 0.34 }}
-      className={["flex shrink-0 items-center justify-center rounded-full font-semibold", isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white"].join(" ")}
-    >
-      {label.replace(/^@/, "").slice(0, 2).toUpperCase() || "?"}
-    </div>
-  );
-}
-
-/* ============================== Coque d'un widget ============================== */
-
-interface ShellProps {
-  id: WidgetId;
-  size: Size;
-  editing: boolean;
-  isDark: boolean;
-  invert?: boolean;
-  first: boolean;
-  last: boolean;
-  register: (id: WidgetId, el: HTMLElement | null) => void;
-  onDragOver: (id: WidgetId, p: { x: number; y: number }) => void;
-  onResize: () => void;
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
-  children: ReactNode;
-}
-
-function Shell(p: ShellProps) {
-  const t = tone(p.isDark);
-  const controls = useDragControls();
-  const [dragging, setDragging] = useState(false);
-  const toolBtn = [
-    "flex h-7 w-7 items-center justify-center rounded-full transition disabled:opacity-30",
-    p.isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/[0.06] text-neutral-900 hover:bg-black/10",
-    p.invert ? (p.isDark ? "!bg-neutral-900/10 !text-neutral-900" : "!bg-white/15 !text-white") : "",
-    t.focus,
-  ].join(" ");
-
-  return (
-    <motion.section
-      ref={(el) => p.register(p.id, el as HTMLElement | null)}
-      layout
-      transition={{ type: "spring", stiffness: 520, damping: 44 }}
-      drag={p.editing}
-      dragControls={controls}
-      dragListener={false}
-      dragSnapToOrigin
-      dragElastic={0.1}
-      onDragStart={() => setDragging(true)}
-      onDrag={(_, info) => p.onDragOver(p.id, { x: info.point.x - window.scrollX, y: info.point.y - window.scrollY })}
-      onDragEnd={() => setDragging(false)}
-      whileDrag={{ scale: 1.015, boxShadow: "0 30px 70px rgba(0,0,0,0.28)" }}
-      aria-label={TITLES[p.id]}
+      style={{ width: 40, height: 40 }}
       className={[
-        "relative col-span-12 flex flex-col rounded-[24px] p-5",
-        SPAN[p.size],
-        p.invert
-          ? p.isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white"
-          : ["border", t.surface].join(" "),
-        p.editing ? "ring-1 ring-dashed ring-offset-4 " + (p.isDark ? "ring-white/30 ring-offset-[#09090a]" : "ring-black/25 ring-offset-[#f3f1ed]") : "",
-        dragging ? "z-50" : "",
+        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
+        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
       ].join(" ")}
     >
-      {p.editing && (
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
-          <button type="button" aria-label="Déplacer vers le début" disabled={p.first} onClick={() => p.onMove(-1)} className={toolBtn}><Svg d={ICON.left} className="h-3.5 w-3.5" /></button>
-          <button type="button" aria-label="Déplacer vers la fin" disabled={p.last} onClick={() => p.onMove(1)} className={toolBtn}><Svg d={ICON.right} className="h-3.5 w-3.5" /></button>
-          <button type="button" aria-label={`Taille : ${SIZE_LABEL[p.size]}. Changer`} title={SIZE_LABEL[p.size]} onClick={p.onResize} className={toolBtn}><Svg d={ICON.resize} className="h-3.5 w-3.5" /></button>
-          <button type="button" aria-label="Masquer ce widget" onClick={p.onRemove} className={toolBtn}><Svg d={ICON.close} className="h-3.5 w-3.5" /></button>
-          <button
-            type="button"
-            aria-label="Glisser pour déplacer"
-            onPointerDown={(e) => controls.start(e)}
-            className={[toolBtn, "cursor-grab touch-none active:cursor-grabbing"].join(" ")}
-          >
-            <Svg d={ICON.grip} className="h-4 w-4" sw={3} />
-          </button>
-        </div>
-      )}
-      {p.children}
-    </motion.section>
-  );
-}
-
-function Title({ isDark, children, hint }: { isDark: boolean; children: ReactNode; hint?: string }) {
-  const t = tone(isDark);
-  return (
-    <div className="mb-4 pr-44">
-      <h2 className={["text-[15px] font-semibold leading-tight", t.text].join(" ")}>{children}</h2>
-      {hint && <p className={["mt-0.5 text-[12.5px] font-medium", t.muted].join(" ")}>{hint}</p>}
+      {initials}
     </div>
   );
 }
 
-/* ============================== Contenus ============================== */
+function ClockDisplay({ isDark }: { isDark: boolean }) {
+  const [now, setNow] = useState(() => new Date());
 
-function AudienceW({ isDark, size, totals, count }: { isDark: boolean; size: Size; totals: { followers: number; likes: number; comments: number }; count: number }) {
-  const t = tone(isDark);
-  const items = [
-    { label: "Abonnés", value: totals.followers },
-    { label: "Likes", value: totals.likes },
-    { label: "Commentaires", value: totals.comments },
-  ];
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const time = now.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const date = now.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
-    <>
-      <Title isDark={isDark} hint={count > 0 ? `Cumul de ${count} réseau${count > 1 ? "x" : ""}` : "Connectez un réseau pour voir vos chiffres"}>
-        Audience
-      </Title>
-      <dl className={["grid flex-1 gap-4", size === "s" ? "grid-cols-1" : "grid-cols-3"].join(" ")}>
-        {items.map((i) => (
-          <div key={i.label} className={["flex flex-col justify-end rounded-2xl p-4", t.soft].join(" ")}>
-            <dt className={["text-[12.5px] font-medium", t.muted].join(" ")}>{i.label}</dt>
-            <dd className={["mt-1 font-display text-[clamp(30px,3.4vw,46px)] font-semibold leading-none tracking-[-0.03em] tabular-nums", i.value > 0 ? t.text : t.faint].join(" ")}>
-              {i.value > 0 ? fmt.format(i.value) : "0"}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </>
+    <div className="flex flex-col items-end">
+      <span
+        className={[
+          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
+          isDark ? "text-white" : "text-neutral-900",
+        ].join(" ")}
+      >
+        {time}
+      </span>
+      <span
+        className={[
+          "mt-0.5 text-[12px] font-medium capitalize",
+          isDark ? "text-neutral-400" : "text-neutral-500",
+        ].join(" ")}
+      >
+        {date}
+      </span>
+    </div>
   );
 }
 
-function ComposeW({ isDark, onCompose }: { isDark: boolean; onCompose: () => void }) {
+
+/* -------------------------------------------------------------------------- */
+/*  Primitives                                                                */
+/* -------------------------------------------------------------------------- */
+
+function Card({
+  isDark,
+  className = "",
+  children,
+}: {
+  isDark: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex h-full flex-col justify-between gap-8 pr-0">
-      <p className={["max-w-[16ch] pt-8 font-display text-[clamp(22px,2.4vw,30px)] font-semibold leading-[1.1] tracking-[-0.02em]"].join(" ")}>
-        Une idée à publier ?
-      </p>
-      <button
-        type="button"
-        onClick={onCompose}
+    <div
+      className={[
+        "flex flex-col rounded-[22px] border p-5",
+        isDark
+          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
+          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({
+  isDark,
+  title,
+  hint,
+  action,
+}: {
+  isDark: boolean;
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <p
+          className={[
+            "text-[15px] font-semibold leading-tight",
+            isDark ? "text-white" : "text-neutral-900",
+          ].join(" ")}
+        >
+          {title}
+        </p>
+        {hint && (
+          <p
+            className={[
+              "mt-0.5 text-[12.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            {hint}
+          </p>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function pillButton(isDark: boolean) {
+  return [
+    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
+    isDark
+      ? "bg-white text-neutral-900 hover:bg-neutral-200"
+      : "bg-neutral-900 text-white hover:bg-neutral-800",
+  ].join(" ");
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Vue d'ensemble : abonnés / likes / commentaires                           */
+/* -------------------------------------------------------------------------- */
+
+type StatKind = "followers" | "likes" | "comments";
+
+function StatIcon({ kind, className }: { kind: StatKind; className?: string }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (kind === "followers") {
+    return (
+      <svg {...common}>
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M3 20c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" />
+        <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.7.7 2.7 2.2 3 4.7" />
+      </svg>
+    );
+  }
+  if (kind === "likes") {
+    return (
+      <svg {...common}>
+        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    </svg>
+  );
+}
+
+function OverviewCard({
+  isDark,
+  totals,
+  networkCount,
+}: {
+  isDark: boolean;
+  totals: { followers: number; likes: number; comments: number };
+  networkCount: number;
+}) {
+  const items: { kind: StatKind; label: string; value: number }[] = [
+    { kind: "followers", label: "Abonnés", value: totals.followers },
+    { kind: "likes", label: "Likes", value: totals.likes },
+    { kind: "comments", label: "Commentaires", value: totals.comments },
+  ];
+
+  return (
+    <Card isDark={isDark} className="h-full">
+      <CardTitle
+        isDark={isDark}
+        title="Vue d'ensemble"
+        hint={
+          networkCount > 0
+            ? `Cumul de vos ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
+            : "Connectez un réseau pour voir vos chiffres"
+        }
+      />
+
+      <div
         className={[
-          "flex w-full items-center justify-center gap-2 rounded-full py-3 text-[14px] font-semibold transition active:scale-[0.98]",
-          isDark ? "bg-neutral-900 text-white hover:bg-neutral-700" : "bg-white text-neutral-900 hover:bg-neutral-200",
+          "grid flex-1 grid-cols-1 sm:grid-cols-3",
+          "divide-y sm:divide-x sm:divide-y-0",
+          isDark ? "divide-white/10" : "divide-black/[0.06]",
         ].join(" ")}
       >
-        <Svg d={ICON.plus} className="h-4 w-4" sw={2.4} />
+        {items.map((item) => (
+          <div
+            key={item.kind}
+            className="flex flex-col justify-center gap-3 py-4 first:pt-0 last:pb-0 sm:px-5 sm:py-0 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div
+              className={[
+                "flex items-center gap-2 text-[12.5px] font-medium",
+                isDark ? "text-neutral-400" : "text-neutral-500",
+              ].join(" ")}
+            >
+              <StatIcon kind={item.kind} className="h-4 w-4" />
+              {item.label}
+            </div>
+            <p
+              className={[
+                "font-display text-[clamp(32px,3.6vw,48px)] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+                isDark ? "text-white" : "text-neutral-900",
+              ].join(" ")}
+            >
+              {numberFormatter.format(item.value)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Série de publications                                                     */
+/* -------------------------------------------------------------------------- */
+
+const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+
+function FlameIcon({ className = "h-7 w-7", color }: { className?: string; color: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none">
+      <path
+        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+function StreakCard({ isDark }: { isDark: boolean }) {
+  const streakCount = 0;
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return WEEKDAYS_FR_SHORT[d.getDay()];
+  });
+
+  return (
+    <Card isDark={isDark} className="h-full justify-between">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p
+            className={[
+              "font-display text-[28px] font-semibold leading-none tracking-[-0.02em]",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {streakCount} {streakCount > 1 ? "jours" : "jour"}
+          </p>
+          <p
+            className={[
+              "mt-1.5 text-[12.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            de publication d'affilée
+          </p>
+        </div>
+        <FlameIcon color={streakCount > 0 ? "#f97316" : isDark ? "#3a3a3d" : "#d9d9d9"} />
+      </div>
+
+      <div className="mt-5 flex items-start justify-between gap-1">
+        {days.map((label, index) => {
+          const done = index < streakCount;
+          return (
+            <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
+              <span
+                className={[
+                  "text-[10.5px] font-semibold leading-none",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
+                ].join(" ")}
+              >
+                {label}
+              </span>
+              <div
+                className={[
+                  "h-7 w-7 rounded-full",
+                  done
+                    ? isDark
+                      ? "bg-white"
+                      : "bg-neutral-900"
+                    : isDark
+                      ? "bg-white/10"
+                      : "bg-neutral-100",
+                  index === 0 && !done
+                    ? isDark
+                      ? "ring-1 ring-white/40"
+                      : "ring-1 ring-neutral-900/30"
+                    : "",
+                ].join(" ")}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Réseaux connectés                                                         */
+/* -------------------------------------------------------------------------- */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  NetworkIcon,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  NetworkIcon?: (props: { className?: string }) => JSX.Element;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const showImage = Boolean(channel.avatarUrl) && !failed;
+  const ring = isDark ? "ring-[#141416]" : "ring-white";
+
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      {showImage ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={["h-full w-full rounded-full object-cover ring-2", ring].join(" ")}
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
+            ring,
+            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
+            ring,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-3 w-3" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ChannelsCard({
+  isDark,
+  channels,
+}: {
+  isDark: boolean;
+  channels: ConnectedChannel[];
+}) {
+  const count = channels.length;
+
+  return (
+    <Card isDark={isDark} className="h-full">
+      <CardTitle
+        isDark={isDark}
+        title="Réseaux connectés"
+        hint={
+          count > 0
+            ? `${count} réseau${count > 1 ? "x" : ""} connecté${count > 1 ? "s" : ""}`
+            : "Aucun réseau pour le moment"
+        }
+        action={
+          <button
+            type="button"
+            onClick={() => navigate("channels")}
+            className={pillButton(isDark)}
+          >
+            <PlusIcon />
+            Connecter
+          </button>
+        }
+      />
+
+      {count === 0 ? (
+        <button
+          type="button"
+          onClick={() => navigate("channels")}
+          className={[
+            "flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed py-8 text-center transition",
+            isDark
+              ? "border-white/15 hover:bg-white/[0.03]"
+              : "border-black/15 hover:bg-neutral-50",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "text-[14px] font-semibold",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            Connectez votre premier réseau
+          </span>
+          <span
+            className={[
+              "text-[12.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            Reliez un canal pour commencer à publier
+          </span>
+        </button>
+      ) : (
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {channels.map((channel) => {
+            const networkId = getNetworkId(channel);
+            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
+            const followers = readStat(channel, [
+              "followers",
+              "followersCount",
+              "followers_count",
+              "subscribers",
+              "subscribersCount",
+            ]);
+            return (
+              <div
+                key={channel.key}
+                className={[
+                  "flex items-center gap-3 rounded-2xl px-3 py-2.5",
+                  isDark ? "bg-white/[0.04]" : "bg-neutral-50",
+                ].join(" ")}
+              >
+                <ChannelAvatar channel={channel} isDark={isDark} NetworkIcon={NetworkIcon} />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={[
+                      "truncate text-[13.5px] font-semibold leading-tight",
+                      isDark ? "text-white" : "text-neutral-900",
+                    ].join(" ")}
+                  >
+                    {channel.handle || channel.name}
+                  </p>
+                  <p
+                    className={[
+                      "mt-0.5 text-[12px] font-medium tabular-nums",
+                      isDark ? "text-neutral-400" : "text-neutral-500",
+                    ].join(" ")}
+                  >
+                    {numberFormatter.format(followers)} abonnés
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Action principale                                                         */
+/* -------------------------------------------------------------------------- */
+
+function ComposeCard({ isDark, onPlan }: { isDark: boolean; onPlan: () => void }) {
+  return (
+    <div
+      className={[
+        "flex h-full flex-col justify-between gap-6 rounded-[22px] p-5",
+        isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      <div>
+        <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em]">
+          Une idée de publication ?
+        </p>
+        <p
+          className={[
+            "mt-1.5 text-[13px] font-medium",
+            isDark ? "text-neutral-600" : "text-neutral-400",
+          ].join(" ")}
+        >
+          Rédigez-la maintenant ou planifiez-la sur vos réseaux.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onPlan}
+        className={[
+          "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13.5px] font-semibold transition",
+          isDark
+            ? "bg-neutral-900 text-white hover:bg-neutral-700"
+            : "bg-white text-neutral-900 hover:bg-neutral-200",
+        ].join(" ")}
+      >
+        <PlusIcon className="h-4 w-4" />
         Nouvelle publication
       </button>
     </div>
   );
 }
 
-function WeekW({ isDark, now, onCompose }: { isDark: boolean; now: Date; onCompose: () => void }) {
-  const t = tone(isDark);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
+function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <>
-      <Title isDark={isDark} hint="Touchez un jour pour planifier une publication">Cette semaine</Title>
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((d) => {
-          const count = SCHEDULED.filter((s) => s.date === dayKey(d)).length;
-          const isToday = d.getTime() === today.getTime();
-          const past = d.getTime() < today.getTime();
-          return (
-            <button
-              key={d.toISOString()}
-              type="button"
-              disabled={past}
-              onClick={onCompose}
-              aria-label={d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-              className={[
-                "flex min-h-[96px] flex-col items-center justify-between rounded-2xl px-1 py-3 transition",
-                isToday ? (isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white") : [t.soft, past ? "opacity-50" : t.hover].join(" "),
-                t.focus,
-              ].join(" ")}
-            >
-              <span className={["text-[12px] font-semibold capitalize", isToday ? "opacity-70" : t.muted].join(" ")}>
-                {d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}
-              </span>
-              <span className={["font-display text-[24px] font-semibold leading-none tabular-nums", isToday ? "" : t.text].join(" ")}>{d.getDate()}</span>
-              <span className={["text-[11px] font-semibold", isToday ? "opacity-70" : t.muted].join(" ")}>
-                {count > 0 ? `${count} post${count > 1 ? "s" : ""}` : past ? "" : "Libre"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </>
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
   );
 }
 
-function ChannelsW({ isDark, size, channels }: { isDark: boolean; size: Size; channels: ConnectedChannel[] }) {
-  const t = tone(isDark);
-  return (
-    <>
-      <Title isDark={isDark} hint={channels.length > 0 ? `${channels.length} connecté${channels.length > 1 ? "s" : ""}` : "Aucun réseau pour le moment"}>
-        Réseaux
-      </Title>
-      <ul className={["grid gap-2", size === "s" ? "grid-cols-1" : "sm:grid-cols-2"].join(" ")}>
-        {channels.map((c) => {
-          const id = getNetworkId(c);
-          const Icon = id ? NETWORK_ICONS[id] : undefined;
-          return (
-            <li key={c.key} className={["flex items-center gap-3 rounded-2xl p-2.5", t.soft].join(" ")}>
-              <div className="relative">
-                <Avatar src={c.avatarUrl} label={c.handle || c.name} isDark={isDark} size={38} />
-                {Icon && (
-                  <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-2 ring-white dark:ring-[#141416]">
-                    <Icon className="h-2.5 w-2.5" />
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 leading-tight">
-                <p className={["truncate text-[13.5px] font-semibold", t.text].join(" ")}>{c.handle || c.name}</p>
-                <p className={["text-[12px] font-medium tabular-nums", t.muted].join(" ")}>{fmt.format(readStat(c, FOLLOWER_KEYS))} abonnés</p>
-              </div>
-            </li>
-          );
-        })}
-        <li>
-          <button
-            type="button"
-            onClick={() => navigate("channels")}
-            className={["flex h-full min-h-[58px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed text-[13px] font-semibold transition", isDark ? "border-white/15" : "border-black/15", t.text, t.hover, t.focus].join(" ")}
-          >
-            <Svg d={ICON.plus} className="h-3.5 w-3.5" />
-            {channels.length > 0 ? "Ajouter un réseau" : "Connecter un réseau"}
-          </button>
-        </li>
-      </ul>
-    </>
-  );
-}
+type BlogPostDefinition = {
+  title: string;
+  date: string;
+  imageUrl: string;
+  href: string;
+};
 
-const BLOG_POSTS = [
-  { title: "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide", date: "24 juil. 2026", img: "stone-blog-strategy" },
-  { title: "17 Best AI Tools for Social Media Content Creation (Tested for 2026)", date: "3 août 2026", img: "stone-blog-ai-tools" },
-  { title: "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro", date: "6 juil. 2026", img: "stone-blog-multi-account" },
+const blogPostDefinitions: BlogPostDefinition[] = [
+  {
+    title: "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide",
+    date: "Jul 24, 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-strategy/800/560",
+    href: "#",
+  },
+  {
+    title: "17 Best AI Tools for Social Media Content Creation (Tested for 2026)",
+    date: "Aug 3, 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/800/560",
+    href: "#",
+  },
+  {
+    title: "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro",
+    date: "Jul 6, 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/800/560",
+    href: "#",
+  },
 ];
 
-function BlogW({ isDark, size }: { isDark: boolean; size: Size }) {
-  const t = tone(isDark);
-  const wide = size === "l";
+function BlogPostCard({
+  isDark,
+  post,
+}: {
+  isDark: boolean;
+  post: BlogPostDefinition;
+}) {
   return (
-    <>
-      <Title isDark={isDark}>À lire</Title>
-      <ul className={wide ? "grid gap-5 sm:grid-cols-3" : "space-y-3"}>
-        {BLOG_POSTS.map((p) => (
-          <li key={p.img}>
-            <a href="#" className={["group flex gap-3 rounded-xl", wide ? "flex-col" : "items-center", t.focus].join(" ")}>
-              <img
-                src={`https://picsum.photos/seed/${p.img}/${wide ? "640/400" : "160/160"}`}
-                alt=""
-                loading="lazy"
-                className={["object-cover", wide ? "aspect-[8/5] w-full rounded-2xl" : "h-14 w-14 shrink-0 rounded-xl"].join(" ")}
-              />
-              <div className="min-w-0">
-                <p className={["line-clamp-2 text-[13px] font-semibold leading-snug group-hover:underline", t.text].join(" ")}>{p.title}</p>
-                <p className={["mt-1 text-[11.5px] font-medium", t.muted].join(" ")}>{p.date}</p>
-              </div>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </>
+    <a
+      href={post.href}
+      className={[
+        "group flex flex-col overflow-hidden rounded-[22px] border transition",
+        isDark
+          ? "border-white/10 bg-[#141416] hover:bg-[#19191c]"
+          : "border-black/[0.06] bg-white hover:bg-neutral-50",
+        isDark
+          ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
+          : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+      ].join(" ")}
+    >
+      <div className="h-[150px] w-full shrink-0 overflow-hidden">
+        <img
+          src={post.imageUrl}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+        />
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-2 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="rounded-full bg-pink-100 px-3 py-1 text-[11px] font-semibold text-pink-600">
+            Blog post
+          </span>
+          <span
+            className={[
+              "text-[11.5px] font-medium",
+              isDark ? "text-neutral-500" : "text-neutral-400",
+            ].join(" ")}
+          >
+            {post.date}
+          </span>
+        </div>
+
+        <div className="flex items-end justify-between gap-3">
+          <p
+            className={[
+              "line-clamp-2 text-[13.5px] font-bold leading-snug",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {post.title}
+          </p>
+
+          <span
+            className={[
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
+              isDark
+                ? "text-neutral-400 group-hover:bg-white/10 group-hover:text-white"
+                : "text-neutral-400 group-hover:bg-black/5 group-hover:text-neutral-900",
+            ].join(" ")}
+          >
+            <ArrowRightIcon className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </div>
+    </a>
   );
 }
 
-/* ============================== Page ============================== */
+function FromTheBlogSection({ isDark }: { isDark: boolean }) {
+  return (
+    <div className="mt-auto flex flex-col pt-12 lg:pt-20">
+      <p
+        className={[
+          "shrink-0 text-[13px] font-medium",
+          isDark ? "text-neutral-400" : "text-neutral-500",
+        ].join(" ")}
+      >
+        From the Blog
+      </p>
+
+      <div className="mt-3 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {blogPostDefinitions.map((post) => (
+          <BlogPostCard key={post.title} isDark={isDark} post={post} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const t = tone(isDark);
-  const now = useNow();
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [layout, setLayout] = useState<Layout>(loadLayout);
-
-  const refs = useRef<Partial<Record<WidgetId, HTMLElement | null>>>({});
-  const lastSwap = useRef(0);
 
   const connectedChannels = useConnectedChannels();
-  const totals = useMemo(() => computeTotals(connectedChannels), [connectedChannels]);
+  const totals = useMemo(
+    () => computeTotals(connectedChannels),
+    [connectedChannels]
+  );
+
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
-    } catch {
-      /* stockage indisponible */
-    }
-  }, [layout]);
-
-  useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    const loadUser = async () => {
       try {
-        const data = await getCurrentUser();
-        if (mounted && data) {
-          userProfileCache.profile = data;
-          setUser(data);
+        const userData = await getCurrentUser();
+        if (mounted && userData) {
+          userProfileCache.profile = userData;
+          setUser(userData);
         }
       } catch (error) {
         console.error("Error loading user on Home:", error);
       }
-    })();
+    };
+
+    loadUser();
     return () => {
       mounted = false;
     };
   }, []);
 
-  const moveTo = (id: WidgetId, to: number) =>
-    setLayout((l) => {
-      const from = l.order.indexOf(id);
-      if (from === -1 || from === to || to < 0 || to >= l.order.length) return l;
-      const order = [...l.order];
-      order.splice(from, 1);
-      order.splice(to, 0, id);
-      return { ...l, order };
-    });
+  const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+  const initials =
+    `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
 
-  const handleDragOver = (id: WidgetId, p: { x: number; y: number }) => {
-    if (performance.now() - lastSwap.current < 260) return;
-    for (const other of layout.order) {
-      if (other === id) continue;
-      const r = refs.current[other]?.getBoundingClientRect();
-      if (r && p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom) {
-        lastSwap.current = performance.now();
-        moveTo(id, layout.order.indexOf(other));
-        break;
-      }
-    }
-  };
-
-  const resize = (id: WidgetId) => setLayout((l) => ({ ...l, sizes: { ...l.sizes, [id]: NEXT[l.sizes[id]] } }));
-  const hide = (id: WidgetId) => setLayout((l) => ({ ...l, order: l.order.filter((x) => x !== id), hidden: [...l.hidden, id] }));
-  const show = (id: WidgetId) => setLayout((l) => ({ ...l, hidden: l.hidden.filter((x) => x !== id), order: [...l.order, id] }));
-
-  const openCompose = () => {
-    setIsFolderOpen(false);
-    setIsNewPostOpen(true);
-  };
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
   };
+
   const handleBottomBarChange = (id: BottomBarTab) => {
-    if (id === "add") openCompose();
-    if (id === "files") setIsFolderOpen((o) => !o);
-  };
-
-  const hour = now.getHours();
-  const hello = hour >= 18 || hour < 5 ? "Bonsoir" : "Bonjour";
-  const initials = `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}` || "U";
-  const dateLabel = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-
-  const renderWidget = (id: WidgetId): ReactNode => {
-    const size = layout.sizes[id];
     switch (id) {
-      case "audience": return <AudienceW isDark={isDark} size={size} totals={totals} count={connectedChannels.length} />;
-      case "compose": return <ComposeW isDark={isDark} onCompose={openCompose} />;
-      case "week": return <WeekW isDark={isDark} now={now} onCompose={openCompose} />;
-      case "channels": return <ChannelsW isDark={isDark} size={size} channels={connectedChannels} />;
-      case "blog": return <BlogW isDark={isDark} size={size} />;
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
     }
   };
 
-  const ghost = [
-    "inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13.5px] font-semibold transition",
-    t.soft, t.text, t.hover, t.focus,
-  ].join(" ");
-
   return (
-    <main className={["relative h-screen w-full overflow-hidden transition-colors duration-500", isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]"].join(" ")}>
+    <main
+      className={[
+        "relative h-screen w-full overflow-hidden transition-colors duration-500",
+        isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+      ].join(" ")}
+    >
       <DashboardSidebar theme={theme} />
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-[clamp(16px,3vw,40px)] pb-[130px] pt-[clamp(20px,2.6vw,36px)]">
-            <header className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <Avatar src={user?.avatar_url} label={initials} isDark={isDark} size={48} />
-                <div>
-                  <h1 className={["font-display text-[clamp(24px,2.8vw,36px)] font-semibold leading-none tracking-[-0.03em]", t.text].join(" ")}>
-                    {hello}{user?.first_name ? `, ${user.first_name}` : ""}
-                  </h1>
-                  <p className={["mt-1.5 text-[13px] font-medium capitalize", t.muted].join(" ")}>
-                    {dateLabel} · {now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
+          <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h1
+                  className={[
+                    "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
+                    isDark ? "text-white" : "text-neutral-900",
+                  ].join(" ")}
+                >
+                  Bonjour{fullName ? `, ${fullName}` : ""}
+                </h1>
+                <GreetingAvatar
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  isDark={isDark}
+                />
               </div>
-
-              <div className="flex items-center gap-2">
-                {editing && (
-                  <button type="button" onClick={() => setLayout(DEFAULT_LAYOUT)} className={ghost}>
-                    Réinitialiser
-                  </button>
-                )}
-                <button type="button" onClick={() => setEditing((e) => !e)} aria-pressed={editing} className={ghost}>
-                  <Svg d={ICON.sliders} className="h-4 w-4" />
-                  {editing ? "Terminé" : "Personnaliser"}
-                </button>
-              </div>
+              <ClockDisplay isDark={isDark} />
             </header>
 
-            {editing && (
-              <p className={["rounded-2xl px-4 py-3 text-[13px] font-medium", t.soft, t.muted].join(" ")}>
-                Glissez les widgets par la poignée, changez leur taille ou masquez-les. Votre disposition est enregistrée automatiquement.
-              </p>
-            )}
-
-            <div className="grid grid-cols-12 gap-4">
-              {layout.order.map((id, i) => (
-                <Shell
-                  key={id}
-                  id={id}
-                  size={layout.sizes[id]}
-                  editing={editing}
+            {/* Rangée 1 : chiffres clés + série */}
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="lg:col-span-8">
+                <OverviewCard
                   isDark={isDark}
-                  invert={id === "compose"}
-                  first={i === 0}
-                  last={i === layout.order.length - 1}
-                  register={(wid, el) => { refs.current[wid] = el; }}
-                  onDragOver={handleDragOver}
-                  onResize={() => resize(id)}
-                  onRemove={() => hide(id)}
-                  onMove={(dir) => moveTo(id, i + dir)}
-                >
-                  {renderWidget(id)}
-                </Shell>
-              ))}
-            </div>
-
-            {editing && layout.hidden.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={["text-[13px] font-medium", t.muted].join(" ")}>Widgets masqués</span>
-                {layout.hidden.map((id) => (
-                  <button key={id} type="button" onClick={() => show(id)} className={ghost}>
-                    <Svg d={ICON.plus} className="h-3.5 w-3.5" sw={2.4} />
-                    {TITLES[id]}
-                  </button>
-                ))}
+                  totals={totals}
+                  networkCount={connectedChannels.length}
+                />
               </div>
-            )}
+              <div className="lg:col-span-4">
+                <StreakCard isDark={isDark} />
+              </div>
+            </section>
+
+            {/* Rangée 2 : réseaux + action */}
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="lg:col-span-8">
+                <ChannelsCard isDark={isDark} channels={connectedChannels} />
+              </div>
+              <div className="lg:col-span-4">
+                <ComposeCard isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
+              </div>
+            </section>
+
+            <FromTheBlogSection isDark={isDark} />
           </div>
         </div>
       </div>
 
-      <Folder isOpen={isFolderOpen} onClose={() => setIsFolderOpen(false)} isDark={isDark} offsetLeft={SIDEBAR_OFFSET} />
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={SIDEBAR_OFFSET}
+      />
 
       <BottomBar
         isDark={isDark}
@@ -642,7 +951,13 @@ export default function Home() {
         onQueryChange={setQuery}
       />
 
-      <NewPostModal isOpen={isNewPostOpen} onClose={() => setIsNewPostOpen(false)} isDark={isDark} onSubmit={handleCreatePost} />
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+      />
+
       <HelpChatButton isDark={isDark} />
     </main>
   );
