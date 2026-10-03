@@ -222,23 +222,6 @@ function PuzzleIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function CalendarIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
-      <path d="M3.5 10h17M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
 function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
@@ -528,7 +511,7 @@ function ConnectedChannelsCard({
 }
 
 /* ============================================================================
-   Petites cartes : série, intégrations, publications
+   Petites cartes : série, intégrations
 ============================================================================ */
 
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
@@ -617,34 +600,6 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
 
         <PillButton isDark={isDark} onClick={() => navigate("integrations")}>
           Gérer
-        </PillButton>
-      </div>
-    </DashboardCard>
-  );
-}
-
-function UpcomingPostsCard({
-  isDark,
-  onPlan,
-}: {
-  isDark: boolean;
-  onPlan: () => void;
-}) {
-  return (
-    <DashboardCard isDark={isDark}>
-      <CardTitle
-        isDark={isDark}
-        title="Aucune publication"
-        subtitle="Publications à venir"
-      />
-
-      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-        <IconTile isDark={isDark}>
-          <CalendarIcon />
-        </IconTile>
-
-        <PillButton isDark={isDark} onClick={onPlan}>
-          Planifier
         </PillButton>
       </div>
     </DashboardCard>
@@ -877,9 +832,9 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Grille : une grande carte + trois petites sur la même ligne */}
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-[2.5fr_1fr_1fr_1fr]">
-              <div className="sm:col-span-3 lg:col-span-1">
+            {/* Grille : une grande carte + deux petites sur la même ligne */}
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
+              <div className="sm:col-span-2 lg:col-span-1">
                 <ConnectedChannelsCard
                   isDark={isDark}
                   channels={connectedChannels}
@@ -888,10 +843,6 @@ export default function Home() {
 
               <StreakCard isDark={isDark} />
               <IntegrationsCard isDark={isDark} />
-              <UpcomingPostsCard
-                isDark={isDark}
-                onPlan={() => setIsNewPostOpen(true)}
-              />
             </div>
 
             <FromTheBlogSection isDark={isDark} />
