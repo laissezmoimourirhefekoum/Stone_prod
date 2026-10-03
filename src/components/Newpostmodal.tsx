@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import { 
   Maximize2, Minimize2, X, Tag, FileText, 
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
@@ -260,277 +261,123 @@ function ChannelTile({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Sélecteur d'emoji
+   Sélecteur d'emoji (frimousse) — noir et blanc
+   - Thème clair : emoji en noir sur fond blanc
+   - Thème sombre : emoji en blanc sur fond noir
+   La police « Noto Emoji » est monochrome : elle prend la couleur du texte.
+   Si elle n'est pas chargée, les emoji système sont passés en niveaux de gris.
    ────────────────────────────────────────────────────────────── */
 
-type EmojiCategory = {
-  id: string;
-  label: string;
-  icon: string;
-  emojis: string[];
-};
+const EMOJI_FONT =
+  '"Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
-const EMOJI_CATEGORIES: EmojiCategory[] = [
-  {
-    id: "smileys",
-    label: "Smileys",
-    icon: "😀",
-    emojis: "😀 😃 😄 😁 😆 😅 😂 🤣 🥲 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🫡 🤭 🫢 🤫 🫠 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 🤖 🎃".split(" "),
-  },
-  {
-    id: "people",
-    label: "Gestes et personnes",
-    icon: "👍",
-    emojis: "👍 👎 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🙌 👏 🫶 👐 🤲 🫂 👀 👁️ 👂 👃 🧠 🫀 👄 👶 🧒 👦 👧 🧑 👨 👩 🧔 👴 👵 🙋 🙆 🙅 🤷 🤦 💁 🙇 🕺 💃".split(" "),
-  },
-  {
-    id: "symbols",
-    label: "Cœurs et symboles",
-    icon: "❤️",
-    emojis: "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ✨ 🌟 ⭐ 💫 ⚡ 🔥 💥 💯 ✅ ❌ ❓ ❗ ‼️ ⚠️ 🚫 ♻️ ➕ ➖ ➡️ ⬅️ ⬆️ ⬇️ 🔔 🔕 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🆕 🆒 🆓 🔝 🔜 ✔️ ☑️ 💬 💭 🗯️".split(" "),
-  },
-  {
-    id: "nature",
-    label: "Animaux et nature",
-    icon: "🐶",
-    emojis: "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐴 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🐙 🦑 🐠 🐬 🐳 🦈 🐘 🦒 🌵 🎄 🌲 🌳 🌴 🌱 🌿 ☘️ 🍀 🍁 🍂 🍃 🌸 🌼 🌻 🌹 🌷 💐 🍄 🌎 🌙 ☀️ ⛅ ☁️ 🌧️ ⛈️ ❄️ ☃️ 🌈 🌊".split(" "),
-  },
-  {
-    id: "food",
-    label: "Nourriture et boissons",
-    icon: "🍕",
-    emojis: "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥦 🥕 🌽 🌶️ 🥐 🍞 🥖 🧀 🥚 🍳 🥞 🥓 🥩 🍗 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🥗 🍝 🍜 🍲 🍣 🍱 🍤 🍙 🍚 🍦 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍭 🍿 ☕ 🍵 🧃 🥤 🍺 🍻 🥂 🍷 🍸 🍹 🍾".split(" "),
-  },
-  {
-    id: "activities",
-    label: "Activités",
-    icon: "⚽",
-    emojis: "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥊 🥋 ⛳ 🏹 🎣 🛹 ⛸️ 🎿 🏆 🥇 🥈 🥉 🏅 🎖️ 🎫 🎭 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎷 🎺 🎸 🎻 🎲 🎯 🎮 🎰 🧩".split(" "),
-  },
-  {
-    id: "travel",
-    label: "Voyages et lieux",
-    icon: "✈️",
-    emojis: "🚗 🚕 🚙 🚌 🏎️ 🚓 🚑 🚒 🚚 🚜 🛵 🏍️ 🚲 ✈️ 🚀 🛸 🚁 ⛵ 🚤 🚢 🚂 🚆 🗺️ 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🏖️ 🏝️ 🏔️ ⛰️ 🌋 🏕️ 🏠 🏡 🏢 🏥 🏦 🏨 ⛪ 🕌 🌃 🌆 🌇 🌉".split(" "),
-  },
-  {
-    id: "objects",
-    label: "Objets",
-    icon: "💡",
-    emojis: "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 📷 📸 📹 🎥 📺 📻 ⏰ 💡 🔦 🔋 💰 💳 💎 🔧 🔨 ⚙️ 🔗 📌 📎 ✂️ 📝 ✏️ 🖊️ 📚 📖 📅 📆 📊 📈 📉 📢 📣 🔍 🔒 🔑 🎁 🎈 🎉 🎊 🛍️ 🛒 📦 ✉️ 📧 📩 🏷️".split(" "),
-  },
-];
-
-const RECENT_EMOJIS_KEY = "stone_recent_emojis";
-const MAX_RECENT_EMOJIS = 16;
-
-function loadRecentEmojis(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENT_EMOJIS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((item): item is string => typeof item === "string")
-      .slice(0, MAX_RECENT_EMOJIS);
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentEmojis(list: string[]): void {
-  try {
-    localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(list));
-  } catch {
-    // localStorage indisponible : les récents restent en mémoire
-  }
-}
-
-// Grille d'une catégorie. Mémoïsée : elle n'est rendue qu'une fois et ne bouge
-// plus (changer de catégorie ne fait que la masquer / l'afficher).
-const EmojiGrid = memo(function EmojiGrid({
-  emojis,
-  visible,
+function EmojiPickerPanel({
   isDark,
-}: {
-  emojis: string[];
-  visible: boolean;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "h-[200px] grid-cols-8 content-start gap-0.5 overflow-y-auto px-2 pb-2",
-        visible ? "grid" : "hidden",
-      ].join(" ")}
-    >
-      {emojis.map((emoji) => (
-        <button
-          key={emoji}
-          type="button"
-          data-emoji={emoji}
-          className={[
-            "flex h-8 w-8 items-center justify-center rounded-lg text-[20px] leading-none",
-            isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]",
-          ].join(" ")}
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
-  );
-});
-
-const EmojiPicker = memo(function EmojiPicker({
-  isDark,
-  recent,
   onPick,
 }: {
   isDark: boolean;
-  recent: string[];
   onPick: (emoji: string) => void;
 }) {
-  const [activeId, setActiveId] = useState<string>(
-    recent.length > 0 ? "recent" : "smileys"
+  // Les composants internes sont recréés seulement si le thème change.
+  const components = useMemo(
+    () => ({
+      CategoryHeader: ({
+        category,
+        ...props
+      }: {
+        category: { label: string };
+      } & React.HTMLAttributes<HTMLDivElement>) => (
+        <div
+          className={[
+            "px-3 pb-1.5 pt-3 text-[11.5px] font-semibold",
+            isDark ? "bg-[#1c1c1e] text-neutral-400" : "bg-white text-neutral-500",
+          ].join(" ")}
+          {...props}
+        >
+          {category.label}
+        </div>
+      ),
+      Row: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+        <div className="scroll-my-1.5 px-1.5" {...props}>
+          {children}
+        </div>
+      ),
+      Emoji: ({
+        emoji,
+        ...props
+      }: {
+        emoji: { emoji: string };
+      } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+        <button
+          {...props}
+          style={{ ...props.style, fontFamily: EMOJI_FONT }}
+          className={[
+            "flex size-9 items-center justify-center rounded-lg text-[22px] grayscale",
+            isDark
+              ? "text-white data-[active]:bg-white/15"
+              : "text-neutral-900 data-[active]:bg-black/[0.07]",
+          ].join(" ")}
+        >
+          {emoji.emoji}
+        </button>
+      ),
+    }),
+    [isDark]
   );
-
-  // Catégories déjà rendues. On en monte une seule à l'ouverture,
-  // les autres sont préparées en arrière-plan (voir l'effet plus bas).
-  const [mounted, setMounted] = useState<Set<string>>(
-    () => new Set([recent.length > 0 ? "recent" : "smileys"])
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    let index = 0;
-
-    const schedule = (callback: () => void) => {
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(callback, { timeout: 400 });
-      } else {
-        window.setTimeout(callback, 60);
-      }
-    };
-
-    const step = () => {
-      if (cancelled || index >= EMOJI_CATEGORIES.length) return;
-      const id = EMOJI_CATEGORIES[index].id;
-      index += 1;
-      setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-      schedule(step);
-    };
-
-    schedule(step);
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const tabs: EmojiCategory[] = useMemo(
-    () => [
-      ...(recent.length > 0
-        ? [{ id: "recent", label: "Récents", icon: "🕘", emojis: recent }]
-        : []),
-      ...EMOJI_CATEGORIES,
-    ],
-    [recent]
-  );
-
-  const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
-
-  const selectTab = (id: string) => {
-    // Si la catégorie n'est pas encore prête, on la monte tout de suite.
-    setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-    setActiveId(id);
-  };
-
-  // On garde le focus (et donc le curseur) dans le champ de texte.
-  const keepFocus = (event: React.MouseEvent) => event.preventDefault();
-
-  // Un seul gestionnaire de clic pour tous les emoji (au lieu de ~450).
-  const handleGridClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      "button[data-emoji]"
-    );
-    const emoji = button?.dataset.emoji;
-    if (emoji) onPick(emoji);
-  };
 
   return (
     <div
       role="dialog"
       aria-label="Choisir un emoji"
       className={[
-        "absolute bottom-full left-0 z-50 mb-2 w-[320px] overflow-hidden rounded-xl border shadow-2xl",
+        "absolute bottom-full left-0 z-50 mb-2 overflow-hidden rounded-xl border shadow-2xl",
         isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
       ].join(" ")}
     >
-      <div
-        className={[
-          "flex items-center gap-0.5 border-b px-2 py-1.5",
-          isDark ? "border-white/10" : "border-black/10",
-        ].join(" ")}
+      <FrimousseEmojiPicker.Root
+        locale="fr"
+        columns={8}
+        onEmojiSelect={({ emoji }) => onPick(emoji)}
+        className="isolate flex h-[340px] w-[300px] flex-col"
       >
-        {tabs.map((tab) => {
-          const isActive = tab.id === active.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              title={tab.label}
-              aria-label={tab.label}
-              aria-pressed={isActive}
-              onMouseDown={keepFocus}
-              onClick={() => selectTab(tab.id)}
-              className={[
-                "flex h-8 w-8 items-center justify-center rounded-lg text-[17px]",
-                isActive
-                  ? isDark
-                    ? "bg-white/15"
-                    : "bg-neutral-200"
-                  : isDark
-                  ? "opacity-60 hover:bg-white/10 hover:opacity-100"
-                  : "opacity-60 hover:bg-black/5 hover:opacity-100",
-              ].join(" ")}
-            >
-              {tab.icon}
-            </button>
-          );
-        })}
-      </div>
+        <FrimousseEmojiPicker.Search
+          placeholder="Rechercher un emoji"
+          className={[
+            "z-10 mx-2 mt-2 appearance-none rounded-lg px-3 py-2 text-[13px] outline-none",
+            isDark
+              ? "bg-white/10 text-white placeholder:text-neutral-500"
+              : "bg-neutral-100 text-neutral-900 placeholder:text-neutral-400",
+          ].join(" ")}
+        />
 
-      <p
-        className={[
-          "px-3 pb-1 pt-2 text-[11.5px] font-semibold",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        {active.label}
-      </p>
+        <FrimousseEmojiPicker.Viewport className="relative flex-1 outline-none">
+          <FrimousseEmojiPicker.Loading
+            className={[
+              "absolute inset-0 flex items-center justify-center text-[13px]",
+              isDark ? "text-neutral-500" : "text-neutral-400",
+            ].join(" ")}
+          >
+            Chargement…
+          </FrimousseEmojiPicker.Loading>
 
-      <div onMouseDown={keepFocus} onClick={handleGridClick}>
-        {recent.length > 0 && (
-          <EmojiGrid
-            emojis={recent}
-            visible={active.id === "recent"}
-            isDark={isDark}
+          <FrimousseEmojiPicker.Empty
+            className={[
+              "absolute inset-0 flex items-center justify-center text-[13px]",
+              isDark ? "text-neutral-500" : "text-neutral-400",
+            ].join(" ")}
+          >
+            Aucun emoji trouvé.
+          </FrimousseEmojiPicker.Empty>
+
+          <FrimousseEmojiPicker.List
+            className="select-none pb-1.5"
+            components={components}
           />
-        )}
-
-        {EMOJI_CATEGORIES.map((category) =>
-          mounted.has(category.id) ? (
-            <EmojiGrid
-              key={category.id}
-              emojis={category.emojis}
-              visible={active.id === category.id}
-              isDark={isDark}
-            />
-          ) : null
-        )}
-      </div>
+        </FrimousseEmojiPicker.Viewport>
+      </FrimousseEmojiPicker.Root>
     </div>
   );
-});
+}
 
 /* ──────────────────────────────────────────────────────────────
    Composant principal
@@ -557,7 +404,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => loadRecentEmojis());
 
   // Réseaux connectés (cache partagé avec la page Channels) :
   // TikTok, YouTube, Pinterest... tous sont affichés.
@@ -572,12 +418,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const emojiWrapRef = useRef<HTMLDivElement>(null);
   // Dernière position du curseur dans le texte (null = jamais placé : on ajoute à la fin).
   const caretRef = useRef<{ start: number; end: number } | null>(null);
-  // Référence vers la dernière version de insertEmoji : le sélecteur reçoit
-  // ainsi une fonction stable et ne se re-rend pas à chaque frappe.
-  const insertEmojiRef = useRef<(emoji: string) => void>(() => {});
-  const handlePickEmoji = useCallback((emoji: string) => {
-    insertEmojiRef.current(emoji);
-  }, []);
 
   const timeMin = useMemo(() => {
     const now = new Date();
@@ -769,13 +609,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     setContent(next);
     caretRef.current = { start: position, end: position };
 
-    // Les emoji récents : le plus récent en premier, sans doublon.
-    setRecentEmojis((prev) => {
-      const updated = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, MAX_RECENT_EMOJIS);
-      saveRecentEmojis(updated);
-      return updated;
-    });
-
     // On remet le curseur juste après l'emoji une fois le texte mis à jour.
     requestAnimationFrame(() => {
       const el = textareaRef.current;
@@ -784,8 +617,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       el.setSelectionRange(position, position);
     });
   };
-
-  insertEmojiRef.current = insertEmoji;
 
   const toggleNetwork = (id: SocialNetworkId) => {
     setNetworks((prev) =>
@@ -1195,11 +1026,7 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
                 </button>
 
                 {showEmojiPicker && (
-                  <EmojiPicker
-                    isDark={isDark}
-                    recent={recentEmojis}
-                    onPick={handlePickEmoji}
-                  />
+                  <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
                 )}
               </div>
               <button

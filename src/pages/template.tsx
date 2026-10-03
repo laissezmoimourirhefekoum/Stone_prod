@@ -46,73 +46,8 @@ const sampleData: Record<string, string> = {
    Mock data
 ============================================================================ */
 
-/* Templates "classiques" (créés / édités par l'utilisateur) */
-const initialTemplates: Template[] = [
-  {
-    id: "t1",
-    kind: "captions",
-    name: "Lancement produit",
-    description: "Annonce courte et énergique pour un nouveau produit.",
-    content:
-      "🚀 {{product}} est là ! {{benefit}}. Découvrez-le sur {{link}} #{{hashtag}}",
-    tags: ["produit", "lancement"],
-    usage: 12,
-    updatedAt: "2025-02-10",
-  },
-  {
-    id: "t2",
-    kind: "captions",
-    name: "Conseil rapide",
-    description: "Format tips pour les réseaux.",
-    content:
-      "💡 Le tip du jour : {{benefit}}. Enregistre ce post pour plus tard !",
-    tags: ["tips", "growth"],
-    usage: 8,
-    updatedAt: "2025-02-08",
-  },
-  {
-    id: "t3",
-    kind: "hashtags",
-    name: "Pack growth FR",
-    description:
-      "Hashtags génériques pour toucher une audience francophone.",
-    content: "#growth #marketing #startup #buildinpublic #indiehacker",
-    tags: ["growth", "francophone"],
-    usage: 24,
-    updatedAt: "2025-02-11",
-  },
-  {
-    id: "t4",
-    kind: "hashtags",
-    name: "Pack design",
-    description: "Pour les posts design / UI.",
-    content: "#design #ui #ux #figma #productdesign",
-    tags: ["design", "ui"],
-    usage: 5,
-    updatedAt: "2025-02-05",
-  },
-  {
-    id: "t5",
-    kind: "replies",
-    name: "Remerciement",
-    description: "Réponse courte pour remercier un commentaire.",
-    content: "Merci beaucoup {{name}} ! 🙏 Ça fait plaisir à lire.",
-    tags: ["community", "merci"],
-    usage: 17,
-    updatedAt: "2025-02-09",
-  },
-  {
-    id: "t6",
-    kind: "replies",
-    name: "Question ouverte",
-    description: "Relance la discussion sous un post.",
-    content:
-      "Très bonne question ! Et toi {{name}}, tu utilises quoi aujourd'hui ?",
-    tags: ["engagement", "question"],
-    usage: 6,
-    updatedAt: "2025-02-07",
-  },
-];
+/* Aucun template par défaut : l'utilisateur démarre à vide. */
+const initialTemplates: Template[] = [];
 
 /* Featured templates (section teintée verte) */
 type FeaturedTemplate = {
@@ -285,12 +220,6 @@ const XIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   </Svg>
 );
 
-const SparkIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <Svg className={className}>
-    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
-  </Svg>
-);
-
 const ChevronRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <Svg className={className}>
     <path d="m9 6 6 6-6 6" />
@@ -320,7 +249,7 @@ function useSidebarCollapsed() {
 }
 
 /* ============================================================================
-   Carte "prompt" (avec emoji) — utilisée dans Featured / Tip / Case Study
+   Carte "prompt" (avec emoji)
 ============================================================================ */
 
 function PromptCard({
@@ -518,7 +447,13 @@ export default function TemplatesPage() {
             modal: "border-white/10 bg-[#111112]",
             divider: "border-white/10",
             iconBtn: "hover:bg-white/10 text-[#d7d7d2]",
-            empty: "text-[#99a2a2]",
+
+            /* Empty state (comme l'image) */
+            emptyCircle: "bg-white/[0.06] text-white/60",
+            emptyTitle: "text-white",
+            emptyDesc: "text-[#99a2a2]",
+            emptyButton:
+              "border border-white/10 bg-[#1a1a1c] text-white hover:bg-[#232326]",
           }
         : {
             page: "bg-[#f7f7f5] text-[#151515]",
@@ -557,7 +492,12 @@ export default function TemplatesPage() {
             modal: "border-black/10 bg-white",
             divider: "border-black/[0.07]",
             iconBtn: "hover:bg-black/[0.05] text-[#3f3f3d]",
-            empty: "text-[#71706d]",
+
+            emptyCircle: "bg-black/[0.06] text-black/50",
+            emptyTitle: "text-[#151515]",
+            emptyDesc: "text-[#71706d]",
+            emptyButton:
+              "border border-black/10 bg-white text-[#151515] hover:bg-black/[0.04] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
           },
     [isDark]
   );
@@ -581,6 +521,8 @@ export default function TemplatesPage() {
       );
     });
   }, [templates, activeKind, query]);
+
+  const hasAnyTemplate = templates.length > 0;
 
   /* --------------------------------------------------------------------------
      Actions
@@ -609,7 +551,6 @@ export default function TemplatesPage() {
     setEditorOpen(true);
   }, []);
 
-  /* Ouvre l'éditeur à partir d'une carte "prompt" (Featured / Tip / Case Study) */
   const openFromPrompt = useCallback(
     (prompt: FeaturedTemplate) => {
       setIsNew(true);
@@ -718,7 +659,7 @@ export default function TemplatesPage() {
       >
         <div className="mx-auto max-w-[1200px] px-6 py-10 sm:px-10 sm:py-12">
           {/* ============================================================
-              HEADER (partie haute d'origine)
+              HEADER
           ============================================================ */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -752,7 +693,7 @@ export default function TemplatesPage() {
             </button>
           </div>
 
-          {/* ---------- Section "Featured templates" (mix design) ---------- */}
+          {/* ---------- Section "Featured templates" ---------- */}
           <section
             className={[
               "mt-8 relative overflow-hidden rounded-3xl p-6 sm:p-8",
@@ -803,7 +744,7 @@ export default function TemplatesPage() {
           </section>
 
           {/* ============================================================
-              TABS + RECHERCHE (partie haute d'origine)
+              TABS + RECHERCHE
           ============================================================ */}
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div
@@ -846,141 +787,183 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          {/* ---------- Grid principale (partie haute d'origine) ---------- */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((template) => (
-              <article
-                key={template.id}
-                className={[
-                  "group flex flex-col rounded-2xl border p-4",
-                  "transition-[background-color,border-color,transform] duration-150",
-                  "hover:-translate-y-0.5",
-                  t.card,
-                ].join(" ")}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2
-                      className={[
-                        "truncate text-[14px] font-semibold",
-                        t.cardTitle,
-                      ].join(" ")}
-                    >
-                      {template.name}
-                    </h2>
-                    <p
-                      className={[
-                        "mt-0.5 line-clamp-2 text-[12px]",
-                        t.cardDesc,
-                      ].join(" ")}
-                    >
-                      {template.description}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                    <button
-                      type="button"
-                      aria-label="Éditer"
-                      onClick={() => openEdit(template)}
-                      className={[
-                        "rounded-lg p-1.5 transition-colors",
-                        t.iconBtn,
-                      ].join(" ")}
-                    >
-                      <EditIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Dupliquer"
-                      onClick={() => handleDuplicate(template)}
-                      className={[
-                        "rounded-lg p-1.5 transition-colors",
-                        t.iconBtn,
-                      ].join(" ")}
-                    >
-                      <CopyIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Supprimer"
-                      onClick={() => handleDelete(template.id)}
-                      className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                <p
+          {/* ---------- Grid principale OU empty state ---------- */}
+          {filtered.length > 0 ? (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((template) => (
+                <article
+                  key={template.id}
                   className={[
-                    "mt-3 line-clamp-3 whitespace-pre-wrap text-[12px]",
-                    t.cardBody,
+                    "group flex flex-col rounded-2xl border p-4",
+                    "transition-[background-color,border-color,transform] duration-150",
+                    "hover:-translate-y-0.5",
+                    t.card,
                   ].join(" ")}
                 >
-                  {template.content}
-                </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2
+                        className={[
+                          "truncate text-[14px] font-semibold",
+                          t.cardTitle,
+                        ].join(" ")}
+                      >
+                        {template.name}
+                      </h2>
+                      <p
+                        className={[
+                          "mt-0.5 line-clamp-2 text-[12px]",
+                          t.cardDesc,
+                        ].join(" ")}
+                      >
+                        {template.description}
+                      </p>
+                    </div>
 
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {template.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className={[
-                        "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                        t.tag,
-                      ].join(" ")}
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
+                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                      <button
+                        type="button"
+                        aria-label="Éditer"
+                        onClick={() => openEdit(template)}
+                        className={[
+                          "rounded-lg p-1.5 transition-colors",
+                          t.iconBtn,
+                        ].join(" ")}
+                      >
+                        <EditIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Dupliquer"
+                        onClick={() => handleDuplicate(template)}
+                        className={[
+                          "rounded-lg p-1.5 transition-colors",
+                          t.iconBtn,
+                        ].join(" ")}
+                      >
+                        <CopyIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Supprimer"
+                        onClick={() => handleDelete(template.id)}
+                        className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
 
-                <div
-                  className={[
-                    "mt-4 flex items-center justify-between border-t pt-3 text-[11px]",
-                    t.divider,
-                    t.muted,
-                  ].join(" ")}
-                >
-                  <span>{template.usage} utilisations</span>
-                  <span>{template.updatedAt}</span>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <p
+                    className={[
+                      "mt-3 line-clamp-3 whitespace-pre-wrap text-[12px]",
+                      t.cardBody,
+                    ].join(" ")}
+                  >
+                    {template.content}
+                  </p>
 
-          {filtered.length === 0 && (
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {template.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className={[
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          t.tag,
+                        ].join(" ")}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div
+                    className={[
+                      "mt-4 flex items-center justify-between border-t pt-3 text-[11px]",
+                      t.divider,
+                      t.muted,
+                    ].join(" ")}
+                  >
+                    <span>{template.usage} utilisations</span>
+                    <span>{template.updatedAt}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : hasAnyTemplate && query ? (
+            /* Recherche sans résultat */
             <div
               className={[
                 "mt-16 flex flex-col items-center gap-3 text-center text-[13px]",
-                t.empty,
+                t.muted,
               ].join(" ")}
             >
-              <SparkIcon className="h-6 w-6 opacity-50" />
-              <p>
-                {query
-                  ? `Aucun template trouvé pour « ${query} ».`
-                  : "Aucun template dans cette catégorie."}
+              <SearchIcon className="h-6 w-6 opacity-50" />
+              <p>{`Aucun template trouvé pour « ${query} ».`}</p>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className={[
+                  "mt-1 inline-flex h-9 items-center gap-2 rounded-xl border px-3.5",
+                  "text-[12.5px] font-semibold",
+                  "transition-[background-color,transform] duration-150",
+                  "active:scale-[0.98]",
+                  t.buttonGhost,
+                ].join(" ")}
+              >
+                Effacer la recherche
+              </button>
+            </div>
+          ) : (
+            /* ============================================================
+               EMPTY STATE (comme dans l'image)
+            ============================================================ */
+            <div className="mt-16 flex flex-col items-center justify-center py-16 text-center">
+              {/* Grand cercle avec + */}
+              <div
+                className={[
+                  "flex h-[140px] w-[140px] items-center justify-center rounded-full",
+                  t.emptyCircle,
+                ].join(" ")}
+              >
+                <PlusIcon className="h-10 w-10" />
+              </div>
+
+              <h2
+                className={[
+                  "mt-8 text-[28px] font-bold tracking-[-0.01em]",
+                  t.emptyTitle,
+                ].join(" ")}
+              >
+                Create your first template
+              </h2>
+
+              <p
+                className={[
+                  "mt-3 max-w-[420px] text-[15px] leading-relaxed",
+                  t.emptyDesc,
+                ].join(" ")}
+              >
+                Once created, you'll see your {KIND_LABELS[activeKind].toLowerCase()} listed here.
               </p>
+
               <button
                 type="button"
                 onClick={openNew}
                 className={[
-                  "mt-1 inline-flex h-9 items-center gap-2 rounded-xl px-3.5",
-                  "text-[12.5px] font-semibold",
+                  "mt-8 rounded-2xl px-8 py-3.5 text-[14px] font-semibold",
                   "transition-[background-color,transform] duration-150",
                   "active:scale-[0.98]",
-                  t.buttonPrimary,
+                  t.emptyButton,
                 ].join(" ")}
               >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Créer un template
+                New template
               </button>
             </div>
           )}
 
           {/* ============================================================
-              SECTIONS HORIZONTALES (design de l'image)
+              SECTIONS HORIZONTALES
           ============================================================ */}
           <HorizontalSection
             title="Tip"
@@ -1100,7 +1083,6 @@ export default function TemplatesPage() {
                 />
               </Field>
 
-              {/* Aperçu */}
               <div
                 className={[
                   "mt-2 rounded-xl border p-3.5",
