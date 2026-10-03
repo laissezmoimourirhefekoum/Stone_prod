@@ -23,25 +23,14 @@ import {
 } from "../components/IntegrationIcons";
 
 const SIDEBAR_OFFSET = 104;
+const userProfileCache = { profile: null as UserProfile | null };
 
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
+type IconFC = (props: { className?: string }) => JSX.Element;
+type NetworkKey =
+  | "x" | "facebook" | "instagram" | "linkedin"
+  | "tiktok" | "youtube" | "pinterest" | "threads";
 
-type SocialNetworkKey =
-  | "x"
-  | "facebook"
-  | "instagram"
-  | "linkedin"
-  | "tiktok"
-  | "youtube"
-  | "pinterest"
-  | "threads";
-
-const NETWORK_ICONS: Record<
-  SocialNetworkKey,
-  (props: { className?: string }) => JSX.Element
-> = {
+const NETWORK_ICONS: Record<NetworkKey, IconFC> = {
   x: XIcon,
   facebook: FacebookIcon,
   instagram: InstagramIcon,
@@ -49,15 +38,12 @@ const NETWORK_ICONS: Record<
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
-  threads: ThreadsIcon as (props: { className?: string }) => JSX.Element,
+  threads: ThreadsIcon as IconFC,
 };
 
-function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
+function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
-    .toLowerCase()
-    .trim();
-
+  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key).toLowerCase().trim();
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
@@ -69,9 +55,11 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   return null;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Statistiques (abonnés / likes / commentaires)                             */
-/* -------------------------------------------------------------------------- */
+/* ------------------------------ Données ------------------------------ */
+
+const FOLLOWER_KEYS = ["followers", "followersCount", "followers_count", "subscribers", "subscribersCount"];
+const LIKE_KEYS = ["likes", "likesCount", "likes_count"];
+const COMMENT_KEYS = ["comments", "commentsCount", "comments_count"];
 
 function readStat(channel: ConnectedChannel, keys: string[]): number {
   const c = channel as unknown as Record<string, unknown>;
@@ -84,795 +72,448 @@ function readStat(channel: ConnectedChannel, keys: string[]): number {
   return 0;
 }
 
-const numberFormatter = new Intl.NumberFormat("fr-FR", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+const fmt = new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 });
 
 function computeTotals(channels: ConnectedChannel[]) {
   return channels.reduce(
-    (acc, ch) => ({
-      followers:
-        acc.followers +
-        readStat(ch, [
-          "followers",
-          "followersCount",
-          "followers_count",
-          "subscribers",
-          "subscribersCount",
-        ]),
-      likes:
-        acc.likes + readStat(ch, ["likes", "likesCount", "likes_count"]),
-      comments:
-        acc.comments +
-        readStat(ch, ["comments", "commentsCount", "comments_count"]),
+    (a, ch) => ({
+      followers: a.followers + readStat(ch, FOLLOWER_KEYS),
+      likes: a.likes + readStat(ch, LIKE_KEYS),
+      comments: a.comments + readStat(ch, COMMENT_KEYS),
     }),
     { followers: 0, likes: 0, comments: 0 }
   );
 }
 
-function GreetingAvatar({
-  avatarUrl,
-  initials,
-  isDark,
-}: {
-  avatarUrl?: string | null;
-  initials: string;
-  isDark: boolean;
-}) {
-  const [loadFailed, setLoadFailed] = useState(false);
+/* Publications planifiées : à brancher sur vos données.
+   date = "YYYY-MM-DD" */
+type Scheduled = { date: string; network: NetworkKey; title: string; time?: string };
+const SCHEDULED: Scheduled[] = [];
 
-  useEffect(() => {
-    setLoadFailed(false);
-  }, [avatarUrl]);
+const dayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  const showImage = Boolean(avatarUrl) && !loadFailed;
+/* ------------------------------ Thème ------------------------------ */
 
-  return showImage ? (
-    <img
-      key={avatarUrl}
-      src={avatarUrl!}
-      alt="Profile"
-      style={{ width: 40, height: 40 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-      onError={() => setLoadFailed(true)}
-    />
-  ) : (
-    <div
-      style={{ width: 40, height: 40 }}
-      className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-      ].join(" ")}
-    >
-      {initials}
-    </div>
-  );
+function tone(isDark: boolean) {
+  return {
+    text: isDark ? "text-white" : "text-neutral-900",
+    muted: isDark ? "text-neutral-400" : "text-neutral-500",
+    faint: isDark ? "text-neutral-600" : "text-neutral-400",
+    surface: isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
+    soft: isDark ? "bg-white/[0.06]" : "bg-black/[0.045]",
+    dashed: isDark ? "border-white/15" : "border-black/15",
+    focus:
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+      (isDark
+        ? "focus-visible:ring-white focus-visible:ring-offset-[#09090a]"
+        : "focus-visible:ring-neutral-900 focus-visible:ring-offset-[#f3f1ed]"),
+  };
 }
 
-function ClockDisplay({ isDark }: { isDark: boolean }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const time = now.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const date = now.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
+function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <div className="flex flex-col items-end">
-      <span
-        className={[
-          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {time}
-      </span>
-      <span
-        className={[
-          "mt-0.5 text-[12px] font-medium capitalize",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        {date}
-      </span>
-    </div>
-  );
-}
-
-
-/* -------------------------------------------------------------------------- */
-/*  Primitives                                                                */
-/* -------------------------------------------------------------------------- */
-
-function Card({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "flex flex-col rounded-[22px] border p-5",
-        isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CardTitle({
-  isDark,
-  title,
-  hint,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  hint?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <p
-          className={[
-            "text-[15px] font-semibold leading-tight",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          {title}
-        </p>
-        {hint && (
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            {hint}
-          </p>
-        )}
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-    >
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
 
-function pillButton(isDark: boolean) {
-  return [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
-    isDark
-      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-      : "bg-neutral-900 text-white hover:bg-neutral-800",
-  ].join(" ");
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Vue d'ensemble : abonnés / likes / commentaires                           */
-/* -------------------------------------------------------------------------- */
-
-type StatKind = "followers" | "likes" | "comments";
-
-function StatIcon({ kind, className }: { kind: StatKind; className?: string }) {
-  const common = {
-    viewBox: "0 0 24 24",
-    className,
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
-  if (kind === "followers") {
-    return (
-      <svg {...common}>
-        <circle cx="9" cy="8" r="3.2" />
-        <path d="M3 20c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" />
-        <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.7.7 2.7 2.2 3 4.7" />
-      </svg>
-    );
-  }
-  if (kind === "likes") {
-    return (
-      <svg {...common}>
-        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
-    </svg>
-  );
-}
-
-function OverviewCard({
-  isDark,
-  totals,
-  networkCount,
-}: {
-  isDark: boolean;
-  totals: { followers: number; likes: number; comments: number };
-  networkCount: number;
-}) {
-  const items: { kind: StatKind; label: string; value: number }[] = [
-    { kind: "followers", label: "Abonnés", value: totals.followers },
-    { kind: "likes", label: "Likes", value: totals.likes },
-    { kind: "comments", label: "Commentaires", value: totals.comments },
-  ];
-
-  return (
-    <Card isDark={isDark} className="h-full">
-      <CardTitle
-        isDark={isDark}
-        title="Vue d'ensemble"
-        hint={
-          networkCount > 0
-            ? `Cumul de vos ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
-            : "Connectez un réseau pour voir vos chiffres"
-        }
-      />
-
-      <div
-        className={[
-          "grid flex-1 grid-cols-1 sm:grid-cols-3",
-          "divide-y sm:divide-x sm:divide-y-0",
-          isDark ? "divide-white/10" : "divide-black/[0.06]",
-        ].join(" ")}
-      >
-        {items.map((item) => (
-          <div
-            key={item.kind}
-            className="flex flex-col justify-center gap-3 py-4 first:pt-0 last:pb-0 sm:px-5 sm:py-0 sm:first:pl-0 sm:last:pr-0"
-          >
-            <div
-              className={[
-                "flex items-center gap-2 text-[12.5px] font-medium",
-                isDark ? "text-neutral-400" : "text-neutral-500",
-              ].join(" ")}
-            >
-              <StatIcon kind={item.kind} className="h-4 w-4" />
-              {item.label}
-            </div>
-            <p
-              className={[
-                "font-display text-[clamp(32px,3.6vw,48px)] font-semibold leading-none tracking-[-0.03em] tabular-nums",
-                isDark ? "text-white" : "text-neutral-900",
-              ].join(" ")}
-            >
-              {numberFormatter.format(item.value)}
-            </p>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Série de publications                                                     */
-/* -------------------------------------------------------------------------- */
-
-const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
-
-function FlameIcon({ className = "h-7 w-7", color }: { className?: string; color: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none">
-      <path
-        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
-        fill={color}
-      />
-    </svg>
-  );
-}
-
-function StreakCard({ isDark }: { isDark: boolean }) {
-  const streakCount = 0;
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
-  });
-
-  return (
-    <Card isDark={isDark} className="h-full justify-between">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p
-            className={[
-              "font-display text-[28px] font-semibold leading-none tracking-[-0.02em]",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            {streakCount} {streakCount > 1 ? "jours" : "jour"}
-          </p>
-          <p
-            className={[
-              "mt-1.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            de publication d'affilée
-          </p>
-        </div>
-        <FlameIcon color={streakCount > 0 ? "#f97316" : isDark ? "#3a3a3d" : "#d9d9d9"} />
-      </div>
-
-      <div className="mt-5 flex items-start justify-between gap-1">
-        {days.map((label, index) => {
-          const done = index < streakCount;
-          return (
-            <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
-              <span
-                className={[
-                  "text-[10.5px] font-semibold leading-none",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
-                ].join(" ")}
-              >
-                {label}
-              </span>
-              <div
-                className={[
-                  "h-7 w-7 rounded-full",
-                  done
-                    ? isDark
-                      ? "bg-white"
-                      : "bg-neutral-900"
-                    : isDark
-                      ? "bg-white/10"
-                      : "bg-neutral-100",
-                  index === 0 && !done
-                    ? isDark
-                      ? "ring-1 ring-white/40"
-                      : "ring-1 ring-neutral-900/30"
-                    : "",
-                ].join(" ")}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Réseaux connectés                                                         */
-/* -------------------------------------------------------------------------- */
-
-function ChannelAvatar({
-  channel,
-  isDark,
-  NetworkIcon,
-}: {
-  channel: ConnectedChannel;
-  isDark: boolean;
-  NetworkIcon?: (props: { className?: string }) => JSX.Element;
-}) {
-  const [failed, setFailed] = useState(false);
-
+function useNow(ms = 30000) {
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
+    const id = setInterval(() => setNow(new Date()), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return now;
+}
 
-  const label = channel.handle || channel.name;
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const showImage = Boolean(channel.avatarUrl) && !failed;
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
+/* ------------------------------ En-tête ------------------------------ */
 
-  return (
-    <div className="relative h-10 w-10 shrink-0">
-      {showImage ? (
-        <img
-          src={channel.avatarUrl}
-          alt={label}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className={["h-full w-full rounded-full object-cover ring-2", ring].join(" ")}
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
-            ring,
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          {initial}
-        </div>
-      )}
-      {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
-            ring,
-          ].join(" ")}
-        >
-          <NetworkIcon className="h-3 w-3" />
-        </span>
-      )}
+function Avatar({ src, label, isDark, size = 40 }: { src?: string | null; label: string; isDark: boolean; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  const style = { width: size, height: size };
+  return src && !failed ? (
+    <img
+      src={src}
+      alt=""
+      style={style}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="shrink-0 rounded-full object-cover"
+    />
+  ) : (
+    <div
+      style={{ ...style, fontSize: size * 0.34 }}
+      className={[
+        "flex shrink-0 items-center justify-center rounded-full font-semibold",
+        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      {label.replace(/^@/, "").slice(0, 2).toUpperCase() || "?"}
     </div>
   );
 }
 
-function ChannelsCard({
+function Hero({
   isDark,
-  channels,
+  hello,
+  firstName,
+  user,
+  totals,
+  plannedThisWeek,
+  onCompose,
 }: {
   isDark: boolean;
-  channels: ConnectedChannel[];
+  hello: string;
+  firstName: string;
+  user: UserProfile | null;
+  totals: { followers: number; likes: number; comments: number };
+  plannedThisWeek: number;
+  onCompose: () => void;
 }) {
-  const count = channels.length;
+  const t = tone(isDark);
+  const stats = [
+    { label: "abonnés", value: totals.followers },
+    { label: "likes", value: totals.likes },
+    { label: "commentaires", value: totals.comments },
+  ];
+  const initials = `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}` || "U";
 
   return (
-    <Card isDark={isDark} className="h-full">
-      <CardTitle
-        isDark={isDark}
-        title="Réseaux connectés"
-        hint={
-          count > 0
-            ? `${count} réseau${count > 1 ? "x" : ""} connecté${count > 1 ? "s" : ""}`
-            : "Aucun réseau pour le moment"
-        }
-        action={
-          <button
-            type="button"
-            onClick={() => navigate("channels")}
-            className={pillButton(isDark)}
-          >
-            <PlusIcon />
-            Connecter
-          </button>
-        }
-      />
-
-      {count === 0 ? (
-        <button
-          type="button"
-          onClick={() => navigate("channels")}
-          className={[
-            "flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed py-8 text-center transition",
-            isDark
-              ? "border-white/15 hover:bg-white/[0.03]"
-              : "border-black/15 hover:bg-neutral-50",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "text-[14px] font-semibold",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            Connectez votre premier réseau
-          </span>
-          <span
-            className={[
-              "text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            Reliez un canal pour commencer à publier
-          </span>
-        </button>
-      ) : (
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {channels.map((channel) => {
-            const networkId = getNetworkId(channel);
-            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
-            const followers = readStat(channel, [
-              "followers",
-              "followersCount",
-              "followers_count",
-              "subscribers",
-              "subscribersCount",
-            ]);
-            return (
-              <div
-                key={channel.key}
-                className={[
-                  "flex items-center gap-3 rounded-2xl px-3 py-2.5",
-                  isDark ? "bg-white/[0.04]" : "bg-neutral-50",
-                ].join(" ")}
-              >
-                <ChannelAvatar channel={channel} isDark={isDark} NetworkIcon={NetworkIcon} />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={[
-                      "truncate text-[13.5px] font-semibold leading-tight",
-                      isDark ? "text-white" : "text-neutral-900",
-                    ].join(" ")}
-                  >
-                    {channel.handle || channel.name}
-                  </p>
-                  <p
-                    className={[
-                      "mt-0.5 text-[12px] font-medium tabular-nums",
-                      isDark ? "text-neutral-400" : "text-neutral-500",
-                    ].join(" ")}
-                  >
-                    {numberFormatter.format(followers)} abonnés
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+    <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <Avatar src={user?.avatar_url} label={initials} isDark={isDark} size={44} />
+          <p className={["text-[14px] font-medium", t.muted].join(" ")}>
+            {plannedThisWeek > 0
+              ? `${plannedThisWeek} publication${plannedThisWeek > 1 ? "s" : ""} prévue${plannedThisWeek > 1 ? "s" : ""} cette semaine`
+              : "Rien de prévu cette semaine"}
+          </p>
         </div>
-      )}
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Action principale                                                         */
-/* -------------------------------------------------------------------------- */
-
-function ComposeCard({ isDark, onPlan }: { isDark: boolean; onPlan: () => void }) {
-  return (
-    <div
-      className={[
-        "flex h-full flex-col justify-between gap-6 rounded-[22px] p-5",
-        isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-      ].join(" ")}
-    >
-      <div>
-        <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em]">
-          Une idée de publication ?
-        </p>
-        <p
+        <h1
           className={[
-            "mt-1.5 text-[13px] font-medium",
-            isDark ? "text-neutral-600" : "text-neutral-400",
+            "mt-4 font-display text-[clamp(38px,5.6vw,72px)] font-semibold leading-[0.98] tracking-[-0.045em]",
+            t.text,
           ].join(" ")}
         >
-          Rédigez-la maintenant ou planifiez-la sur vos réseaux.
-        </p>
+          {hello}
+          {firstName ? `, ${firstName}` : ""}.
+        </h1>
+
+        <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+          {stats.map((s) => (
+            <div key={s.label} className="flex items-baseline gap-2">
+              <dd className={["font-display text-[26px] font-semibold tabular-nums tracking-[-0.02em]", s.value > 0 ? t.text : t.faint].join(" ")}>
+                {s.value > 0 ? fmt.format(s.value) : "0"}
+              </dd>
+              <dt className={["text-[13px] font-medium", t.muted].join(" ")}>{s.label}</dt>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <button
         type="button"
-        onClick={onPlan}
+        onClick={onCompose}
         className={[
-          "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13.5px] font-semibold transition",
-          isDark
-            ? "bg-neutral-900 text-white hover:bg-neutral-700"
-            : "bg-white text-neutral-900 hover:bg-neutral-200",
+          "inline-flex shrink-0 items-center justify-center gap-2.5 self-start rounded-full px-7 py-4 text-[15px] font-semibold transition active:scale-[0.98] lg:self-auto",
+          isDark ? "bg-white text-neutral-900 hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
+          t.focus,
         ].join(" ")}
       >
-        <PlusIcon className="h-4 w-4" />
+        <PlusIcon className="h-[18px] w-[18px]" />
         Nouvelle publication
       </button>
-    </div>
+    </header>
   );
 }
 
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+/* ------------------------------ Planning de la semaine ------------------------------ */
+
+function WeekPlanner({
+  isDark,
+  now,
+  onCompose,
+}: {
+  isDark: boolean;
+  now: Date;
+  onCompose: () => void;
+}) {
+  const t = tone(isDark);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const monday = new Date(todayStart);
+  monday.setDate(todayStart.getDate() - ((todayStart.getDay() + 6) % 7));
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+  const monthLabel = now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
+    <section aria-labelledby="planner-title">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id="planner-title" className={["text-[18px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+          Votre semaine
+        </h2>
+        <p className={["text-[13px] font-medium capitalize", t.muted].join(" ")}>{monthLabel}</p>
+      </div>
+
+      <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-2 lg:grid lg:grid-cols-7 lg:overflow-visible">
+        {days.map((d) => {
+          const key = dayKey(d);
+          const isToday = d.getTime() === todayStart.getTime();
+          const isPast = d.getTime() < todayStart.getTime();
+          const items = SCHEDULED.filter((s) => s.date === key);
+
+          return (
+            <div
+              key={key}
+              className={[
+                "flex min-h-[220px] w-[132px] shrink-0 snap-start flex-col rounded-[22px] p-3 lg:w-auto",
+                isToday
+                  ? isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white"
+                  : ["border", t.surface, isPast ? "opacity-60" : ""].join(" "),
+              ].join(" ")}
+            >
+              <div className="flex items-baseline justify-between">
+                <span className={["text-[12.5px] font-semibold capitalize", isToday ? "" : t.muted].join(" ")}>
+                  {d.toLocaleDateString("fr-FR", { weekday: "short" })}
+                </span>
+                {isToday && <span className="text-[11px] font-semibold opacity-60">Aujourd'hui</span>}
+              </div>
+              <p
+                className={[
+                  "mt-0.5 font-display text-[34px] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+                  isToday ? "" : t.text,
+                ].join(" ")}
+              >
+                {d.getDate()}
+              </p>
+
+              <div className="mt-3 flex flex-1 flex-col gap-1.5">
+                {items.map((s, i) => {
+                  const Icon = NETWORK_ICONS[s.network];
+                  return (
+                    <div
+                      key={i}
+                      className={["flex items-center gap-2 rounded-xl px-2 py-1.5", isToday ? (isDark ? "bg-neutral-900/10" : "bg-white/15") : t.soft].join(" ")}
+                    >
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-black ring-1 ring-black/10">
+                        <Icon className="h-3 w-3" />
+                      </span>
+                      <span className="truncate text-[12px] font-medium">{s.title}</span>
+                    </div>
+                  );
+                })}
+
+                {!isPast && (
+                  <button
+                    type="button"
+                    onClick={onCompose}
+                    aria-label={`Planifier le ${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`}
+                    className={[
+                      "mt-auto flex flex-1 items-center justify-center rounded-2xl border border-dashed text-[12px] font-semibold transition",
+                      items.length > 0 ? "min-h-[36px] flex-none" : "min-h-[72px]",
+                      isToday
+                        ? isDark
+                          ? "border-neutral-900/25 hover:bg-neutral-900/[0.06]"
+                          : "border-white/30 hover:bg-white/10"
+                        : [t.dashed, t.muted, isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]"].join(" "),
+                    ].join(" ")}
+                  >
+                    <PlusIcon className="mr-1 h-3.5 w-3.5" />
+                    Planifier
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
-type BlogPostDefinition = {
-  title: string;
-  date: string;
-  imageUrl: string;
-  href: string;
-};
+/* ------------------------------ Réseaux ------------------------------ */
 
-const blogPostDefinitions: BlogPostDefinition[] = [
+function Channels({ isDark, channels }: { isDark: boolean; channels: ConnectedChannel[] }) {
+  const t = tone(isDark);
+  return (
+    <section aria-labelledby="channels-title">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id="channels-title" className={["text-[18px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+          Vos réseaux
+        </h2>
+        {channels.length > 0 && (
+          <button type="button" onClick={() => navigate("channels")} className={["rounded text-[13px] font-semibold underline underline-offset-4", t.muted, t.focus].join(" ")}>
+            Gérer
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2.5">
+        {channels.map((channel) => {
+          const id = getNetworkId(channel);
+          const Icon = id ? NETWORK_ICONS[id] : undefined;
+          const followers = readStat(channel, FOLLOWER_KEYS);
+          return (
+            <div key={channel.key} className={["flex items-center gap-3 rounded-full border py-1.5 pl-1.5 pr-5", t.surface].join(" ")}>
+              <div className="relative">
+                <Avatar src={channel.avatarUrl} label={channel.handle || channel.name} isDark={isDark} size={38} />
+                {Icon && (
+                  <span className={["absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-2", isDark ? "ring-[#141416]" : "ring-white"].join(" ")}>
+                    <Icon className="h-2.5 w-2.5" />
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <p className={["max-w-[140px] truncate text-[13.5px] font-semibold", t.text].join(" ")}>
+                  {channel.handle || channel.name}
+                </p>
+                <p className={["text-[12px] font-medium tabular-nums", t.muted].join(" ")}>
+                  {fmt.format(followers)} abonnés
+                </p>
+              </div>
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => navigate("channels")}
+          className={[
+            "flex items-center gap-2 rounded-full border border-dashed px-5 py-3 text-[13.5px] font-semibold transition",
+            t.dashed,
+            t.text,
+            isDark ? "hover:bg-white/[0.05]" : "hover:bg-black/[0.03]",
+            t.focus,
+          ].join(" ")}
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+          {channels.length > 0 ? "Ajouter un réseau" : "Connecter votre premier réseau"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------ Blog ------------------------------ */
+
+type BlogPost = { title: string; date: string; imageUrl: string; href: string };
+
+const BLOG_POSTS: BlogPost[] = [
   {
     title: "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide",
-    date: "Jul 24, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-strategy/800/560",
+    date: "24 juil. 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-strategy/640/400",
     href: "#",
   },
   {
     title: "17 Best AI Tools for Social Media Content Creation (Tested for 2026)",
-    date: "Aug 3, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/800/560",
+    date: "3 août 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/640/400",
     href: "#",
   },
   {
     title: "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro",
-    date: "Jul 6, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/800/560",
+    date: "6 juil. 2026",
+    imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/640/400",
     href: "#",
   },
 ];
 
-function BlogPostCard({
-  isDark,
-  post,
-}: {
-  isDark: boolean;
-  post: BlogPostDefinition;
-}) {
+function Blog({ isDark }: { isDark: boolean }) {
+  const t = tone(isDark);
   return (
-    <a
-      href={post.href}
-      className={[
-        "group flex flex-col overflow-hidden rounded-[22px] border transition",
-        isDark
-          ? "border-white/10 bg-[#141416] hover:bg-[#19191c]"
-          : "border-black/[0.06] bg-white hover:bg-neutral-50",
-        isDark
-          ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-      ].join(" ")}
-    >
-      <div className="h-[150px] w-full shrink-0 overflow-hidden">
-        <img
-          src={post.imageUrl}
-          alt=""
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-        />
-      </div>
-
-      <div className="flex shrink-0 flex-col gap-2 p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-pink-100 px-3 py-1 text-[11px] font-semibold text-pink-600">
-            Blog post
-          </span>
-          <span
-            className={[
-              "text-[11.5px] font-medium",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-          >
-            {post.date}
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-3">
-          <p
-            className={[
-              "line-clamp-2 text-[13.5px] font-bold leading-snug",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            {post.title}
-          </p>
-
-          <span
-            className={[
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
-              isDark
-                ? "text-neutral-400 group-hover:bg-white/10 group-hover:text-white"
-                : "text-neutral-400 group-hover:bg-black/5 group-hover:text-neutral-900",
-            ].join(" ")}
-          >
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </span>
-        </div>
-      </div>
-    </a>
-  );
-}
-
-function FromTheBlogSection({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="mt-auto flex flex-col pt-12 lg:pt-20">
-      <p
-        className={[
-          "shrink-0 text-[13px] font-medium",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        From the Blog
-      </p>
-
-      <div className="mt-3 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {blogPostDefinitions.map((post) => (
-          <BlogPostCard key={post.title} isDark={isDark} post={post} />
+    <section aria-labelledby="blog-title">
+      <h2 id="blog-title" className={["mb-3 text-[18px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+        À lire
+      </h2>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {BLOG_POSTS.map((post) => (
+          <a key={post.title} href={post.href} className={["group block rounded-2xl", t.focus].join(" ")}>
+            <div className="aspect-[8/5] overflow-hidden rounded-2xl">
+              <img
+                src={post.imageUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+              />
+            </div>
+            <p className={["mt-3 line-clamp-2 text-[14px] font-semibold leading-snug", t.text].join(" ")}>
+              {post.title}
+            </p>
+            <p className={["mt-1 text-[12px] font-medium", t.muted].join(" ")}>{post.date}</p>
+          </a>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
+
+/* ------------------------------ Page ------------------------------ */
 
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const now = useNow();
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   const connectedChannels = useConnectedChannels();
-  const totals = useMemo(
-    () => computeTotals(connectedChannels),
-    [connectedChannels]
-  );
-
+  const totals = useMemo(() => computeTotals(connectedChannels), [connectedChannels]);
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
 
   useEffect(() => {
     let mounted = true;
-
-    const loadUser = async () => {
+    (async () => {
       try {
-        const userData = await getCurrentUser();
-        if (mounted && userData) {
-          userProfileCache.profile = userData;
-          setUser(userData);
+        const data = await getCurrentUser();
+        if (mounted && data) {
+          userProfileCache.profile = data;
+          setUser(data);
         }
       } catch (error) {
         console.error("Error loading user on Home:", error);
       }
-    };
-
-    loadUser();
+    })();
     return () => {
       mounted = false;
     };
   }, []);
 
-  const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-  const initials =
-    `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
+  const hour = now.getHours();
+  const hello = hour >= 18 || hour < 5 ? "Bonsoir" : "Bonjour";
+
+  const plannedThisWeek = useMemo(() => {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const keys = new Set(
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        return dayKey(d);
+      })
+    );
+    return SCHEDULED.filter((s) => keys.has(s.date)).length;
+  }, [now]);
+
+  const openCompose = () => {
+    setIsFolderOpen(false);
+    setIsNewPostOpen(true);
+  };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
-    switch (id) {
-      case "add":
-        setIsFolderOpen(false);
-        setIsNewPostOpen(true);
-        break;
-      case "files":
-        setIsFolderOpen((open) => !open);
-        break;
-    }
+    if (id === "add") openCompose();
+    if (id === "files") setIsFolderOpen((open) => !open);
   };
 
   return (
@@ -886,51 +527,19 @@ export default function Home() {
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
-            <header className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <h1
-                  className={[
-                    "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                >
-                  Bonjour{fullName ? `, ${fullName}` : ""}
-                </h1>
-                <GreetingAvatar
-                  avatarUrl={user?.avatar_url}
-                  initials={initials}
-                  isDark={isDark}
-                />
-              </div>
-              <ClockDisplay isDark={isDark} />
-            </header>
-
-            {/* Rangée 1 : chiffres clés + série */}
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="lg:col-span-8">
-                <OverviewCard
-                  isDark={isDark}
-                  totals={totals}
-                  networkCount={connectedChannels.length}
-                />
-              </div>
-              <div className="lg:col-span-4">
-                <StreakCard isDark={isDark} />
-              </div>
-            </section>
-
-            {/* Rangée 2 : réseaux + action */}
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="lg:col-span-8">
-                <ChannelsCard isDark={isDark} channels={connectedChannels} />
-              </div>
-              <div className="lg:col-span-4">
-                <ComposeCard isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
-              </div>
-            </section>
-
-            <FromTheBlogSection isDark={isDark} />
+          <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-[clamp(16px,3vw,40px)] pb-[130px] pt-[clamp(22px,3vw,44px)]">
+            <Hero
+              isDark={isDark}
+              hello={hello}
+              firstName={user?.first_name || ""}
+              user={user}
+              totals={totals}
+              plannedThisWeek={plannedThisWeek}
+              onCompose={openCompose}
+            />
+            <WeekPlanner isDark={isDark} now={now} onCompose={openCompose} />
+            <Channels isDark={isDark} channels={connectedChannels} />
+            <Blog isDark={isDark} />
           </div>
         </div>
       </div>
