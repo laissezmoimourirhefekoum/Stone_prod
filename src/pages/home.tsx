@@ -15,27 +15,27 @@ import {
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import { useConnectedChannels, ConnectedChannel } from "../hooks/useConnectedChannels";
+import {
+  useConnectedChannels,
+  ConnectedChannel,
+} from "../hooks/useConnectedChannels";
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import NewPostModal, {
   NewPostPayload,
-} from "../components/NewPostModal";
-import HelpChatButton from "../components/HelpChatButton";
+} from "../components/Newpostmodal";
+import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, {
   BottomBarTab,
-} from "../components/BottomBar";
+} from "../components/Bottombar";
 import Folder from "../components/Folder";
 
 import {
   getCurrentUser,
   UserProfile,
-} from "../services/user";
+} from "../services/supabase";
 
-import {
-  IntegrationIcons,
-  SocialNetworkKey,
-} from "../components/IntegrationIcons";
+import { IntegrationIcons } from "../components/IntegrationIcons";
 
 const SIDEBAR_OFFSET = 104;
 
@@ -45,8 +45,9 @@ const userProfileCache = {
 
 function getNetworkId(
   channel: ConnectedChannel
-): SocialNetworkKey | null {
-  const c = channel as unknown as Record<string, unknown>;
+): string | null {
+  const c =
+    channel as unknown as Record<string, unknown>;
 
   const raw = String(
     c.platform ??
@@ -59,25 +60,40 @@ function getNetworkId(
 
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
-  if (raw.includes("youtube") || raw === "yt") return "youtube";
-  if (raw.includes("facebook") || raw === "fb") return "facebook";
+  if (
+    raw.includes("youtube") ||
+    raw === "yt"
+  )
+    return "youtube";
+  if (
+    raw.includes("facebook") ||
+    raw === "fb"
+  )
+    return "facebook";
   if (raw.includes("linkedin")) return "linkedin";
   if (raw.includes("pinterest")) return "pinterest";
-  if (raw === "x" || raw.includes("twitter")) return "x";
+  if (
+    raw === "x" ||
+    raw.includes("twitter")
+  )
+    return "x";
 
   return null;
 }
 
-function getFirstName(profile: UserProfile | null) {
+function getFirstName(
+  profile: UserProfile | null
+) {
   if (!profile) return "there";
 
   if (profile.first_name?.trim()) {
     return profile.first_name.trim();
   }
 
-  const fullName = `${profile.first_name ?? ""} ${
-    profile.last_name ?? ""
-  }`.trim();
+  const fullName =
+    `${profile.first_name ?? ""} ${
+      profile.last_name ?? ""
+    }`.trim();
 
   if (fullName) {
     return fullName.split(" ")[0];
@@ -108,16 +124,14 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
-    if (!userProfileCache.profile) {
-      getCurrentUser()
-        .then((user) => {
-          if (!mounted) return;
+    getCurrentUser()
+      .then((user) => {
+        if (!mounted) return;
 
-          userProfileCache.profile = user;
-          setProfile(user);
-        })
-        .catch(() => {});
-    }
+        userProfileCache.profile = user;
+        setProfile(user);
+      })
+      .catch(() => {});
 
     return () => {
       mounted = false;
@@ -194,7 +208,7 @@ export default function Home() {
               <div
                 className={[
                   "flex h-10 w-10 items-center justify-center",
-                  "rounded-full overflow-hidden",
+                  "overflow-hidden rounded-full",
                   isDark
                     ? "bg-white/10"
                     : "bg-black/5",
@@ -208,7 +222,9 @@ export default function Home() {
                   />
                 ) : (
                   <span className="text-sm font-semibold">
-                    {firstName.charAt(0).toUpperCase()}
+                    {firstName
+                      .charAt(0)
+                      .toUpperCase()}
                   </span>
                 )}
               </div>
@@ -231,23 +247,27 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Aucun bouton New Post ici */}
+            {/* New Post supprimé du header */}
             <div
               className={[
                 "flex items-center gap-2 rounded-full px-3 py-2",
                 isDark
-                  ? "bg-white/[0.04] text-white/45"
-                  : "bg-black/[0.035] text-black/45",
+                  ? "bg-white/[0.04] text-white/40"
+                  : "bg-black/[0.035] text-black/40",
               ].join(" ")}
             >
-              <Activity size={15} strokeWidth={1.8} />
+              <Activity
+                size={15}
+                strokeWidth={1.8}
+              />
+
               <span className="text-[12px] font-medium">
                 Overview
               </span>
             </div>
           </header>
 
-          {/* MAIN CONTENT */}
+          {/* CONTENT */}
           <div className="mt-7 flex min-h-0 flex-1 flex-col">
             {/* OVERVIEW */}
             <section className="grid shrink-0 grid-cols-1 gap-3 lg:grid-cols-[0.85fr_1.15fr]">
@@ -262,7 +282,7 @@ export default function Home() {
                     : "border-black/[0.06] bg-white hover:border-black/[0.1]",
                 ].join(" ")}
               >
-                <div className="relative z-10 flex h-full min-h-[178px] flex-col justify-between">
+                <div className="relative z-10 flex min-h-[178px] h-full flex-col justify-between">
                   <div className="flex items-start justify-between">
                     <div>
                       <p
@@ -307,7 +327,7 @@ export default function Home() {
                       ].join(" ")}
                     >
                       <Flame
-                        size={25}
+                        size={26}
                         strokeWidth={1.8}
                         fill="currentColor"
                         fillOpacity={0.12}
@@ -348,18 +368,11 @@ export default function Home() {
                           : "bg-black/[0.06]",
                       ].join(" ")}
                     >
-                      <div
-                        className="
-                          h-full w-1/2 rounded-full
-                          bg-current
-                          opacity-80
-                        "
-                      />
+                      <div className="h-full w-1/2 rounded-full bg-current opacity-80" />
                     </div>
                   </div>
                 </div>
 
-                {/* subtle background flame */}
                 <Flame
                   className={[
                     "pointer-events-none absolute -bottom-8 -right-5",
@@ -381,12 +394,13 @@ export default function Home() {
                     : "border-black/[0.06] bg-white",
                 ].join(" ")}
               >
-                <div className="grid h-full min-h-[178px] grid-cols-3 divide-x">
+                <div className="grid h-full min-h-[178px] grid-cols-3">
                   <Stat
                     icon={<Users size={16} />}
                     label="Followers"
                     value="12.4K"
                     isDark={isDark}
+                    border
                   />
 
                   <Stat
@@ -394,10 +408,13 @@ export default function Home() {
                     label="Likes"
                     value="8.7K"
                     isDark={isDark}
+                    border
                   />
 
                   <Stat
-                    icon={<MessageCircle size={16} />}
+                    icon={
+                      <MessageCircle size={16} />
+                    }
                     label="Comments"
                     value="342"
                     isDark={isDark}
@@ -474,6 +491,7 @@ export default function Home() {
                         <ChannelSkeleton
                           isDark={isDark}
                         />
+
                         <ChannelSkeleton
                           isDark={isDark}
                         />
@@ -679,7 +697,7 @@ export default function Home() {
       {/* HELP */}
       <HelpChatButton isDark={isDark} />
 
-      {/* NEW POST */}
+      {/* NEW POST MODAL */}
       <NewPostModal
         isOpen={isNewPostOpen}
         onClose={() => setIsNewPostOpen(false)}
@@ -691,7 +709,7 @@ export default function Home() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* COMPONENTS                                                                 */
+/* STAT                                                                        */
 /* -------------------------------------------------------------------------- */
 
 function Stat({
@@ -699,20 +717,24 @@ function Stat({
   label,
   value,
   isDark,
+  border = false,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   isDark: boolean;
+  border?: boolean;
 }) {
   return (
     <div
       className={[
-        "flex flex-col justify-center px-5 first:pl-0 last:pr-0",
-        "border-white/[0.06]",
-        isDark
-          ? "divide-white/[0.06]"
-          : "border-black/[0.06]",
+        "flex flex-col justify-center px-5",
+        "first:pl-0 last:pr-0",
+        border
+          ? isDark
+            ? "border-r border-white/[0.06]"
+            : "border-r border-black/[0.06]"
+          : "",
       ].join(" ")}
     >
       <div
@@ -736,6 +758,10 @@ function Stat({
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* QUICK ACTION                                                                */
+/* -------------------------------------------------------------------------- */
 
 function QuickAction({
   icon,
@@ -810,6 +836,10 @@ function QuickAction({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* CHANNEL AVATAR                                                              */
+/* -------------------------------------------------------------------------- */
+
 function ChannelAvatar({
   channel,
   isDark,
@@ -821,9 +851,12 @@ function ChannelAvatar({
 
   const icon =
     network &&
-    IntegrationIcons[
-      network as keyof typeof IntegrationIcons
-    ];
+    (
+      IntegrationIcons as Record<
+        string,
+        React.ReactNode
+      >
+    )[network];
 
   return (
     <div
@@ -871,6 +904,10 @@ function ChannelAvatar({
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* CHANNEL SKELETON                                                            */
+/* -------------------------------------------------------------------------- */
 
 function ChannelSkeleton({
   isDark,
