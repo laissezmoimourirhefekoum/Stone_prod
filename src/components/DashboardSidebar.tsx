@@ -115,6 +115,7 @@ type ThemeTokens = {
   handle: string;
   count: string;
   dotRing: string;
+  dot: string;
   rail: string;
   sub: string;
   subActive: string;
@@ -233,7 +234,7 @@ function Svg({
       className={["select-none", className].join(" ")}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -519,9 +520,9 @@ function NavItemViewImpl({
           "group relative flex h-10 w-full",
           "select-none",
           "items-center gap-3 overflow-hidden",
-          "rounded-xl px-3",
+          "rounded-full px-3",
           "text-[13px] font-medium",
-          "transition-[background-color,color,transform]",
+          "transition-[background-color,color,transform,box-shadow]",
           "duration-200",
           "active:scale-[0.97]",
           "motion-reduce:transition-none",
@@ -550,7 +551,8 @@ function NavItemViewImpl({
                 "absolute -right-0.5 -top-0.5",
                 "h-2 w-2 rounded-full",
                 "select-none",
-                "bg-[#ff5ec4] ring-2",
+                "ring-2",
+                t.dot,
                 t.dotRing,
                 isCollapsed
                   ? "opacity-100 delay-150 duration-200"
@@ -572,8 +574,8 @@ function NavItemViewImpl({
             style={labelStyle}
             className={[
               "select-none",
-              "rounded-md px-1.5 py-0.5",
-              "text-[11px] font-medium",
+              "rounded-full px-2 py-0.5",
+              "text-[10px] font-semibold",
               t.count,
               labelClass,
             ].join(" ")}
@@ -641,10 +643,10 @@ function NavItemViewImpl({
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
-                      "rounded-lg px-2",
+                      "rounded-full px-3",
                       "text-left text-[13px]",
                       "font-medium",
-                      "transition-[background-color,color,opacity,transform]",
+                      "transition-[background-color,color,opacity,transform,box-shadow]",
                       "duration-300",
                       "ease-[cubic-bezier(0.32,0.72,0,1)]",
                       "motion-reduce:transition-none",
@@ -689,6 +691,7 @@ type SidebarChannelsProps = {
   currentRoute: string;
   labelClass: string;
   focus: string;
+  isDark: boolean;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
   onExpand: () => void;
@@ -766,10 +769,12 @@ function ChannelAvatar({
   channel,
   NetworkIcon,
   dotRing,
+  isDark,
 }: {
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
+  isDark: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -792,7 +797,14 @@ function ChannelAvatar({
           className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
+        <span
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full text-[10px] font-semibold",
+            isDark
+              ? "bg-white/[0.08] text-white"
+              : "bg-black/[0.06] text-[#1a1a1a]",
+          ].join(" ")}
+        >
           {initial}
         </span>
       )}
@@ -801,7 +813,10 @@ function ChannelAvatar({
         <span
           className={[
             "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-[4px] bg-white text-black ring-2",
+            "rounded-full ring-2",
+            isDark
+              ? "bg-white text-black shadow-[1px_1px_2px_rgba(0,0,0,0.5)]"
+              : "bg-[#1a1a1a] text-white shadow-[1px_1px_2px_rgba(0,0,0,0.15)]",
             dotRing,
           ].join(" ")}
         >
@@ -818,6 +833,7 @@ function SidebarChannels({
   currentRoute,
   labelClass,
   focus,
+  isDark,
   t,
   onNavigate,
   onExpand,
@@ -838,7 +854,7 @@ function SidebarChannels({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   const headerButton = [
-    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
+    "relative z-10 flex h-6 w-6 items-center justify-center rounded-full",
     "transition-colors duration-150 motion-reduce:transition-none",
     t.menuIcon,
     focus,
@@ -900,7 +916,7 @@ function SidebarChannels({
                 }}
                 className={[
                   "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
-                  "rounded-xl px-2.5 text-[13px] font-medium",
+                  "rounded-full px-2.5 text-[13px] font-medium",
                   "transition-[background-color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none",
                   focus,
@@ -911,6 +927,7 @@ function SidebarChannels({
                   channel={channel}
                   NetworkIcon={NetworkIcon}
                   dotRing={t.dotRing}
+                  isDark={isDark}
                 />
                 <span
                   className={[
@@ -963,8 +980,8 @@ function SidebarChannels({
                           }}
                           className={[
                             "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[13px] font-medium",
-                            "transition-[background-color,color,opacity,transform] duration-300",
+                            "rounded-full px-3 text-left text-[13px] font-medium",
+                            "transition-[background-color,color,opacity,transform,box-shadow] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
                               ? "translate-x-0 opacity-100"
@@ -978,7 +995,7 @@ function SidebarChannels({
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1002,7 +1019,7 @@ function SidebarChannels({
           onClick={onConnect}
           className={[
             "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
-            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
+            "rounded-full border border-dashed px-3 text-[13px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
@@ -1021,7 +1038,7 @@ function SidebarChannels({
           title="Connect a channel"
           onClick={onConnect}
           className={[
-            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-full px-3",
             "transition-[background-color,transform] duration-200 active:scale-[0.97]",
             "motion-reduce:transition-none",
             focus,
@@ -1233,9 +1250,6 @@ export default function DashboardSidebar({
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
 
-    // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
-    // (Les autres pages gèrent leur propre hash et ne doivent pas être
-    // polluées par un replaceState.)
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -1367,7 +1381,7 @@ export default function DashboardSidebar({
   }, [menuOpen]);
 
   /* --------------------------------------------------------------------------
-     Theme tokens
+     Theme tokens — NEUMORPHIC
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
@@ -1375,60 +1389,70 @@ export default function DashboardSidebar({
       isDark
         ? {
             aside:
-              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
+              "border border-white/[0.03] bg-[#1c1c1e] shadow-[14px_14px_36px_rgba(0,0,0,0.6),-14px_-14px_36px_rgba(255,255,255,0.02)]",
             brand: "text-white",
-            divider: "bg-white/10",
-            navActive: "bg-white/15 text-white",
-            navIdle: "text-white hover:bg-white/10",
+            divider: "bg-white/[0.05]",
+            navActive:
+              "bg-[#1c1c1e] text-white shadow-[5px_5px_14px_rgba(0,0,0,0.55),-5px_-5px_14px_rgba(255,255,255,0.03)]",
+            navIdle:
+              "text-[#a0a0a4] hover:text-white hover:bg-white/[0.03]",
             handle:
-              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
-            count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#050506]",
-            rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
-            subActive: "bg-white/[0.08] text-white",
-            row: "hover:bg-white/10",
-            rowOpen: "bg-white/10",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
-            title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
-            menuItem:
-              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
-            menuIcon: "text-[#a9aeae]",
+              "border border-white/[0.06] bg-[#1c1c1e] text-white shadow-[4px_4px_10px_rgba(0,0,0,0.6),-4px_-4px_10px_rgba(255,255,255,0.03)]",
+            count: "bg-white/[0.08] text-white",
+            dotRing: "ring-[#1c1c1e]",
+            dot: "bg-white",
+            rail: "border-white/[0.06]",
+            sub: "text-[#a0a0a4] hover:text-white hover:bg-white/[0.04]",
+            subActive:
+              "bg-white/[0.05] text-white shadow-[inset_2px_2px_6px_rgba(0,0,0,0.45)]",
+            row: "hover:bg-white/[0.04]",
+            rowOpen:
+              "bg-white/[0.05] shadow-[inset_2px_2px_6px_rgba(0,0,0,0.45)]",
+            avatar:
+              "bg-white text-[#1c1c1e] shadow-[2px_2px_6px_rgba(0,0,0,0.4)]",
+            title: "text-white",
+            muted: "text-[#8a8a8e]",
+            menu: "border border-white/[0.05] bg-[#1c1c1e] text-white shadow-[16px_16px_40px_rgba(0,0,0,0.75),-16px_-16px_40px_rgba(255,255,255,0.02)]",
+            menuDivider: "border-white/[0.06]",
+            menuItem: "text-white hover:bg-white/[0.05]",
+            menuIcon: "text-[#8a8a8e]",
             upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
-            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
-            ring: "focus-visible:ring-white/30",
+              "border border-white/[0.05] bg-[#1c1c1e] text-white shadow-[3px_3px_8px_rgba(0,0,0,0.5),-3px_-3px_8px_rgba(255,255,255,0.03)] hover:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.5)]",
+            badge: "bg-white/[0.08] text-white",
+            ring: "focus-visible:ring-white/25",
           }
         : {
             aside:
-              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
-            brand: "text-[#151515]",
-            divider: "bg-black/[0.07]",
-            navActive: "bg-black/[0.06] text-[#151515]",
-            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
+              "border border-black/[0.03] bg-[#ececec] shadow-[14px_14px_36px_rgba(0,0,0,0.10),-14px_-14px_36px_rgba(255,255,255,0.95)]",
+            brand: "text-[#1a1a1a]",
+            divider: "bg-black/[0.05]",
+            navActive:
+              "bg-[#ececec] text-[#1a1a1a] shadow-[6px_6px_14px_rgba(0,0,0,0.08),-6px_-6px_14px_rgba(255,255,255,0.9)]",
+            navIdle:
+              "text-[#7a7a7e] hover:text-[#1a1a1a] hover:bg-black/[0.02]",
             handle:
-              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
-            count: "bg-black/[0.05] text-[#3f3f3d]",
-            dotRing: "ring-white",
-            rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
-            subActive: "bg-black/[0.06] text-[#151515]",
-            row: "hover:bg-black/[0.04]",
-            rowOpen: "bg-black/[0.04]",
-            avatar: "bg-[#1d1d1d] text-white",
-            title: "text-[#1b1b1a]",
-            muted: "text-[#71706d]",
-            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
-            menuDivider: "border-black/[0.07]",
-            menuItem:
-              "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
-            menuIcon: "text-[#6b6a67]",
+              "border border-black/[0.04] bg-[#ececec] text-[#1a1a1a] shadow-[5px_5px_12px_rgba(0,0,0,0.10),-5px_-5px_12px_rgba(255,255,255,0.95)]",
+            count: "bg-black/[0.06] text-[#1a1a1a]",
+            dotRing: "ring-[#ececec]",
+            dot: "bg-[#1a1a1a]",
+            rail: "border-black/[0.06]",
+            sub: "text-[#7a7a7e] hover:text-[#1a1a1a] hover:bg-black/[0.03]",
+            subActive:
+              "bg-black/[0.04] text-[#1a1a1a] shadow-[inset_2px_2px_6px_rgba(0,0,0,0.05)]",
+            row: "hover:bg-black/[0.03]",
+            rowOpen:
+              "bg-black/[0.04] shadow-[inset_2px_2px_6px_rgba(0,0,0,0.05)]",
+            avatar:
+              "bg-[#1a1a1a] text-white shadow-[2px_2px_6px_rgba(0,0,0,0.15)]",
+            title: "text-[#1a1a1a]",
+            muted: "text-[#8a8a8e]",
+            menu: "border border-black/[0.03] bg-[#ececec] text-[#1a1a1a] shadow-[18px_18px_44px_rgba(0,0,0,0.12),-18px_-18px_44px_rgba(255,255,255,0.95)]",
+            menuDivider: "border-black/[0.05]",
+            menuItem: "text-[#1a1a1a] hover:bg-black/[0.04]",
+            menuIcon: "text-[#7a7a7e]",
             upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
-            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
+              "border border-black/[0.04] bg-[#ececec] text-[#1a1a1a] shadow-[3px_3px_8px_rgba(0,0,0,0.07),-3px_-3px_8px_rgba(255,255,255,0.9)] hover:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.05)]",
+            badge: "bg-black/[0.06] text-[#1a1a1a]",
             ring: "focus-visible:ring-black/20",
           },
     [isDark]
@@ -1477,10 +1501,6 @@ export default function DashboardSidebar({
     setOpenGroup((current) => (current === label ? null : label));
   }, []);
 
-  /**
-   * Ouvre toujours le modal « Connect a New Channel » (le même composant que
-   * sur /channels). La sidebar ne redirige pas vers /channels.
-   */
   const openConnect = useCallback(() => {
     console.log("[Stone] Sidebar: connect clicked");
     setMenuOpen(false);
@@ -1743,7 +1763,7 @@ export default function DashboardSidebar({
         className={[
           "relative flex h-full flex-col",
           "overflow-visible rounded-[36px]",
-          "border px-3 py-5",
+          "px-3 py-5",
           "transition-[width,box-shadow]",
           "duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
@@ -1766,8 +1786,7 @@ export default function DashboardSidebar({
             "z-10 flex h-6 w-6",
             "select-none",
             "items-center justify-center",
-            "rounded-full border",
-            "backdrop-blur",
+            "rounded-full",
             "transition-[background-color,transform]",
             "duration-300",
             "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
@@ -1886,6 +1905,7 @@ export default function DashboardSidebar({
               currentRoute={currentRoute}
               labelClass={labelClass}
               focus={focus}
+              isDark={isDark}
               t={t}
               onNavigate={handleNavigate}
               onExpand={() => setIsCollapsed(false)}
@@ -1909,8 +1929,7 @@ export default function DashboardSidebar({
                   "z-50 mb-2 w-[264px]",
                   "origin-bottom-left",
                   "overflow-hidden",
-                  "rounded-[16px]",
-                  "border",
+                  "rounded-[24px]",
                   t.menu,
                 ].join(" ")}
               >
@@ -1937,10 +1956,10 @@ export default function DashboardSidebar({
                       "group mt-3 flex w-full",
                       "select-none",
                       "items-center justify-center",
-                      "gap-2 rounded-[10px]",
-                      "border px-3 py-2",
+                      "gap-2 rounded-full",
+                      "px-3 py-2",
                       "text-[12px] font-semibold",
-                      "transition-[background-color,transform]",
+                      "transition-[background-color,transform,box-shadow]",
                       "duration-150",
                       "active:scale-[0.98]",
                       "motion-reduce:transition-none",
@@ -2000,7 +2019,7 @@ export default function DashboardSidebar({
                             "w-full cursor-pointer",
                             "select-none",
                             "items-center gap-3",
-                            "rounded-[10px]",
+                            "rounded-full",
                             "px-2.5 py-2",
                             "text-left text-[12.5px]",
                             "font-medium",
@@ -2066,7 +2085,7 @@ export default function DashboardSidebar({
                 "select-none",
                 "items-center gap-3",
                 "overflow-hidden",
-                "rounded-xl px-1.5",
+                "rounded-full px-1.5",
                 "transition-[background-color,transform]",
                 "duration-200",
                 "active:scale-[0.97]",
