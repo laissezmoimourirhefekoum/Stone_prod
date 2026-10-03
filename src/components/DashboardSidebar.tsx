@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import type { ReactNode } from "react";
 
@@ -1491,8 +1492,9 @@ export default function DashboardSidebar({
   }, []);
 
   /**
-   * Ouvre toujours le modal « Connect a New Channel ».
-   * La sidebar ne redirige plus vers /channels.
+   * Ouvre le modal « Connect a New Channel » (le même que sur /channels).
+   * Le modal est rendu dans un portal (voir plus bas) : le conteneur de la
+   * sidebar a une transform, qui piégerait un élément `fixed` à l'intérieur.
    */
   const openConnect = useCallback(() => {
     setMenuOpen(false);
@@ -2140,13 +2142,18 @@ export default function DashboardSidebar({
         </div>
       </aside>
 
-      {connectOpen && (
-        <ConnectChannelModal
-          {...channelConnectProps}
-          isDark={isDark}
-          onClose={closeConnect}
-        />
-      )}
+      {/* Modal rendu dans <body> pour échapper à la transform du conteneur
+          de la sidebar (sinon `fixed inset-0` reste piégé dedans). */}
+      {connectOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ConnectChannelModal
+            {...channelConnectProps}
+            isDark={isDark}
+            onClose={closeConnect}
+          />,
+          document.body
+        )}
     </div>
   );
 }
