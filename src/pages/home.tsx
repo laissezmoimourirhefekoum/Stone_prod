@@ -761,7 +761,14 @@ function BlogPostCard({
 
       <div className="flex shrink-0 flex-col gap-2 p-3.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-pink-100 px-3 py-1 text-[11px] font-semibold text-pink-600">
+          <span
+            className={[
+              "rounded-full px-3 py-1 text-[11px] font-semibold",
+              isDark
+                ? "bg-white text-neutral-900"
+                : "bg-neutral-900 text-white",
+            ].join(" ")}
+          >
             Blog post
           </span>
           <span
