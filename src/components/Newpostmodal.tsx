@@ -260,6 +260,189 @@ function ChannelTile({
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Sélecteur d'emoji
+   ────────────────────────────────────────────────────────────── */
+
+type EmojiCategory = {
+  id: string;
+  label: string;
+  icon: string;
+  emojis: string[];
+};
+
+const EMOJI_CATEGORIES: EmojiCategory[] = [
+  {
+    id: "smileys",
+    label: "Smileys",
+    icon: "😀",
+    emojis: "😀 😃 😄 😁 😆 😅 😂 🤣 🥲 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🫡 🤭 🫢 🤫 🫠 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 🤖 🎃".split(" "),
+  },
+  {
+    id: "people",
+    label: "Gestes et personnes",
+    icon: "👍",
+    emojis: "👍 👎 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🙌 👏 🫶 👐 🤲 🫂 👀 👁️ 👂 👃 🧠 🫀 👄 👶 🧒 👦 👧 🧑 👨 👩 🧔 👴 👵 🙋 🙆 🙅 🤷 🤦 💁 🙇 🕺 💃".split(" "),
+  },
+  {
+    id: "symbols",
+    label: "Cœurs et symboles",
+    icon: "❤️",
+    emojis: "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ✨ 🌟 ⭐ 💫 ⚡ 🔥 💥 💯 ✅ ❌ ❓ ❗ ‼️ ⚠️ 🚫 ♻️ ➕ ➖ ➡️ ⬅️ ⬆️ ⬇️ 🔔 🔕 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🆕 🆒 🆓 🔝 🔜 ✔️ ☑️ 💬 💭 🗯️".split(" "),
+  },
+  {
+    id: "nature",
+    label: "Animaux et nature",
+    icon: "🐶",
+    emojis: "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐴 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🐙 🦑 🐠 🐬 🐳 🦈 🐘 🦒 🌵 🎄 🌲 🌳 🌴 🌱 🌿 ☘️ 🍀 🍁 🍂 🍃 🌸 🌼 🌻 🌹 🌷 💐 🍄 🌎 🌙 ☀️ ⛅ ☁️ 🌧️ ⛈️ ❄️ ☃️ 🌈 🌊".split(" "),
+  },
+  {
+    id: "food",
+    label: "Nourriture et boissons",
+    icon: "🍕",
+    emojis: "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥦 🥕 🌽 🌶️ 🥐 🍞 🥖 🧀 🥚 🍳 🥞 🥓 🥩 🍗 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🥗 🍝 🍜 🍲 🍣 🍱 🍤 🍙 🍚 🍦 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍭 🍿 ☕ 🍵 🧃 🥤 🍺 🍻 🥂 🍷 🍸 🍹 🍾".split(" "),
+  },
+  {
+    id: "activities",
+    label: "Activités",
+    icon: "⚽",
+    emojis: "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥊 🥋 ⛳ 🏹 🎣 🛹 ⛸️ 🎿 🏆 🥇 🥈 🥉 🏅 🎖️ 🎫 🎭 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎷 🎺 🎸 🎻 🎲 🎯 🎮 🎰 🧩".split(" "),
+  },
+  {
+    id: "travel",
+    label: "Voyages et lieux",
+    icon: "✈️",
+    emojis: "🚗 🚕 🚙 🚌 🏎️ 🚓 🚑 🚒 🚚 🚜 🛵 🏍️ 🚲 ✈️ 🚀 🛸 🚁 ⛵ 🚤 🚢 🚂 🚆 🗺️ 🗽 🗼 🏰 🏯 🏟️ 🎡 🎢 🏖️ 🏝️ 🏔️ ⛰️ 🌋 🏕️ 🏠 🏡 🏢 🏥 🏦 🏨 ⛪ 🕌 🌃 🌆 🌇 🌉".split(" "),
+  },
+  {
+    id: "objects",
+    label: "Objets",
+    icon: "💡",
+    emojis: "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 📷 📸 📹 🎥 📺 📻 ⏰ 💡 🔦 🔋 💰 💳 💎 🔧 🔨 ⚙️ 🔗 📌 📎 ✂️ 📝 ✏️ 🖊️ 📚 📖 📅 📆 📊 📈 📉 📢 📣 🔍 🔒 🔑 🎁 🎈 🎉 🎊 🛍️ 🛒 📦 ✉️ 📧 📩 🏷️".split(" "),
+  },
+];
+
+const RECENT_EMOJIS_KEY = "stone_recent_emojis";
+const MAX_RECENT_EMOJIS = 16;
+
+function loadRecentEmojis(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_EMOJIS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is string => typeof item === "string")
+      .slice(0, MAX_RECENT_EMOJIS);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentEmojis(list: string[]): void {
+  try {
+    localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(list));
+  } catch {
+    // localStorage indisponible : les récents restent en mémoire
+  }
+}
+
+function EmojiPicker({
+  isDark,
+  recent,
+  onPick,
+}: {
+  isDark: boolean;
+  recent: string[];
+  onPick: (emoji: string) => void;
+}) {
+  const [activeId, setActiveId] = useState<string>(
+    recent.length > 0 ? "recent" : "smileys"
+  );
+
+  const tabs: EmojiCategory[] = [
+    ...(recent.length > 0
+      ? [{ id: "recent", label: "Récents", icon: "🕘", emojis: recent }]
+      : []),
+    ...EMOJI_CATEGORIES,
+  ];
+
+  const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
+
+  // On garde le focus (et donc le curseur) dans le champ de texte.
+  const keepFocus = (event: React.MouseEvent) => event.preventDefault();
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Choisir un emoji"
+      className={[
+        "absolute bottom-full left-0 z-50 mb-2 w-[320px] overflow-hidden rounded-xl border shadow-2xl",
+        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex items-center gap-0.5 border-b px-2 py-1.5",
+          isDark ? "border-white/10" : "border-black/10",
+        ].join(" ")}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === active.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              title={tab.label}
+              aria-label={tab.label}
+              aria-pressed={isActive}
+              onMouseDown={keepFocus}
+              onClick={() => setActiveId(tab.id)}
+              className={[
+                "flex h-8 w-8 items-center justify-center rounded-lg text-[17px] transition",
+                isActive
+                  ? isDark
+                    ? "bg-white/15"
+                    : "bg-neutral-200"
+                  : isDark
+                  ? "opacity-60 hover:bg-white/10 hover:opacity-100"
+                  : "opacity-60 hover:bg-black/5 hover:opacity-100",
+              ].join(" ")}
+            >
+              {tab.icon}
+            </button>
+          );
+        })}
+      </div>
+
+      <p
+        className={[
+          "px-3 pb-1 pt-2 text-[11.5px] font-semibold",
+          isDark ? "text-neutral-400" : "text-neutral-500",
+        ].join(" ")}
+      >
+        {active.label}
+      </p>
+
+      <div className="grid h-[200px] grid-cols-8 content-start gap-0.5 overflow-y-auto px-2 pb-2">
+        {active.emojis.map((emoji, index) => (
+          <button
+            key={`${emoji}-${index}`}
+            type="button"
+            onMouseDown={keepFocus}
+            onClick={() => onPick(emoji)}
+            className={[
+              "flex h-8 w-8 items-center justify-center rounded-lg text-[20px] leading-none transition",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]",
+            ].join(" ")}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
    Composant principal
    ────────────────────────────────────────────────────────────── */
 
@@ -283,6 +466,8 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => loadRecentEmojis());
 
   // Réseaux connectés (cache partagé avec la page Channels) :
   // TikTok, YouTube, Pinterest... tous sont affichés.
@@ -293,6 +478,10 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   mediaRef.current = media;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiWrapRef = useRef<HTMLDivElement>(null);
+  // Dernière position du curseur dans le texte (null = jamais placé : on ajoute à la fin).
+  const caretRef = useRef<{ start: number; end: number } | null>(null);
 
   const timeMin = useMemo(() => {
     const now = new Date();
@@ -325,7 +514,9 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (showActionMenu || showDateTimePanel) {
+        if (showEmojiPicker) {
+          setShowEmojiPicker(false);
+        } else if (showActionMenu || showDateTimePanel) {
           setShowActionMenu(false);
           setShowDateTimePanel(false);
         } else {
@@ -340,7 +531,7 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel]);
+  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker]);
 
   useEffect(() => {
     return () => {
@@ -366,6 +557,19 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [showActionMenu, showDateTimePanel]);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!emojiWrapRef.current?.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [showEmojiPicker]);
 
   if (!isOpen) return null;
 
@@ -394,6 +598,8 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
     setEditingItem(null);
     setSubmitError(null);
     setSubmitProgress(null);
+    setShowEmojiPicker(false);
+    caretRef.current = null;
   };
 
   // Fermeture après publication : on jette tout
@@ -439,6 +645,7 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
         kind: file.type.startsWith("video/") ? "video" : "image",
       }))
     );
+    caretRef.current = null;
     savedDraft = null;
     setPendingDraft(null);
   };
@@ -446,6 +653,40 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const ignoreDraft = () => {
     savedDraft = null;
     setPendingDraft(null);
+  };
+
+  const updateCaret = () => {
+    const el = textareaRef.current;
+    if (el) {
+      caretRef.current = { start: el.selectionStart, end: el.selectionEnd };
+    }
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const caret = caretRef.current ?? { start: content.length, end: content.length };
+    const start = Math.min(caret.start, content.length);
+    const end = Math.min(Math.max(caret.end, start), content.length);
+
+    const next = content.slice(0, start) + emoji + content.slice(end);
+    const position = start + emoji.length;
+
+    setContent(next);
+    caretRef.current = { start: position, end: position };
+
+    // Les emoji récents : le plus récent en premier, sans doublon.
+    setRecentEmojis((prev) => {
+      const updated = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, MAX_RECENT_EMOJIS);
+      saveRecentEmojis(updated);
+      return updated;
+    });
+
+    // On remet le curseur juste après l'emoji une fois le texte mis à jour.
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(position, position);
+    });
   };
 
   const toggleNetwork = (id: SocialNetworkId) => {
@@ -693,8 +934,15 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
 
             <div className="relative flex min-h-[120px] flex-1 flex-col">
               <textarea
+                ref={textareaRef}
                 value={content}
-                onChange={(event) => setContent(toSentenceCase(event.target.value))}
+                onChange={(event) => {
+                  setContent(toSentenceCase(event.target.value));
+                  updateCaret();
+                }}
+                onSelect={updateCaret}
+                onKeyUp={updateCaret}
+                onClick={updateCaret}
                 placeholder="Start writing or get inspired with Templates"
                 className={[
                   "w-full flex-1 resize-none bg-transparent text-[15px] leading-relaxed outline-none",
@@ -827,9 +1075,35 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
             {submitError && <p className="mt-2 text-[12px] text-red-500">{submitError}</p>}
 
             <div className={["mt-4 flex items-center gap-4 border-t pt-3", border].join(" ")}>
-              <button className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}>
-                <Smile className="h-4 w-4" />
-              </button>
+              <div ref={emojiWrapRef} className="relative">
+                <button
+                  type="button"
+                  title="Emoji"
+                  aria-label="Ajouter un emoji"
+                  aria-haspopup="dialog"
+                  aria-expanded={showEmojiPicker}
+                  onClick={() => setShowEmojiPicker((open) => !open)}
+                  className={[
+                    "flex h-8 w-8 items-center justify-center rounded-full transition",
+                    showEmojiPicker
+                      ? isDark
+                        ? "bg-white/10 text-white"
+                        : "bg-black/5 text-neutral-900"
+                      : textSecondary,
+                    isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900",
+                  ].join(" ")}
+                >
+                  <Smile className="h-4 w-4" />
+                </button>
+
+                {showEmojiPicker && (
+                  <EmojiPicker
+                    isDark={isDark}
+                    recent={recentEmojis}
+                    onPick={insertEmoji}
+                  />
+                )}
+              </div>
               <button
                 onClick={() => document.getElementById("hashtag-input")?.focus()}
                 className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}
