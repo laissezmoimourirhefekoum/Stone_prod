@@ -757,7 +757,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-8 w-8 shrink-0">
+    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -768,7 +768,7 @@ function ChannelAvatar({
           className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[12px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -776,12 +776,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center",
-            "rounded-[5px] bg-white text-black ring-2",
+            "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
+            "rounded-[4px] bg-white text-black ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-2.5 w-2.5" />
+          <NetworkIcon className="h-2 w-2" />
         </span>
       )}
     </span>
@@ -872,8 +872,8 @@ function SidebarChannels({
                   isCollapsed ? onExpandAndOpen(groupKey) : onToggleGroup(groupKey)
                 }
                 className={[
-                  "group flex h-11 w-full select-none items-center gap-3 overflow-hidden",
-                  "rounded-xl px-1.5 text-[14px] font-medium",
+                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
+                  "rounded-xl px-2.5 text-[13px] font-medium",
                   "transition-[background-color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none",
                   focus,
@@ -883,6 +883,18 @@ function SidebarChannels({
                 <ChannelAvatar channel={channel} NetworkIcon={NetworkIcon} dotRing={t.dotRing} />
                 <span className={["min-w-0 flex-1 truncate text-left", labelClass].join(" ")}>
                   {label.replace(/^@/, "")}
+                </span>
+                <span className={["flex shrink-0", labelClass].join(" ")}>
+                  <ChevronDownIcon
+                    className={[
+                      "h-3.5 w-3.5 opacity-50",
+                      "transition-[transform,opacity] duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:opacity-100",
+                      "motion-reduce:transition-none",
+                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
+                    ].join(" ")}
+                  />
                 </span>
               </button>
 
@@ -912,7 +924,7 @@ function SidebarChannels({
                           onClick={() => onNavigate(link.route)}
                           style={{ transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms" }}
                           className={[
-                            "flex h-10 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
                             "rounded-lg px-2 text-left text-[13px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
