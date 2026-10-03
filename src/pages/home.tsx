@@ -35,7 +35,16 @@ import {
   UserProfile,
 } from "../services/supabase";
 
-import { IntegrationIcons } from "../components/IntegrationIcons";
+import {
+  ZapierIcon,
+  ClaudeIcon,
+  ChatGPTIcon,
+  NotionIcon,
+  GoogleIcon,
+  N8nIcon,
+  GoogleCalendarIcon,
+  GmailIcon,
+} from "../components/IntegrationIcons";
 
 const SIDEBAR_OFFSET = 104;
 
