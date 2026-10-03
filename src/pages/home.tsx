@@ -5,6 +5,7 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
+import { useFollowerStats } from "../hooks/useFollowerStats";
 import DashboardSidebar from "../components/DashboardSidebar";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
@@ -323,13 +324,56 @@ function StatIcon({ kind, className }: { kind: StatKind; className?: string }) {
   );
 }
 
+/** Variation d'abonnés : « ↘ -2 · vs last week » */
+function DeltaBadge({ isDark, delta }: { isDark: boolean; delta: number }) {
+  const down = delta < 0;
+  const flat = delta === 0;
+
+  const color = flat
+    ? "text-neutral-400"
+    : down
+      ? "text-red-500"
+      : "text-emerald-500";
+
+  const arrowPath = flat
+    ? "M5 12h14"
+    : down
+      ? "M4 6l6 6 4-4 6 6M20 10v4h-4"
+      : "M4 18l6-6 4 4 6-6M20 14v-4h-4";
+
+  return (
+    <p className="flex items-center gap-1.5 text-[12.5px] font-medium">
+      <svg
+        viewBox="0 0 24 24"
+        className={["h-4 w-4", color].join(" ")}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={arrowPath} />
+      </svg>
+      <span className={color}>
+        {delta > 0 ? "+" : ""}
+        {numberFormatter.format(delta)}
+      </span>
+      <span className={isDark ? "text-neutral-500" : "text-neutral-400"}>
+        · vs last week
+      </span>
+    </p>
+  );
+}
+
 function OverviewCard({
   isDark,
   totals,
+  followersDelta,
   networkCount,
 }: {
   isDark: boolean;
   totals: { followers: number; likes: number; comments: number };
+  followersDelta: number | null;
   networkCount: number;
 }) {
   const items: { kind: StatKind; label: string; value: number }[] = [
@@ -379,6 +423,9 @@ function OverviewCard({
             >
               {numberFormatter.format(item.value)}
             </p>
+            {item.kind === "followers" && followersDelta !== null && (
+              <DeltaBadge isDark={isDark} delta={followersDelta} />
+            )}
           </div>
         ))}
       </div>
@@ -536,9 +583,11 @@ function ChannelAvatar({
 function ChannelsCard({
   isDark,
   channels,
+  followersByNetwork,
 }: {
   isDark: boolean;
   channels: ConnectedChannel[];
+  followersByNetwork: Partial<Record<SocialNetworkKey, number>>;
 }) {
   const count = channels.length;
 
@@ -597,13 +646,15 @@ function ChannelsCard({
           {channels.map((channel) => {
             const networkId = getNetworkId(channel);
             const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
-            const followers = readStat(channel, [
-              "followers",
-              "followersCount",
-              "followers_count",
-              "subscribers",
-              "subscribersCount",
-            ]);
+            const followers =
+              (networkId ? followersByNetwork[networkId] : undefined) ??
+              readStat(channel, [
+                "followers",
+                "followersCount",
+                "followers_count",
+                "subscribers",
+                "subscribersCount",
+              ]);
             return (
               <div
                 key={channel.key}
@@ -827,10 +878,28 @@ export default function Home() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   const connectedChannels = useConnectedChannels();
-  const totals = useMemo(
-    () => computeTotals(connectedChannels),
-    [connectedChannels]
-  );
+  const followerStats = useFollowerStats();
+
+  const totals = useMemo(() => {
+    const base = computeTotals(connectedChannels);
+
+    return {
+      ...base,
+      // Le total serveur (tous réseaux) est prioritaire.
+      followers: followerStats?.total ?? base.followers,
+    };
+  }, [connectedChannels, followerStats]);
+
+  // Abonnés par réseau, pour la carte "Réseaux connectés".
+  const followersByNetwork = useMemo(() => {
+    const map: Partial<Record<SocialNetworkKey, number>> = {};
+
+    for (const p of followerStats?.providers ?? []) {
+      map[p.provider as SocialNetworkKey] = p.followers;
+    }
+
+    return map;
+  }, [followerStats]);
 
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
 
@@ -912,6 +981,7 @@ export default function Home() {
                 <OverviewCard
                   isDark={isDark}
                   totals={totals}
+                  followersDelta={followerStats?.delta ?? null}
                   networkCount={connectedChannels.length}
                 />
               </div>
@@ -923,7 +993,11 @@ export default function Home() {
             {/* Rangée 2 : réseaux + action */}
             <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-8">
-                <ChannelsCard isDark={isDark} channels={connectedChannels} />
+                <ChannelsCard
+                  isDark={isDark}
+                  channels={connectedChannels}
+                  followersByNetwork={followersByNetwork}
+                />
               </div>
               <div className="lg:col-span-4">
                 <ComposeCard isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
