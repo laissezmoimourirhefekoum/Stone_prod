@@ -70,7 +70,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Statistiques                                                              */
+/*  Stats helpers                                                             */
 /* -------------------------------------------------------------------------- */
 
 function readStat(channel: ConnectedChannel, keys: string[]): number {
@@ -111,6 +111,10 @@ function computeTotals(channels: ConnectedChannel[]) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Small UI primitives                                                       */
+/* -------------------------------------------------------------------------- */
+
 function GreetingAvatar({
   avatarUrl,
   initials,
@@ -133,15 +137,13 @@ function GreetingAvatar({
       key={avatarUrl}
       src={avatarUrl!}
       alt="Profile"
-      style={{ width: 40, height: 40 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-800"
+      className="h-11 w-11 rounded-2xl object-cover ring-2 ring-black/5 dark:ring-white/10"
       onError={() => setLoadFailed(true)}
     />
   ) : (
     <div
-      style={{ width: 40, height: 40 }}
       className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ring-2 ring-zinc-200 dark:ring-zinc-800",
+        "flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-semibold ring-2 ring-black/5 dark:ring-white/10",
         isDark ? "bg-zinc-800 text-white" : "bg-zinc-900 text-white",
       ].join(" ")}
     >
@@ -167,73 +169,46 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
     weekday: "long",
     day: "numeric",
     month: "long",
-    year: "numeric",
   });
 
   return (
-    <div className="flex flex-col items-end">
-      <span
+    <div className="text-right">
+      <div
         className={[
-          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
+          "font-display text-2xl font-semibold tracking-tight tabular-nums",
           isDark ? "text-white" : "text-zinc-900",
         ].join(" ")}
       >
         {time}
-      </span>
-      <span
+      </div>
+      <div
         className={[
-          "mt-0.5 text-[12px] font-medium capitalize",
+          "mt-0.5 text-sm font-medium capitalize",
           isDark ? "text-zinc-400" : "text-zinc-500",
         ].join(" ")}
       >
         {date}
-      </span>
+      </div>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Widget de Streak (Noir & Blanc)                                           */
+/*  Streak – redesigned                                                       */
 /* -------------------------------------------------------------------------- */
 
-function FlameIcon({
-  className = "h-8 w-8",
-  color,
-}: {
-  className?: string;
-  color: string;
-}) {
+function FlameIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none">
-      <path
-        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
-        fill={color}
-      />
-    </svg>
-  );
-}
-
-function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m5 12.5 4.5 4.5L19 7" />
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z" />
     </svg>
   );
 }
 
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
-function StreakStepsWidget({ isDark }: { isDark: boolean }) {
+function StreakCard({ isDark }: { isDark: boolean }) {
   const streakCount = 0;
-  const challengeName = "0 day of post";
 
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -242,133 +217,58 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
     return WEEKDAYS_FR_SHORT[d.getDay()];
   });
 
-  // Style inversé : Fond noir en mode clair, Fond blanc en mode sombre
-  const cardBg = isDark ? "bg-white text-zinc-900" : "bg-zinc-900 text-white";
-  const subtitle = isDark ? "text-zinc-500" : "text-zinc-400";
-  const checkBg = isDark ? "bg-zinc-900" : "bg-white";
-  const checkIcon = isDark ? "text-white" : "text-zinc-900";
-  const badgeBg = isDark ? "bg-zinc-200" : "bg-zinc-800";
-
   return (
     <div
       className={[
-        "flex h-full w-full flex-col justify-between rounded-[22px] p-5 shadow-sm transition-all duration-300",
-        cardBg,
+        "relative overflow-hidden rounded-3xl p-6",
+        isDark
+          ? "bg-gradient-to-br from-zinc-900 to-zinc-950 ring-1 ring-white/10"
+          : "bg-gradient-to-br from-zinc-900 to-zinc-800 text-white",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-[18px] font-bold leading-tight">
-            {streakCount} days streak
-          </p>
-          <p className={["mt-1 text-[13px] font-medium", subtitle].join(" ")}>
-            {challengeName}
+          <p className="text-sm font-medium text-zinc-400">Série actuelle</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight">
+            {streakCount} jour{streakCount > 1 ? "s" : ""}
           </p>
         </div>
-
-        <FlameIcon className="h-9 w-9 shrink-0" color={isDark ? "#18181b" : "#ffffff"} />
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+          <FlameIcon className="h-6 w-6 text-orange-400" />
+        </div>
       </div>
 
-      <div className="mt-6 flex items-start justify-between gap-1">
-        {days.map((dayLabel, index) => {
-          const isChecked = index < streakCount;
+      <div className="mt-8 grid grid-cols-7 gap-2">
+        {days.map((label, i) => {
+          const active = i < streakCount;
           return (
-            <div
-              key={`${dayLabel}-${index}`}
-              className="flex flex-1 flex-col items-center gap-2"
-            >
-              <span
-                className={[
-                  "text-[11px] font-semibold uppercase leading-none",
-                  subtitle,
-                ].join(" ")}
-              >
-                {dayLabel}
+            <div key={i} className="flex flex-col items-center gap-2">
+              <span className="text-[11px] font-medium text-zinc-500">
+                {label}
               </span>
-
-              {isChecked ? (
-                <div
-                  className={[
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    checkBg,
-                  ].join(" ")}
-                >
-                  <CheckIcon
-                    className={["h-3.5 w-3.5", checkIcon].join(" ")}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden="true"
-                  className={[
-                    "h-8 w-8 shrink-0 rounded-full opacity-20",
-                    badgeBg,
-                  ].join(" ")}
-                />
-              )}
+              <div
+                className={[
+                  "h-8 w-8 rounded-full transition-all",
+                  active
+                    ? "bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.45)]"
+                    : "bg-white/10",
+                ].join(" ")}
+              />
             </div>
           );
         })}
       </div>
+
+      <p className="mt-6 text-sm text-zinc-400">
+        Publiez aujourd’hui pour allumer la flamme.
+      </p>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Icônes et composants UI                                                   */
+/*  Connected channels – cleaner                                              */
 /* -------------------------------------------------------------------------- */
-
-function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function LinkStackIcon({ isDark }: { isDark: boolean }) {
-  const ring = isDark ? "ring-zinc-900" : "ring-white";
-  const fill = isDark ? "bg-zinc-800" : "bg-zinc-200";
-
-  return (
-    <div className="flex items-center">
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          style={{ marginLeft: index === 0 ? 0 : -10 }}
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-full ring-2",
-            ring,
-            fill,
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-4 w-4",
-              isDark ? "text-zinc-400" : "text-zinc-500",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
-            <path d="M4 20c1.2-3 3.8-5 8-5s6.8 2 8 5" />
-          </svg>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ChannelAvatar({
   channel,
@@ -389,8 +289,6 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
   const showImage = Boolean(channel.avatarUrl) && !failed;
 
-  const ring = isDark ? "ring-zinc-900" : "ring-white";
-
   return (
     <div title={label} className="relative h-10 w-10 shrink-0">
       {showImage ? (
@@ -399,17 +297,13 @@ function ChannelAvatar({
           alt={label}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className={[
-            "h-full w-full rounded-full object-cover ring-2",
-            ring,
-          ].join(" ")}
+          className="h-full w-full rounded-full object-cover ring-2 ring-white dark:ring-zinc-900"
         />
       ) : (
         <div
           className={[
-            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
-            ring,
-            isDark ? "bg-zinc-800 text-white" : "bg-zinc-900 text-white",
+            "flex h-full w-full items-center justify-center rounded-full text-sm font-semibold ring-2 ring-white dark:ring-zinc-900",
+            isDark ? "bg-zinc-700 text-white" : "bg-zinc-200 text-zinc-800",
           ].join(" ")}
         >
           {initial}
@@ -417,12 +311,7 @@ function ChannelAvatar({
       )}
 
       {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
-            ring,
-          ].join(" ")}
-        >
+        <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white ring-2 ring-white dark:bg-zinc-900 dark:ring-zinc-900">
           <NetworkIcon className="h-3 w-3" />
         </span>
       )}
@@ -430,34 +319,86 @@ function ChannelAvatar({
   );
 }
 
-function ConnectFirstChannelWidget({
+function ConnectedChannelsCard({
   isDark,
   channels,
 }: {
   isDark: boolean;
   channels: ConnectedChannel[];
 }) {
-  const cardClasses = [
-    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-5 py-4 transition-all duration-300",
-    isDark
-      ? "border-zinc-800 bg-zinc-900 shadow-sm hover:bg-zinc-800"
-      : "border-zinc-200 bg-white shadow-sm hover:bg-zinc-50",
-  ].join(" ");
-
-  const connectButtonClasses = [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition-all duration-300",
-    isDark
-      ? "bg-white text-zinc-900 hover:bg-zinc-200"
-      : "bg-zinc-900 text-white hover:bg-zinc-800",
-  ].join(" ");
-
-  if (channels.length > 0) {
-    const count = channels.length;
-
+  if (channels.length === 0) {
     return (
-      <div className={cardClasses}>
-        <div className="flex flex-wrap items-center gap-4">
-          {channels.map((channel) => {
+      <button
+        type="button"
+        onClick={() => navigate("channels")}
+        className={[
+          "group flex w-full items-center justify-between rounded-3xl border border-dashed p-5 text-left transition-all",
+          isDark
+            ? "border-zinc-700 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-900"
+            : "border-zinc-300 bg-white hover:border-zinc-400 hover:bg-zinc-50",
+        ].join(" ")}
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className={[
+              "flex h-12 w-12 items-center justify-center rounded-2xl",
+              isDark ? "bg-zinc-800" : "bg-zinc-100",
+            ].join(" ")}
+          >
+            <svg
+              className="h-5 w-5 text-zinc-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          </div>
+          <div>
+            <p
+              className={[
+                "font-medium",
+                isDark ? "text-white" : "text-zinc-900",
+              ].join(" ")}
+            >
+              Connecter un réseau
+            </p>
+            <p className="text-sm text-zinc-500">
+              Reliez votre premier compte pour commencer
+            </p>
+          </div>
+        </div>
+        <span
+          className={[
+            "rounded-full px-4 py-2 text-sm font-medium transition",
+            isDark
+              ? "bg-white text-zinc-900 group-hover:bg-zinc-200"
+              : "bg-zinc-900 text-white group-hover:bg-zinc-800",
+          ].join(" ")}
+        >
+          Connecter
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        "flex items-center justify-between rounded-3xl border p-5",
+        isDark
+          ? "border-zinc-800 bg-zinc-900"
+          : "border-zinc-200 bg-white",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex -space-x-3">
+          {channels.slice(0, 5).map((channel) => {
             const networkId = getNetworkId(channel);
             const NetworkIcon = networkId
               ? NETWORK_ICONS[networkId]
@@ -472,155 +413,60 @@ function ConnectFirstChannelWidget({
             );
           })}
         </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <span
-            className={[
-              "text-[12.5px] font-semibold tabular-nums",
-              isDark ? "text-zinc-400" : "text-zinc-500",
-            ].join(" ")}
-          >
-            {count} réseau{count > 1 ? "x" : ""} connecté{count > 1 ? "s" : ""}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => navigate("channels")}
-            className={connectButtonClasses}
-          >
-            <PlusIcon />
-            Connecter
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => navigate("channels")}
-      className={[cardClasses, "text-left"].join(" ")}
-    >
-      <div className="flex items-center gap-3.5">
-        <LinkStackIcon isDark={isDark} />
-
-        <div>
+        <div className="ml-2">
           <p
             className={[
-              "text-[14px] font-semibold leading-tight",
+              "text-sm font-medium",
               isDark ? "text-white" : "text-zinc-900",
             ].join(" ")}
           >
-            Connectez votre premier réseau
+            {channels.length} réseau{channels.length > 1 ? "x" : ""} connecté
+            {channels.length > 1 ? "s" : ""}
           </p>
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-zinc-400" : "text-zinc-500",
-            ].join(" ")}
-          >
-            Reliez un canal pour commencer à publier
-          </p>
+          <p className="text-xs text-zinc-500">Prêts à publier</p>
         </div>
       </div>
 
-      <span className={connectButtonClasses}>
-        <PlusIcon />
-        Connecter
-      </span>
-    </button>
-  );
-}
-
-function DashboardCard({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "flex h-full flex-col rounded-[22px] border p-4 transition-all duration-300",
-        isDark
-          ? "border-zinc-800 bg-zinc-900 shadow-sm hover:bg-zinc-800/80"
-          : "border-zinc-200 bg-white shadow-sm hover:bg-zinc-50",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CardHeading({
-  isDark,
-  title,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p
+      <button
+        type="button"
+        onClick={() => navigate("channels")}
         className={[
-          "text-[13px] font-medium uppercase tracking-wider",
-          isDark ? "text-zinc-400" : "text-zinc-500",
+          "rounded-full px-4 py-2 text-sm font-medium transition",
+          isDark
+            ? "bg-white/10 text-white hover:bg-white/15"
+            : "bg-zinc-100 text-zinc-900 hover:bg-zinc-200",
         ].join(" ")}
       >
-        {title}
-      </p>
-      {action}
+        Gérer
+      </button>
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Stats cards – refined                                                     */
+/* -------------------------------------------------------------------------- */
 
 type StatKind = "followers" | "likes" | "comments";
 
-function StatIcon({
-  kind,
-  className,
-}: {
-  kind: StatKind;
-  className?: string;
-}) {
-  const common = {
-    viewBox: "0 0 24 24",
-    className,
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
+function StatIcon({ kind }: { kind: StatKind }) {
   if (kind === "followers") {
     return (
-      <svg {...common}>
-        <circle cx="9" cy="8" r="3.2" />
-        <path d="M3 20c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" />
-        <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.7.7 2.7 2.2 3 4.7" />
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     );
   }
-
   if (kind === "likes") {
     return (
-      <svg {...common}>
-        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
       </svg>
     );
   }
-
   return (
-    <svg {...common}>
-      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   );
 }
@@ -637,58 +483,40 @@ function StatCard({
   value: number;
 }) {
   return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title={title} />
-
-      <div className="flex flex-1 items-center justify-between gap-3">
-        <p
-          className={[
-            "font-display text-[clamp(28px,3vw,38px)] font-semibold leading-none tracking-[-0.02em] tabular-nums",
-            isDark ? "text-white" : "text-zinc-900",
-          ].join(" ")}
-        >
-          {numberFormatter.format(value)}
-        </p>
-
+    <div
+      className={[
+        "rounded-3xl border p-5 transition-all",
+        isDark
+          ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-900/80"
+          : "border-zinc-200 bg-white hover:bg-zinc-50",
+      ].join(" ")}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-zinc-500">{title}</p>
         <div
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-            isDark ? "bg-zinc-800" : "bg-zinc-100",
+            "flex h-9 w-9 items-center justify-center rounded-xl",
+            isDark ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-600",
           ].join(" ")}
         >
-          <StatIcon
-            kind={kind}
-            className={[
-              "h-5 w-5",
-              isDark ? "text-zinc-400" : "text-zinc-600",
-            ].join(" ")}
-          />
+          <StatIcon kind={kind} />
         </div>
       </div>
-    </DashboardCard>
+      <p
+        className={[
+          "mt-3 font-display text-3xl font-semibold tracking-tight tabular-nums",
+          isDark ? "text-white" : "text-zinc-900",
+        ].join(" ")}
+      >
+        {numberFormatter.format(value)}
+      </p>
+    </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Section Blog (Disposition Horizontale)                                    */
+/*  Blog section – editorial style                                            */
 /* -------------------------------------------------------------------------- */
-
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
 
 type BlogPostDefinition = {
   title: string;
@@ -700,19 +528,19 @@ type BlogPostDefinition = {
 const blogPostDefinitions: BlogPostDefinition[] = [
   {
     title: "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide",
-    date: "Jul 24, 2026",
+    date: "24 juil. 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-strategy/800/560",
     href: "#",
   },
   {
     title: "17 Best AI Tools for Social Media Content Creation (Tested for 2026)",
-    date: "Aug 3, 2026",
+    date: "3 août 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/800/560",
     href: "#",
   },
   {
     title: "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro",
-    date: "Jul 6, 2026",
+    date: "6 juil. 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/800/560",
     href: "#",
   },
@@ -729,97 +557,36 @@ function BlogPostCard({
     <a
       href={post.href}
       className={[
-        "group flex flex-row overflow-hidden rounded-[22px] border transition-all duration-300",
+        "group flex gap-4 overflow-hidden rounded-2xl border p-3 transition-all",
         isDark
-          ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+          ? "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900"
           : "border-zinc-200 bg-white hover:bg-zinc-50",
       ].join(" ")}
     >
-      {/* Image à gauche */}
-      <div className="h-full w-32 shrink-0 overflow-hidden sm:w-40">
+      <div className="h-20 w-28 shrink-0 overflow-hidden rounded-xl">
         <img
           src={post.imageUrl}
           alt=""
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
       </div>
-
-      {/* Contenu à droite */}
-      <div className="flex flex-1 flex-col justify-between p-4">
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <span
-              className={[
-                "rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                isDark
-                  ? "bg-zinc-800 text-zinc-300"
-                  : "bg-zinc-100 text-zinc-600",
-              ].join(" ")}
-            >
-              Blog post
-            </span>
-            <span
-              className={[
-                "text-[11px] font-medium",
-                isDark ? "text-zinc-500" : "text-zinc-400",
-              ].join(" ")}
-            >
-              {post.date}
-            </span>
-          </div>
-
-          <p
-            className={[
-              "mt-2 line-clamp-2 text-[13.5px] font-bold leading-snug",
-              isDark ? "text-white" : "text-zinc-900",
-            ].join(" ")}
-          >
-            {post.title}
-          </p>
-        </div>
-
-        <div className="mt-3 flex items-center justify-end">
-          <span
-            className={[
-              "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300",
-              isDark
-                ? "text-zinc-400 group-hover:bg-white/10 group-hover:text-white"
-                : "text-zinc-400 group-hover:bg-black/5 group-hover:text-zinc-900",
-            ].join(" ")}
-          >
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </span>
-        </div>
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-xs font-medium text-zinc-500">{post.date}</p>
+        <p
+          className={[
+            "mt-1 line-clamp-2 text-sm font-medium leading-snug",
+            isDark ? "text-white" : "text-zinc-900",
+          ].join(" ")}
+        >
+          {post.title}
+        </p>
       </div>
     </a>
   );
 }
 
-function FromTheBlogSection({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="flex flex-col">
-      <p
-        className={[
-          "shrink-0 text-[13px] font-medium uppercase tracking-wider",
-          isDark ? "text-zinc-500" : "text-zinc-400",
-        ].join(" ")}
-      >
-        From the Blog
-      </p>
-
-      {/* Liste verticale de cartes horizontales */}
-      <div className="mt-3 flex flex-col gap-3">
-        {blogPostDefinitions.map((post) => (
-          <BlogPostCard key={post.title} isDark={isDark} post={post} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
-/*  Composant Principal                                                       */
+/*  Main component                                                            */
 /* -------------------------------------------------------------------------- */
 
 export default function Home() {
@@ -846,7 +613,6 @@ export default function Home() {
     const loadUser = async () => {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUser(userData);
@@ -857,14 +623,12 @@ export default function Home() {
     };
 
     loadUser();
-
     return () => {
       mounted = false;
     };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-
   const initials =
     `${(user?.first_name || "")[0] || ""}${
       (user?.last_name || "")[0] || ""
@@ -895,38 +659,41 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="h-full overflow-y-auto" style={{ paddingLeft: SIDEBAR_OFFSET }}>
-        <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
-          
-          {/* En-tête */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h1
-                className={[
-                  "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
-                  isDark ? "text-white" : "text-zinc-900",
-                ].join(" ")}
-              >
-                Bonjour{fullName ? `, ${fullName}` : ""}
-              </h1>
-
+      <div
+        className="h-full overflow-y-auto"
+        style={{ paddingLeft: SIDEBAR_OFFSET }}
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-[1280px] flex-col px-6 pb-28 pt-8 sm:px-8 lg:px-10">
+          {/* Header */}
+          <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
+            <div className="flex items-center gap-4">
               <GreetingAvatar
                 avatarUrl={user?.avatar_url}
                 initials={initials}
                 isDark={isDark}
               />
+              <div>
+                <p className="text-sm font-medium text-zinc-500">
+                  Bonjour{fullName ? "," : ""}
+                </p>
+                <h1
+                  className={[
+                    "font-display text-3xl font-semibold tracking-tight sm:text-4xl",
+                    isDark ? "text-white" : "text-zinc-900",
+                  ].join(" ")}
+                >
+                  {fullName || "créateur"}
+                </h1>
+              </div>
             </div>
-
             <ClockDisplay isDark={isDark} />
-          </div>
+          </header>
 
-          {/* NOUVELLE DISPOSITION : Grille asymétrique à 2 colonnes */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            
-            {/* Colonne de Gauche (Principale) - 2/3 de la largeur */}
-            <div className="flex flex-col gap-6 lg:col-span-2">
-              
-              {/* Ligne des 3 statistiques */}
+          {/* Main grid */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+            {/* Left column */}
+            <div className="flex flex-col gap-6 lg:col-span-8">
+              {/* Stats */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
                   isDark={isDark}
@@ -948,49 +715,75 @@ export default function Home() {
                 />
               </div>
 
-              {/* Réseaux connectés */}
-              <ConnectFirstChannelWidget
+              {/* Channels */}
+              <ConnectedChannelsCard
                 isDark={isDark}
                 channels={connectedChannels}
               />
 
-              {/* Section Blog (maintenant en liste verticale de cartes horizontales) */}
-              <FromTheBlogSection isDark={isDark} />
+              {/* Blog */}
+              <section>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2
+                    className={[
+                      "text-sm font-semibold uppercase tracking-wider",
+                      isDark ? "text-zinc-400" : "text-zinc-500",
+                    ].join(" ")}
+                  >
+                    Depuis le blog
+                  </h2>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {blogPostDefinitions.map((post) => (
+                    <BlogPostCard
+                      key={post.title}
+                      isDark={isDark}
+                      post={post}
+                    />
+                  ))}
+                </div>
+              </section>
             </div>
 
-            {/* Colonne de Droite (Latérale) - 1/3 de la largeur */}
-            <div className="flex flex-col gap-6">
-              
-              {/* Widget de Streak (prend toute la hauteur disponible) */}
-              <div className="flex-1">
-                <StreakStepsWidget isDark={isDark} />
-              </div>
+            {/* Right column */}
+            <div className="flex flex-col gap-6 lg:col-span-4">
+              <StreakCard isDark={isDark} />
 
-              {/* Nouvelle carte d'action rapide pour équilibrer la colonne */}
+              {/* CTA card */}
               <div
                 className={[
-                  "flex flex-col rounded-[22px] border p-5 transition-all duration-300",
+                  "rounded-3xl p-6",
                   isDark
-                    ? "border-zinc-800 bg-zinc-900 shadow-sm"
-                    : "border-zinc-200 bg-zinc-900 text-white shadow-sm",
+                    ? "bg-zinc-900 ring-1 ring-white/10"
+                    : "bg-zinc-900 text-white",
                 ].join(" ")}
               >
-                <p className="text-[16px] font-bold text-white">
-                  Une idée de publication ?
-                </p>
-                <p className="mt-1 text-[13px] font-medium text-zinc-400">
-                  Rédigez-la maintenant ou planifiez-la sur vos réseaux.
+                <p className="text-lg font-semibold">Une idée en tête ?</p>
+                <p className="mt-2 text-sm text-zinc-400">
+                  Créez une publication maintenant ou planifiez-la pour plus
+                  tard.
                 </p>
                 <button
                   type="button"
                   onClick={() => setIsNewPostOpen(true)}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-2.5 text-[13px] font-semibold text-zinc-900 transition hover:bg-zinc-200"
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100"
                 >
-                  <PlusIcon className="h-4 w-4" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
                   Nouvelle publication
                 </button>
               </div>
-
             </div>
           </div>
         </div>
