@@ -38,10 +38,9 @@ type SocialNetworkKey =
   | "pinterest"
   | "threads";
 
-const NETWORK_ICONS: Record<
-  SocialNetworkKey,
-  (props: { className?: string }) => JSX.Element
-> = {
+type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
+
+const NETWORK_ICONS: Record<SocialNetworkKey, NetworkIconComponent> = {
   x: XIcon,
   facebook: FacebookIcon,
   instagram: InstagramIcon,
@@ -49,7 +48,7 @@ const NETWORK_ICONS: Record<
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
-  threads: ThreadsIcon as (props: { className?: string }) => JSX.Element,
+  threads: ThreadsIcon as unknown as NetworkIconComponent,
 };
 
 function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
@@ -68,6 +67,10 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
+
+/* ============================================================================
+   En-tête : salutation + horloge
+============================================================================ */
 
 function GreetingAvatar({
   avatarUrl,
@@ -150,46 +153,9 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
   );
 }
 
-type StreakWidgetTokens = {
-  cardBg: string;
-  cardBorder: string;
-  shadow: string;
-  heading: string;
-  subtitle: string;
-  flame: string;
-  checkBg: string;
-  checkIcon: string;
-  badgeBg: string;
-  badgeText: string;
-};
-
-function buildStreakTokens(invert: boolean): StreakWidgetTokens {
-  return invert
-    ? {
-        cardBg: "bg-[#141416]",
-        cardBorder: "border-white/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.4)]",
-        heading: "text-white",
-        subtitle: "text-neutral-400",
-        flame: "#3a3a3d",
-        checkBg: "bg-white",
-        checkIcon: "text-black",
-        badgeBg: "bg-white/10",
-        badgeText: "text-white",
-      }
-    : {
-        cardBg: "bg-white",
-        cardBorder: "border-black/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        heading: "text-neutral-900",
-        subtitle: "text-neutral-500",
-        flame: "#d9d9d9",
-        checkBg: "bg-neutral-900",
-        checkIcon: "text-white",
-        badgeBg: "bg-neutral-100",
-        badgeText: "text-neutral-600",
-      };
-}
+/* ============================================================================
+   Icônes
+============================================================================ */
 
 function FlameIcon({
   className = "h-8 w-8",
@@ -224,98 +190,6 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
-
-function StreakStepsWidget({ isDark }: { isDark: boolean }) {
-  const streakCount = 0;
-  const challengeName = "0 day of post";
-
-  const tokens = buildStreakTokens(!isDark);
-
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
-  });
-
-  return (
-    <div
-      className={[
-        "flex h-full w-full flex-col justify-between rounded-[22px] border p-4",
-        tokens.cardBg,
-        tokens.cardBorder,
-        tokens.shadow,
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p
-            className={[
-              "text-[17px] font-bold leading-tight",
-              tokens.heading,
-            ].join(" ")}
-          >
-            {streakCount} days streak
-          </p>
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              tokens.subtitle,
-            ].join(" ")}
-          >
-            {challengeName}
-          </p>
-        </div>
-
-        <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
-      </div>
-
-      <div className="mt-3.5 flex items-start justify-between gap-1">
-        {days.map((dayLabel, index) => {
-          const isChecked = index < streakCount;
-          return (
-            <div
-              key={`${dayLabel}-${index}`}
-              className="flex flex-1 flex-col items-center gap-1.5"
-            >
-              <span
-                className={[
-                  "text-[10px] font-semibold uppercase leading-none",
-                  tokens.subtitle,
-                ].join(" ")}
-              >
-                {dayLabel}
-              </span>
-
-              {isChecked ? (
-                <div
-                  className={[
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                    tokens.checkBg,
-                  ].join(" ")}
-                >
-                  <CheckIcon
-                    className={["h-3 w-3", tokens.checkIcon].join(" ")}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden="true"
-                  className={[
-                    "h-7 w-7 shrink-0 rounded-full",
-                    tokens.badgeBg,
-                  ].join(" ")}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg
@@ -331,6 +205,174 @@ function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
+function PuzzleIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 8h8v8H8z" />
+      <path d="M4 12h4M16 12h4M12 4v4M12 16v4" />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+/* ============================================================================
+   Briques communes des cartes
+============================================================================ */
+
+function DashboardCard({
+  isDark,
+  children,
+}: {
+  isDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={[
+        "flex h-full min-h-[190px] flex-col rounded-[22px] border p-5",
+        isDark
+          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
+          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({
+  isDark,
+  title,
+  subtitle,
+  trailing,
+  large = false,
+}: {
+  isDark: boolean;
+  title: string;
+  subtitle: string;
+  trailing?: React.ReactNode;
+  large?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p
+          className={[
+            "truncate font-bold leading-tight tracking-[-0.01em]",
+            large
+              ? "font-display text-[clamp(22px,2.2vw,28px)] font-semibold"
+              : "text-[19px]",
+            isDark ? "text-white" : "text-neutral-900",
+          ].join(" ")}
+        >
+          {title}
+        </p>
+        <p
+          className={[
+            "mt-1 text-[12.5px] font-medium",
+            isDark ? "text-neutral-400" : "text-neutral-500",
+          ].join(" ")}
+        >
+          {subtitle}
+        </p>
+      </div>
+      {trailing}
+    </div>
+  );
+}
+
+function IconTile({
+  isDark,
+  children,
+}: {
+  isDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={[
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+        isDark ? "bg-white/10 text-neutral-200" : "bg-neutral-100 text-neutral-700",
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PillButton({
+  isDark,
+  onClick,
+  withPlus = false,
+  children,
+}: {
+  isDark: boolean;
+  onClick: () => void;
+  withPlus?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
+        isDark
+          ? "bg-white text-neutral-900 hover:bg-neutral-200"
+          : "bg-neutral-900 text-white hover:bg-neutral-800",
+      ].join(" ")}
+    >
+      {withPlus && <PlusIcon />}
+      {children}
+    </button>
+  );
+}
+
+/* ============================================================================
+   Grande carte : réseaux connectés
+============================================================================ */
+
 function LinkStackIcon({ isDark }: { isDark: boolean }) {
   const ring = isDark ? "ring-[#141416]" : "ring-white";
   const fill = isDark ? "bg-[#2a2a2d]" : "bg-neutral-200";
@@ -342,7 +384,7 @@ function LinkStackIcon({ isDark }: { isDark: boolean }) {
           key={index}
           style={{ marginLeft: index === 0 ? 0 : -10 }}
           className={[
-            "flex h-9 w-9 items-center justify-center rounded-full ring-2",
+            "flex h-10 w-10 items-center justify-center rounded-full ring-2",
             ring,
             fill,
           ].join(" ")}
@@ -375,7 +417,7 @@ function ChannelAvatar({
 }: {
   channel: ConnectedChannel;
   isDark: boolean;
-  NetworkIcon?: (props: { className?: string }) => JSX.Element;
+  NetworkIcon?: NetworkIconComponent;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -390,10 +432,7 @@ function ChannelAvatar({
   const ring = isDark ? "ring-[#141416]" : "ring-white";
 
   return (
-    <div
-      title={label}
-      className="relative h-10 w-10 shrink-0"
-    >
+    <div title={label} className="relative h-11 w-11 shrink-0">
       {showImage ? (
         <img
           src={channel.avatarUrl}
@@ -431,197 +470,155 @@ function ChannelAvatar({
   );
 }
 
-function ConnectFirstChannelWidget({
+function ConnectedChannelsCard({
   isDark,
   channels,
 }: {
   isDark: boolean;
   channels: ConnectedChannel[];
 }) {
-  const cardClasses = [
-    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3",
-    isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
-    isDark
-      ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-      : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-  ].join(" ");
+  const count = channels.length;
+  const plural = count > 1 ? "s" : "";
 
-  const connectButtonClasses = [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
-    isDark
-      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-      : "bg-neutral-900 text-white hover:bg-neutral-800",
-  ].join(" ");
+  return (
+    <DashboardCard isDark={isDark}>
+      <CardTitle
+        isDark={isDark}
+        large
+        title={
+          count > 0
+            ? `${count} réseau${plural} connecté${plural}`
+            : "Aucun réseau connecté"
+        }
+        subtitle={
+          count > 0
+            ? "Vos canaux de publication"
+            : "Reliez un canal pour commencer à publier"
+        }
+      />
 
-  if (channels.length > 0) {
-    return (
-      <div className={cardClasses}>
-        <div className="flex flex-wrap items-center gap-4">
-          {channels.map((channel) => {
-            const networkId = getNetworkId(channel);
-            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
-            return (
-              <ChannelAvatar
-                key={channel.key}
-                channel={channel}
-                isDark={isDark}
-                NetworkIcon={NetworkIcon}
-              />
-            );
-          })}
-        </div>
+      <div className="mt-auto flex items-end justify-between gap-4 pt-5">
+        {count > 0 ? (
+          <div className="flex flex-wrap items-center gap-4">
+            {channels.map((channel) => {
+              const networkId = getNetworkId(channel);
+              const NetworkIcon = networkId
+                ? NETWORK_ICONS[networkId]
+                : undefined;
+              return (
+                <ChannelAvatar
+                  key={channel.key}
+                  channel={channel}
+                  isDark={isDark}
+                  NetworkIcon={NetworkIcon}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <LinkStackIcon isDark={isDark} />
+        )}
 
-        <button
-          type="button"
-          onClick={() => navigate("channels")}
-          className={connectButtonClasses}
-        >
-          <PlusIcon />
+        <PillButton isDark={isDark} withPlus onClick={() => navigate("channels")}>
           Connecter
-        </button>
+        </PillButton>
       </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => navigate("channels")}
-      className={[
-        cardClasses,
-        "text-left transition",
-        isDark ? "hover:bg-[#19191c]" : "hover:bg-neutral-50",
-      ].join(" ")}
-    >
-      <div className="flex items-center gap-3.5">
-        <LinkStackIcon isDark={isDark} />
-
-        <div>
-          <p
-            className={[
-              "text-[14px] font-semibold leading-tight",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            Connectez votre premier réseau
-          </p>
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            Reliez un canal pour commencer à publier
-          </p>
-        </div>
-      </div>
-
-      <span className={connectButtonClasses}>
-        <PlusIcon />
-        Connecter
-      </span>
-    </button>
+    </DashboardCard>
   );
 }
 
-function DashboardCard({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "flex h-full flex-col rounded-[22px] border p-4",
-        isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
+/* ============================================================================
+   Petites cartes : série, intégrations, publications
+============================================================================ */
 
-function CardHeading({
-  isDark,
-  title,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  action?: React.ReactNode;
-}) {
+const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+
+function StreakCard({ isDark }: { isDark: boolean }) {
+  const streakCount = 0;
+  const challengeName = "0 day of post";
+
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return WEEKDAYS_FR_SHORT[d.getDay()];
+  });
+
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p
-        className={[
-          "text-[14px] font-semibold",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {title}
-      </p>
-      {action}
-    </div>
+    <DashboardCard isDark={isDark}>
+      <CardTitle
+        isDark={isDark}
+        title={`${streakCount} days streak`}
+        subtitle={challengeName}
+        trailing={
+          <FlameIcon
+            className="h-7 w-7 shrink-0"
+            color={isDark ? "#3a3a3d" : "#d9d9d9"}
+          />
+        }
+      />
+
+      <div className="mt-auto flex items-start justify-between gap-1 pt-5">
+        {days.map((dayLabel, index) => {
+          const isChecked = index < streakCount;
+          return (
+            <div
+              key={`${dayLabel}-${index}`}
+              className="flex flex-1 flex-col items-center gap-1.5"
+            >
+              <span
+                className={[
+                  "text-[10px] font-semibold uppercase leading-none",
+                  isDark ? "text-neutral-400" : "text-neutral-500",
+                ].join(" ")}
+              >
+                {dayLabel}
+              </span>
+
+              {isChecked ? (
+                <div
+                  className={[
+                    "flex aspect-square w-full max-w-[24px] items-center justify-center rounded-full",
+                    isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                  ].join(" ")}
+                >
+                  <CheckIcon className="h-3 w-3" />
+                </div>
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className={[
+                    "aspect-square w-full max-w-[24px] rounded-full",
+                    isDark ? "bg-white/10" : "bg-neutral-100",
+                  ].join(" ")}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </DashboardCard>
   );
 }
 
 function IntegrationsCard({ isDark }: { isDark: boolean }) {
   return (
     <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Vos intégrations" />
+      <CardTitle
+        isDark={isDark}
+        title="Intégrations"
+        subtitle="Aucune intégration"
+      />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
-        <div
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-full",
-            isDark ? "bg-white/5" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8 8h8v8H8z" />
-            <path d="M4 12h4M16 12h4M12 4v4M12 16v4" />
-          </svg>
-        </div>
-        <p
-          className={[
-            "text-[12.5px] font-medium",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          Aucune intégration
-        </p>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+        <IconTile isDark={isDark}>
+          <PuzzleIcon />
+        </IconTile>
+
+        <PillButton isDark={isDark} onClick={() => navigate("integrations")}>
+          Gérer
+        </PillButton>
       </div>
-
-      <button
-        type="button"
-        onClick={() => navigate("integrations")}
-        className={[
-          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
-          isDark
-            ? "bg-white/10 text-white hover:bg-white/15"
-            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
-        ].join(" ")}
-      >
-        Gérer
-      </button>
     </DashboardCard>
   );
 }
@@ -635,72 +632,28 @@ function UpcomingPostsCard({
 }) {
   return (
     <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Publications à venir" />
+      <CardTitle
+        isDark={isDark}
+        title="Aucune publication"
+        subtitle="Publications à venir"
+      />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <div
-          className={[
-            "flex h-14 w-14 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-6 w-6",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </div>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+        <IconTile isDark={isDark}>
+          <CalendarIcon />
+        </IconTile>
 
-        <p
-          className={[
-            "text-[15px] font-bold leading-tight",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          Aucune publication
-        </p>
+        <PillButton isDark={isDark} onClick={onPlan}>
+          Planifier
+        </PillButton>
       </div>
-
-      <button
-        type="button"
-        onClick={onPlan}
-        className={[
-          "mx-auto mt-4 rounded-[10px] px-5 py-2 text-[13px] font-bold transition",
-          isDark
-            ? "bg-white/[0.08] text-white hover:bg-white/[0.12]"
-            : "bg-neutral-900 text-white hover:bg-neutral-800",
-        ].join(" ")}
-      >
-        Planifier
-      </button>
     </DashboardCard>
   );
 }
 
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
+/* ============================================================================
+   Blog
+============================================================================ */
 
 type BlogPostDefinition = {
   title: string;
@@ -764,9 +717,7 @@ function BlogPostCard({
           <span
             className={[
               "rounded-full px-3 py-1 text-[11px] font-semibold",
-              isDark
-                ? "bg-white text-neutral-900"
-                : "bg-neutral-900 text-white",
+              isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
             ].join(" ")}
           >
             Blog post
@@ -809,7 +760,7 @@ function BlogPostCard({
 
 function FromTheBlogSection({ isDark }: { isDark: boolean }) {
   return (
-    <div className="mt-auto flex flex-col">
+    <div className="mt-auto flex flex-col pt-2">
       <p
         className={[
           "shrink-0 text-[13px] font-medium",
@@ -828,6 +779,10 @@ function FromTheBlogSection({ isDark }: { isDark: boolean }) {
   );
 }
 
+/* ============================================================================
+   Page
+============================================================================ */
+
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -836,7 +791,6 @@ export default function Home() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
-  // Tous les réseaux sont affichés, YouTube compris.
   const connectedChannels = useConnectedChannels();
 
   const [user, setUser] = useState<UserProfile | null>(
@@ -900,8 +854,8 @@ export default function Home() {
       <DashboardSidebar theme={theme} />
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
-        <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
-          <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+        <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col overflow-y-auto px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
+          <div className="flex flex-1 flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h1
@@ -923,19 +877,22 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StreakStepsWidget isDark={isDark} />
+            {/* Grille : une grande carte + trois petites sur la même ligne */}
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-[2.5fr_1fr_1fr_1fr]">
+              <div className="sm:col-span-3 lg:col-span-1">
+                <ConnectedChannelsCard
+                  isDark={isDark}
+                  channels={connectedChannels}
+                />
+              </div>
+
+              <StreakCard isDark={isDark} />
               <IntegrationsCard isDark={isDark} />
               <UpcomingPostsCard
                 isDark={isDark}
                 onPlan={() => setIsNewPostOpen(true)}
               />
             </div>
-
-            <ConnectFirstChannelWidget
-              isDark={isDark}
-              channels={connectedChannels}
-            />
 
             <FromTheBlogSection isDark={isDark} />
           </div>
