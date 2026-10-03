@@ -192,168 +192,69 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
   );
 }
 
-type StreakWidgetTokens = {
-  cardBg: string;
-  cardBorder: string;
-  shadow: string;
-  heading: string;
-  subtitle: string;
-  flame: string;
-  checkBg: string;
-  checkIcon: string;
-  badgeBg: string;
-  badgeText: string;
-};
 
-function buildStreakTokens(invert: boolean): StreakWidgetTokens {
-  return invert
-    ? {
-        cardBg: "bg-[#141416]",
-        cardBorder: "border-white/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.4)]",
-        heading: "text-white",
-        subtitle: "text-neutral-400",
-        flame: "#3a3a3d",
-        checkBg: "bg-white",
-        checkIcon: "text-black",
-        badgeBg: "bg-white/10",
-        badgeText: "text-white",
-      }
-    : {
-        cardBg: "bg-white",
-        cardBorder: "border-black/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        heading: "text-neutral-900",
-        subtitle: "text-neutral-500",
-        flame: "#d9d9d9",
-        checkBg: "bg-neutral-900",
-        checkIcon: "text-white",
-        badgeBg: "bg-neutral-100",
-        badgeText: "text-neutral-600",
-      };
-}
+/* -------------------------------------------------------------------------- */
+/*  Primitives                                                                */
+/* -------------------------------------------------------------------------- */
 
-function FlameIcon({
-  className = "h-8 w-8",
-  color,
+function Card({
+  isDark,
+  className = "",
+  children,
 }: {
+  isDark: boolean;
   className?: string;
-  color: string;
+  children: React.ReactNode;
 }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none">
-      <path
-        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
-        fill={color}
-      />
-    </svg>
-  );
-}
-
-function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m5 12.5 4.5 4.5L19 7" />
-    </svg>
-  );
-}
-
-const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
-
-function StreakStepsWidget({ isDark }: { isDark: boolean }) {
-  const streakCount = 0;
-  const challengeName = "0 day of post";
-
-  const tokens = buildStreakTokens(!isDark);
-
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
-  });
-
   return (
     <div
       className={[
-        "flex h-full w-full flex-col justify-between rounded-[22px] border p-4",
-        tokens.cardBg,
-        tokens.cardBorder,
-        tokens.shadow,
+        "flex flex-col rounded-[22px] border p-5",
+        isDark
+          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
+          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+        className,
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p
-            className={[
-              "text-[17px] font-bold leading-tight",
-              tokens.heading,
-            ].join(" ")}
-          >
-            {streakCount} days streak
-          </p>
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({
+  isDark,
+  title,
+  hint,
+  action,
+}: {
+  isDark: boolean;
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <p
+          className={[
+            "text-[15px] font-semibold leading-tight",
+            isDark ? "text-white" : "text-neutral-900",
+          ].join(" ")}
+        >
+          {title}
+        </p>
+        {hint && (
           <p
             className={[
               "mt-0.5 text-[12.5px] font-medium",
-              tokens.subtitle,
+              isDark ? "text-neutral-400" : "text-neutral-500",
             ].join(" ")}
           >
-            {challengeName}
+            {hint}
           </p>
-        </div>
-
-        <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
+        )}
       </div>
-
-      <div className="mt-3.5 flex items-start justify-between gap-1">
-        {days.map((dayLabel, index) => {
-          const isChecked = index < streakCount;
-          return (
-            <div
-              key={`${dayLabel}-${index}`}
-              className="flex flex-1 flex-col items-center gap-1.5"
-            >
-              <span
-                className={[
-                  "text-[10px] font-semibold uppercase leading-none",
-                  tokens.subtitle,
-                ].join(" ")}
-              >
-                {dayLabel}
-              </span>
-
-              {isChecked ? (
-                <div
-                  className={[
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                    tokens.checkBg,
-                  ].join(" ")}
-                >
-                  <CheckIcon
-                    className={["h-3 w-3", tokens.checkIcon].join(" ")}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden="true"
-                  className={[
-                    "h-7 w-7 shrink-0 rounded-full",
-                    tokens.badgeBg,
-                  ].join(" ")}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {action}
     </div>
   );
 }
@@ -373,268 +274,22 @@ function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
-function LinkStackIcon({ isDark }: { isDark: boolean }) {
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
-  const fill = isDark ? "bg-[#2a2a2d]" : "bg-neutral-200";
-
-  return (
-    <div className="flex items-center">
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          style={{ marginLeft: index === 0 ? 0 : -10 }}
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-full ring-2",
-            ring,
-            fill,
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
-            <path d="M4 20c1.2-3 3.8-5 8-5s6.8 2 8 5" />
-          </svg>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChannelAvatar({
-  channel,
-  isDark,
-  NetworkIcon,
-}: {
-  channel: ConnectedChannel;
-  isDark: boolean;
-  NetworkIcon?: (props: { className?: string }) => JSX.Element;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
-
-  const label = channel.handle || channel.name;
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const showImage = Boolean(channel.avatarUrl) && !failed;
-
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
-
-  return (
-    <div title={label} className="relative h-10 w-10 shrink-0">
-      {showImage ? (
-        <img
-          src={channel.avatarUrl}
-          alt={label}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className={[
-            "h-full w-full rounded-full object-cover ring-2",
-            ring,
-          ].join(" ")}
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
-            ring,
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          {initial}
-        </div>
-      )}
-
-      {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
-            ring,
-          ].join(" ")}
-        >
-          <NetworkIcon className="h-3 w-3" />
-        </span>
-      )}
-    </div>
-  );
-}
-
-function ConnectFirstChannelWidget({
-  isDark,
-  channels,
-}: {
-  isDark: boolean;
-  channels: ConnectedChannel[];
-}) {
-  const cardClasses = [
-    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3",
-    isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
-    isDark
-      ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-      : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-  ].join(" ");
-
-  const connectButtonClasses = [
+function pillButton(isDark: boolean) {
+  return [
     "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
     isDark
       ? "bg-white text-neutral-900 hover:bg-neutral-200"
       : "bg-neutral-900 text-white hover:bg-neutral-800",
   ].join(" ");
-
-  if (channels.length > 0) {
-    const count = channels.length;
-
-    return (
-      <div className={cardClasses}>
-        <div className="flex flex-wrap items-center gap-4">
-          {channels.map((channel) => {
-            const networkId = getNetworkId(channel);
-            const NetworkIcon = networkId
-              ? NETWORK_ICONS[networkId]
-              : undefined;
-            return (
-              <ChannelAvatar
-                key={channel.key}
-                channel={channel}
-                isDark={isDark}
-                NetworkIcon={NetworkIcon}
-              />
-            );
-          })}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <span
-            className={[
-              "text-[12.5px] font-semibold tabular-nums",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            {count} réseau{count > 1 ? "x" : ""} connecté{count > 1 ? "s" : ""}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => navigate("channels")}
-            className={connectButtonClasses}
-          >
-            <PlusIcon />
-            Connecter
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => navigate("channels")}
-      className={[
-        cardClasses,
-        "text-left transition",
-        isDark ? "hover:bg-[#19191c]" : "hover:bg-neutral-50",
-      ].join(" ")}
-    >
-      <div className="flex items-center gap-3.5">
-        <LinkStackIcon isDark={isDark} />
-
-        <div>
-          <p
-            className={[
-              "text-[14px] font-semibold leading-tight",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            Connectez votre premier réseau
-          </p>
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            Reliez un canal pour commencer à publier
-          </p>
-        </div>
-      </div>
-
-      <span className={connectButtonClasses}>
-        <PlusIcon />
-        Connecter
-      </span>
-    </button>
-  );
 }
 
-function DashboardCard({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "flex h-full flex-col rounded-[22px] border p-4",
-        isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CardHeading({
-  isDark,
-  title,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p
-        className={[
-          "text-[14px] font-semibold",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {title}
-      </p>
-      {action}
-    </div>
-  );
-}
+/* -------------------------------------------------------------------------- */
+/*  Vue d'ensemble : abonnés / likes / commentaires                           */
+/* -------------------------------------------------------------------------- */
 
 type StatKind = "followers" | "likes" | "comments";
 
-function StatIcon({
-  kind,
-  className,
-}: {
-  kind: StatKind;
-  className?: string;
-}) {
+function StatIcon({ kind, className }: { kind: StatKind; className?: string }) {
   const common = {
     viewBox: "0 0 24 24",
     className,
@@ -654,7 +309,6 @@ function StatIcon({
       </svg>
     );
   }
-
   if (kind === "likes") {
     return (
       <svg {...common}>
@@ -662,7 +316,6 @@ function StatIcon({
       </svg>
     );
   }
-
   return (
     <svg {...common}>
       <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
@@ -670,47 +323,363 @@ function StatIcon({
   );
 }
 
-function StatCard({
+function OverviewCard({
   isDark,
-  kind,
-  title,
-  value,
+  totals,
+  networkCount,
 }: {
   isDark: boolean;
-  kind: StatKind;
-  title: string;
-  value: number;
+  totals: { followers: number; likes: number; comments: number };
+  networkCount: number;
 }) {
+  const items: { kind: StatKind; label: string; value: number }[] = [
+    { kind: "followers", label: "Abonnés", value: totals.followers },
+    { kind: "likes", label: "Likes", value: totals.likes },
+    { kind: "comments", label: "Commentaires", value: totals.comments },
+  ];
+
   return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title={title} />
+    <Card isDark={isDark} className="h-full">
+      <CardTitle
+        isDark={isDark}
+        title="Vue d'ensemble"
+        hint={
+          networkCount > 0
+            ? `Cumul de vos ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
+            : "Connectez un réseau pour voir vos chiffres"
+        }
+      />
 
-      <div className="flex flex-1 items-center justify-between gap-3">
-        <p
-          className={[
-            "font-display text-[clamp(28px,3vw,38px)] font-semibold leading-none tracking-[-0.02em] tabular-nums",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          {numberFormatter.format(value)}
-        </p>
+      <div
+        className={[
+          "grid flex-1 grid-cols-1 sm:grid-cols-3",
+          "divide-y sm:divide-x sm:divide-y-0",
+          isDark ? "divide-white/10" : "divide-black/[0.06]",
+        ].join(" ")}
+      >
+        {items.map((item) => (
+          <div
+            key={item.kind}
+            className="flex flex-col justify-center gap-3 py-4 first:pt-0 last:pb-0 sm:px-5 sm:py-0 sm:first:pl-0 sm:last:pr-0"
+          >
+            <div
+              className={[
+                "flex items-center gap-2 text-[12.5px] font-medium",
+                isDark ? "text-neutral-400" : "text-neutral-500",
+              ].join(" ")}
+            >
+              <StatIcon kind={item.kind} className="h-4 w-4" />
+              {item.label}
+            </div>
+            <p
+              className={[
+                "font-display text-[clamp(32px,3.6vw,48px)] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+                isDark ? "text-white" : "text-neutral-900",
+              ].join(" ")}
+            >
+              {numberFormatter.format(item.value)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
+/* -------------------------------------------------------------------------- */
+/*  Série de publications                                                     */
+/* -------------------------------------------------------------------------- */
+
+const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+
+function FlameIcon({ className = "h-7 w-7", color }: { className?: string; color: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none">
+      <path
+        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+function StreakCard({ isDark }: { isDark: boolean }) {
+  const streakCount = 0;
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return WEEKDAYS_FR_SHORT[d.getDay()];
+  });
+
+  return (
+    <Card isDark={isDark} className="h-full justify-between">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p
+            className={[
+              "font-display text-[28px] font-semibold leading-none tracking-[-0.02em]",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {streakCount} {streakCount > 1 ? "jours" : "jour"}
+          </p>
+          <p
+            className={[
+              "mt-1.5 text-[12.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            de publication d'affilée
+          </p>
+        </div>
+        <FlameIcon color={streakCount > 0 ? "#f97316" : isDark ? "#3a3a3d" : "#d9d9d9"} />
+      </div>
+
+      <div className="mt-5 flex items-start justify-between gap-1">
+        {days.map((label, index) => {
+          const done = index < streakCount;
+          return (
+            <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
+              <span
+                className={[
+                  "text-[10.5px] font-semibold leading-none",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
+                ].join(" ")}
+              >
+                {label}
+              </span>
+              <div
+                className={[
+                  "h-7 w-7 rounded-full",
+                  done
+                    ? isDark
+                      ? "bg-white"
+                      : "bg-neutral-900"
+                    : isDark
+                      ? "bg-white/10"
+                      : "bg-neutral-100",
+                  index === 0 && !done
+                    ? isDark
+                      ? "ring-1 ring-white/40"
+                      : "ring-1 ring-neutral-900/30"
+                    : "",
+                ].join(" ")}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Réseaux connectés                                                         */
+/* -------------------------------------------------------------------------- */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  NetworkIcon,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  NetworkIcon?: (props: { className?: string }) => JSX.Element;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const showImage = Boolean(channel.avatarUrl) && !failed;
+  const ring = isDark ? "ring-[#141416]" : "ring-white";
+
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      {showImage ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={["h-full w-full rounded-full object-cover ring-2", ring].join(" ")}
+        />
+      ) : (
         <div
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
+            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
+            ring,
+            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
         >
-          <StatIcon
-            kind={kind}
-            className={[
-              "h-5 w-5",
-              isDark ? "text-neutral-300" : "text-neutral-600",
-            ].join(" ")}
-          />
+          {initial}
         </div>
+      )}
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
+            ring,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-3 w-3" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ChannelsCard({
+  isDark,
+  channels,
+}: {
+  isDark: boolean;
+  channels: ConnectedChannel[];
+}) {
+  const count = channels.length;
+
+  return (
+    <Card isDark={isDark} className="h-full">
+      <CardTitle
+        isDark={isDark}
+        title="Réseaux connectés"
+        hint={
+          count > 0
+            ? `${count} réseau${count > 1 ? "x" : ""} connecté${count > 1 ? "s" : ""}`
+            : "Aucun réseau pour le moment"
+        }
+        action={
+          <button
+            type="button"
+            onClick={() => navigate("channels")}
+            className={pillButton(isDark)}
+          >
+            <PlusIcon />
+            Connecter
+          </button>
+        }
+      />
+
+      {count === 0 ? (
+        <button
+          type="button"
+          onClick={() => navigate("channels")}
+          className={[
+            "flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed py-8 text-center transition",
+            isDark
+              ? "border-white/15 hover:bg-white/[0.03]"
+              : "border-black/15 hover:bg-neutral-50",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "text-[14px] font-semibold",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            Connectez votre premier réseau
+          </span>
+          <span
+            className={[
+              "text-[12.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            Reliez un canal pour commencer à publier
+          </span>
+        </button>
+      ) : (
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {channels.map((channel) => {
+            const networkId = getNetworkId(channel);
+            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
+            const followers = readStat(channel, [
+              "followers",
+              "followersCount",
+              "followers_count",
+              "subscribers",
+              "subscribersCount",
+            ]);
+            return (
+              <div
+                key={channel.key}
+                className={[
+                  "flex items-center gap-3 rounded-2xl px-3 py-2.5",
+                  isDark ? "bg-white/[0.04]" : "bg-neutral-50",
+                ].join(" ")}
+              >
+                <ChannelAvatar channel={channel} isDark={isDark} NetworkIcon={NetworkIcon} />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={[
+                      "truncate text-[13.5px] font-semibold leading-tight",
+                      isDark ? "text-white" : "text-neutral-900",
+                    ].join(" ")}
+                  >
+                    {channel.handle || channel.name}
+                  </p>
+                  <p
+                    className={[
+                      "mt-0.5 text-[12px] font-medium tabular-nums",
+                      isDark ? "text-neutral-400" : "text-neutral-500",
+                    ].join(" ")}
+                  >
+                    {numberFormatter.format(followers)} abonnés
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Action principale                                                         */
+/* -------------------------------------------------------------------------- */
+
+function ComposeCard({ isDark, onPlan }: { isDark: boolean; onPlan: () => void }) {
+  return (
+    <div
+      className={[
+        "flex h-full flex-col justify-between gap-6 rounded-[22px] p-5",
+        isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      <div>
+        <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em]">
+          Une idée de publication ?
+        </p>
+        <p
+          className={[
+            "mt-1.5 text-[13px] font-medium",
+            isDark ? "text-neutral-600" : "text-neutral-400",
+          ].join(" ")}
+        >
+          Rédigez-la maintenant ou planifiez-la sur vos réseaux.
+        </p>
       </div>
-    </DashboardCard>
+
+      <button
+        type="button"
+        onClick={onPlan}
+        className={[
+          "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13.5px] font-semibold transition",
+          isDark
+            ? "bg-neutral-900 text-white hover:bg-neutral-700"
+            : "bg-white text-neutral-900 hover:bg-neutral-200",
+        ].join(" ")}
+      >
+        <PlusIcon className="h-4 w-4" />
+        Nouvelle publication
+      </button>
+    </div>
   );
 }
 
@@ -831,7 +800,7 @@ function BlogPostCard({
 
 function FromTheBlogSection({ isDark }: { isDark: boolean }) {
   return (
-    <div className="mt-auto flex flex-col">
+    <div className="flex flex-col">
       <p
         className={[
           "shrink-0 text-[13px] font-medium",
@@ -857,18 +826,13 @@ export default function Home() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
-  // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
-  // Tous les réseaux sont affichés, YouTube compris.
   const connectedChannels = useConnectedChannels();
-
   const totals = useMemo(
     () => computeTotals(connectedChannels),
     [connectedChannels]
   );
 
-  const [user, setUser] = useState<UserProfile | null>(
-    userProfileCache.profile
-  );
+  const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
 
   useEffect(() => {
     let mounted = true;
@@ -876,7 +840,6 @@ export default function Home() {
     const loadUser = async () => {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUser(userData);
@@ -887,18 +850,14 @@ export default function Home() {
     };
 
     loadUser();
-
     return () => {
       mounted = false;
     };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-
   const initials =
-    `${(user?.first_name || "")[0] || ""}${
-      (user?.last_name || "")[0] || ""
-    }`.toUpperCase() || "U";
+    `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
@@ -926,9 +885,9 @@ export default function Home() {
       <DashboardSidebar theme={theme} />
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
-        <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
-          <div className="flex min-h-0 flex-1 flex-col gap-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="h-full overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
+            <header className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h1
                   className={[
@@ -938,43 +897,38 @@ export default function Home() {
                 >
                   Bonjour{fullName ? `, ${fullName}` : ""}
                 </h1>
-
                 <GreetingAvatar
                   avatarUrl={user?.avatar_url}
                   initials={initials}
                   isDark={isDark}
                 />
               </div>
-
               <ClockDisplay isDark={isDark} />
-            </div>
+            </header>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StreakStepsWidget isDark={isDark} />
-              <StatCard
-                isDark={isDark}
-                kind="followers"
-                title="Abonnés total"
-                value={totals.followers}
-              />
-              <StatCard
-                isDark={isDark}
-                kind="likes"
-                title="Likes total"
-                value={totals.likes}
-              />
-              <StatCard
-                isDark={isDark}
-                kind="comments"
-                title="Commentaires total"
-                value={totals.comments}
-              />
-            </div>
+            {/* Rangée 1 : chiffres clés + série */}
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="lg:col-span-8">
+                <OverviewCard
+                  isDark={isDark}
+                  totals={totals}
+                  networkCount={connectedChannels.length}
+                />
+              </div>
+              <div className="lg:col-span-4">
+                <StreakCard isDark={isDark} />
+              </div>
+            </section>
 
-            <ConnectFirstChannelWidget
-              isDark={isDark}
-              channels={connectedChannels}
-            />
+            {/* Rangée 2 : réseaux + action */}
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="lg:col-span-8">
+                <ChannelsCard isDark={isDark} channels={connectedChannels} />
+              </div>
+              <div className="lg:col-span-4">
+                <ComposeCard isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
+              </div>
+            </section>
 
             <FromTheBlogSection isDark={isDark} />
           </div>
