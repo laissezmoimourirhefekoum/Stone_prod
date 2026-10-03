@@ -425,10 +425,7 @@ const navSections: NavSection[] = [
       {
         label: "Templates",
         icon: TemplatesIcon,
-        children: [
-          { label: "My template", route: "mine" },
-          { label: "Discover", route: "discover" },
-        ],
+        route: "template",
       },
     ],
   },
