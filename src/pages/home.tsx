@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -67,6 +67,48 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw.includes("threads")) return "threads";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Statistiques (abonnés / likes / commentaires)                             */
+/* -------------------------------------------------------------------------- */
+
+function readStat(channel: ConnectedChannel, keys: string[]): number {
+  const c = channel as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    const v = c[key];
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+const numberFormatter = new Intl.NumberFormat("fr-FR", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function computeTotals(channels: ConnectedChannel[]) {
+  return channels.reduce(
+    (acc, ch) => ({
+      followers:
+        acc.followers +
+        readStat(ch, [
+          "followers",
+          "followersCount",
+          "followers_count",
+          "subscribers",
+          "subscribersCount",
+        ]),
+      likes:
+        acc.likes + readStat(ch, ["likes", "likesCount", "likes_count"]),
+      comments:
+        acc.comments +
+        readStat(ch, ["comments", "commentsCount", "comments_count"]),
+    }),
+    { followers: 0, likes: 0, comments: 0 }
+  );
 }
 
 function GreetingAvatar({
@@ -390,10 +432,7 @@ function ChannelAvatar({
   const ring = isDark ? "ring-[#141416]" : "ring-white";
 
   return (
-    <div
-      title={label}
-      className="relative h-10 w-10 shrink-0"
-    >
+    <div title={label} className="relative h-10 w-10 shrink-0">
       {showImage ? (
         <img
           src={channel.avatarUrl}
@@ -454,12 +493,16 @@ function ConnectFirstChannelWidget({
   ].join(" ");
 
   if (channels.length > 0) {
+    const count = channels.length;
+
     return (
       <div className={cardClasses}>
         <div className="flex flex-wrap items-center gap-4">
           {channels.map((channel) => {
             const networkId = getNetworkId(channel);
-            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
+            const NetworkIcon = networkId
+              ? NETWORK_ICONS[networkId]
+              : undefined;
             return (
               <ChannelAvatar
                 key={channel.key}
@@ -471,14 +514,25 @@ function ConnectFirstChannelWidget({
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate("channels")}
-          className={connectButtonClasses}
-        >
-          <PlusIcon />
-          Connecter
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <span
+            className={[
+              "text-[12.5px] font-semibold tabular-nums",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            {count} réseau{count > 1 ? "x" : ""} connecté{count > 1 ? "s" : ""}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => navigate("channels")}
+            className={connectButtonClasses}
+          >
+            <PlusIcon />
+            Connecter
+          </button>
+        </div>
       </div>
     );
   }
@@ -572,115 +626,90 @@ function CardHeading({
   );
 }
 
-function IntegrationsCard({ isDark }: { isDark: boolean }) {
+type StatKind = "followers" | "likes" | "comments";
+
+function StatIcon({
+  kind,
+  className,
+}: {
+  kind: StatKind;
+  className?: string;
+}) {
+  const common = {
+    viewBox: "0 0 24 24",
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (kind === "followers") {
+    return (
+      <svg {...common}>
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M3 20c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" />
+        <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.7.7 2.7 2.2 3 4.7" />
+      </svg>
+    );
+  }
+
+  if (kind === "likes") {
+    return (
+      <svg {...common}>
+        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+      </svg>
+    );
+  }
+
   return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Vos intégrations" />
-
-      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
-        <div
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-full",
-            isDark ? "bg-white/5" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8 8h8v8H8z" />
-            <path d="M4 12h4M16 12h4M12 4v4M12 16v4" />
-          </svg>
-        </div>
-        <p
-          className={[
-            "text-[12.5px] font-medium",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          Aucune intégration
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => navigate("integrations")}
-        className={[
-          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
-          isDark
-            ? "bg-white/10 text-white hover:bg-white/15"
-            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
-        ].join(" ")}
-      >
-        Gérer
-      </button>
-    </DashboardCard>
+    <svg {...common}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    </svg>
   );
 }
 
-function UpcomingPostsCard({
+function StatCard({
   isDark,
-  onPlan,
+  kind,
+  title,
+  value,
 }: {
   isDark: boolean;
-  onPlan: () => void;
+  kind: StatKind;
+  title: string;
+  value: number;
 }) {
   return (
     <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Publications à venir" />
+      <CardHeading isDark={isDark} title={title} />
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <div
-          className={[
-            "flex h-14 w-14 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-6 w-6",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </div>
-
+      <div className="flex flex-1 items-center justify-between gap-3">
         <p
           className={[
-            "text-[15px] font-bold leading-tight",
+            "font-display text-[clamp(28px,3vw,38px)] font-semibold leading-none tracking-[-0.02em] tabular-nums",
             isDark ? "text-white" : "text-neutral-900",
           ].join(" ")}
         >
-          Aucune publication
+          {numberFormatter.format(value)}
         </p>
-      </div>
 
-      <button
-        type="button"
-        onClick={onPlan}
-        className={[
-          "mx-auto mt-4 rounded-[10px] px-5 py-2 text-[13px] font-bold transition",
-          isDark
-            ? "bg-white/[0.08] text-white hover:bg-white/[0.12]"
-            : "bg-neutral-900 text-white hover:bg-neutral-800",
-        ].join(" ")}
-      >
-        Planifier
-      </button>
+        <div
+          className={[
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
+          ].join(" ")}
+        >
+          <StatIcon
+            kind={kind}
+            className={[
+              "h-5 w-5",
+              isDark ? "text-neutral-300" : "text-neutral-600",
+            ].join(" ")}
+          />
+        </div>
+      </div>
     </DashboardCard>
   );
 }
@@ -832,6 +861,11 @@ export default function Home() {
   // Tous les réseaux sont affichés, YouTube compris.
   const connectedChannels = useConnectedChannels();
 
+  const totals = useMemo(
+    () => computeTotals(connectedChannels),
+    [connectedChannels]
+  );
+
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
   );
@@ -859,8 +893,7 @@ export default function Home() {
     };
   }, []);
 
-  const fullName =
-    `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+  const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
 
   const initials =
     `${(user?.first_name || "")[0] || ""}${
@@ -916,12 +949,25 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StreakStepsWidget isDark={isDark} />
-              <IntegrationsCard isDark={isDark} />
-              <UpcomingPostsCard
+              <StatCard
                 isDark={isDark}
-                onPlan={() => setIsNewPostOpen(true)}
+                kind="followers"
+                title="Abonnés total"
+                value={totals.followers}
+              />
+              <StatCard
+                isDark={isDark}
+                kind="likes"
+                title="Likes total"
+                value={totals.likes}
+              />
+              <StatCard
+                isDark={isDark}
+                kind="comments"
+                title="Commentaires total"
+                value={totals.comments}
               />
             </div>
 
