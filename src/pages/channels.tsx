@@ -1,11 +1,21 @@
 // src/pages/Channels.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { createPortal } from "react-dom";
 
 import DashboardSidebar from "../components/DashboardSidebar";
+import ConnectChannelModal from "../components/ConnectChannelModal";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
+
+import {
+  InstagramIcon,
+  FacebookIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "../components/IntegrationIcons";
+
 import {
   getTikTokStatus,
   startTikTokLogin,
@@ -30,18 +40,33 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
-import {
-  InstagramIcon,
-  FacebookIcon,
-  TikTokIcon,
-  YouTubeIcon,
-  PinterestIcon,
-  ThreadsIcon,
-} from "../components/IntegrationIcons";
 
 /* ============================================================================
-   Types
+   Types (exportés pour ConnectChannelModal)
 ============================================================================ */
+
+export type ChannelKey =
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "youtube"
+  | "pinterest"
+  | "threads";
+
+export type IconComponent = ComponentType<{
+  className?: string;
+  size?: number;
+}>;
+
+export type Channel = {
+  key: ChannelKey;
+  name: string;
+  subtitle: string;
+  accountLabel: string;
+  icon: IconComponent;
+};
+
+export type ConnectionState = Record<ChannelKey, Connection>;
 
 type ToggleOrigin = { x: number; y: number };
 type ToggleThemeFn = (origin?: ToggleOrigin) => void;
@@ -53,25 +78,18 @@ type ChannelsProps = {
 
 type IconProps = { className?: string };
 
-type IconComponent = ComponentType<{ className?: string; size?: number }>;
-
-type ChannelKey =
-  | "instagram"
-  | "facebook"
-  | "tiktok"
-  | "youtube"
-  | "pinterest"
-  | "threads";
-
-type Channel = {
-  key: ChannelKey;
-  name: string;
-  subtitle: string; // affiché dans le modal de connexion
-  accountLabel: string; // affiché sous le nom dans la liste (ex. "TikTok Account")
-  icon: IconComponent;
+// Réponse commune des endpoints /status (TikTok, Pinterest, YouTube).
+type StatusResponse = {
+  connected: boolean;
+  account:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null
+    | undefined;
 };
-
-type ConnectionState = Record<ChannelKey, Connection>;
 
 type ThemeTokens = {
   page: string;
@@ -89,30 +107,16 @@ type ThemeTokens = {
   menuItem: string;
 };
 
-// Réponse commune des endpoints /status (TikTok, Pinterest, YouTube).
-type StatusResponse = {
-  connected: boolean;
-  account:
-    | {
-        display_name?: string | null;
-        avatar_url?: string | null;
-        avatarUrl?: string | null;
-      }
-    | null
-    | undefined;
-};
-
 /* ============================================================================
-   Plan (TODO: à remplacer par le vrai plan de l'utilisateur, côté backend)
+   Config : plan + réseaux + état initial
 ============================================================================ */
 
-const PLAN = { name: "Free", maxChannels: 3 };
+export const PLAN = { name: "Free", maxChannels: 3 };
 
-/* ============================================================================
-   Réseaux + état initial
-============================================================================ */
+/** Réseaux branchés sur un vrai OAuth (les autres sont des placeholders). */
+export const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest", "youtube"];
 
-const CHANNELS: Channel[] = [
+export const CHANNELS: Channel[] = [
   {
     key: "instagram",
     name: "Instagram",
@@ -165,9 +169,6 @@ const initialConnections: ConnectionState = {
   pinterest: { connected: false },
   threads: { connected: false },
 };
-
-// Réseaux branchés sur un vrai OAuth (les autres sont encore des placeholders).
-const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest", "youtube"];
 
 /* ============================================================================
    Icônes locales
@@ -236,11 +237,11 @@ function GearIcon(props: IconProps) {
   );
 }
 
-function DotsIcon(props: IconProps) {
+function DotsIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={props.className ?? "h-4 w-4"}
+      className={className}
       fill="currentColor"
       aria-hidden="true"
     >
@@ -268,8 +269,7 @@ function formatOAuthError(provider: string, error: unknown): string {
 }
 
 function mockHandleFor(key: ChannelKey): string {
-  // Valeurs fictives utilisées uniquement par les placeholders
-  // (TikTok, Pinterest et YouTube utilisent maintenant le vrai profil).
+  // Valeurs fictives utilisées uniquement par les placeholders.
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
     tiktok: "",
@@ -333,7 +333,9 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
           className={[
             "flex h-10 w-10 items-center justify-center rounded-full",
             "text-[15px] font-semibold",
-            isDark ? "bg-white/10 text-white/80" : "bg-black/[0.07] text-black/60",
+            isDark
+              ? "bg-white/10 text-white/80"
+              : "bg-black/[0.07] text-black/60",
           ].join(" ")}
         >
           {initial}
@@ -459,7 +461,12 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
         <h2 className={["text-[19px] font-semibold", t.title].join(" ")}>
           Connect a channel to get started
         </h2>
-        <p className={["max-w-sm text-[14px] leading-relaxed", t.muted].join(" ")}>
+        <p
+          className={[
+            "max-w-sm text-[14px] leading-relaxed",
+            t.muted,
+          ].join(" ")}
+        >
           Once connected, you'll see your channels listed here.
         </p>
       </div>
@@ -477,176 +484,6 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
         Connect Channel
       </button>
     </div>
-  );
-}
-
-/* ============================================================================
-   ConnectModal
-   Rendu dans document.body via un portail : aucun parent (sidebar, overflow,
-   transform, pointer-events...) ne peut intercepter les clics.
-============================================================================ */
-
-type ConnectModalProps = {
-  channels: Channel[];
-  connections: ConnectionState;
-  pendingKey: ChannelKey | null;
-  limitReached: boolean;
-  onToggle: (key: ChannelKey) => void;
-  onClose: () => void;
-  errorMessage: string | null;
-  isDark: boolean;
-};
-
-function ConnectModal({
-  channels,
-  connections,
-  pendingKey,
-  limitReached,
-  onToggle,
-  onClose,
-  errorMessage,
-  isDark,
-}: ConnectModalProps) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  const cardBase = [
-    "flex min-h-[148px] flex-col items-center justify-center gap-0.5",
-    "rounded-2xl border px-3 py-5 text-center",
-    "transition-colors duration-150",
-    isDark
-      ? "border-white/10 bg-transparent"
-      : "border-black/10 bg-transparent",
-  ].join(" ");
-
-  const cardHover = isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]";
-  const subtitleColor = isDark ? "text-white/55" : "text-black/50";
-
-  return createPortal(
-    <div
-      role="presentation"
-      onClick={onClose}
-      className={[
-        "fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8",
-        "backdrop-blur-sm",
-        isDark ? "bg-black/70" : "bg-black/40",
-      ].join(" ")}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Connect a New Channel"
-        onClick={(event) => event.stopPropagation()}
-        className={[
-          "flex max-h-[560px] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border",
-          isDark
-            ? "border-white/10 bg-[#1f2020] text-[#f3f3ef] shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
-            : "border-black/10 bg-white text-[#151515] shadow-[0_24px_60px_rgba(0,0,0,0.18)]",
-        ].join(" ")}
-      >
-        {/* Header (sans barre de séparation) */}
-        <div className="relative flex shrink-0 items-center justify-center px-14 py-4">
-          <h2 className="text-[17px] font-medium">Connect a New Channel</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={[
-              "absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2",
-              "items-center justify-center rounded-xl border",
-              "transition-colors duration-150",
-              isDark
-                ? "border-white/15 text-white/80 hover:bg-white/10"
-                : "border-black/15 text-black/60 hover:bg-black/[0.05]",
-            ].join(" ")}
-          >
-            <CloseIcon className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Contenu scrollable */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-          {errorMessage && (
-            <p
-              role="alert"
-              className={[
-                "mx-auto mb-5 max-w-[600px] rounded-lg border px-3 py-2 text-[13px]",
-                isDark
-                  ? "border-red-400/30 bg-red-500/10 text-red-300"
-                  : "border-red-300 bg-red-50 text-red-700",
-              ].join(" ")}
-            >
-              {errorMessage}
-            </p>
-          )}
-
-          {limitReached && (
-            <p
-              className={[
-                "mx-auto mb-5 max-w-[600px] text-center text-[13px]",
-                subtitleColor,
-              ].join(" ")}
-            >
-              You've reached the channel limit of your {PLAN.name} plan.
-              Upgrade to connect more.
-            </p>
-          )}
-
-          <div className="mx-auto grid max-w-[600px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {channels.map((channel) => {
-              const connected = connections[channel.key].connected;
-              const isPending = pendingKey === channel.key;
-              const blocked = limitReached && !connected;
-              const Icon = channel.icon;
-
-              return (
-                <button
-                  key={channel.key}
-                  type="button"
-                  disabled={isPending || connected || blocked}
-                  onClick={() => onToggle(channel.key)}
-                  className={[
-                    cardBase,
-                    connected || blocked ? "" : cardHover,
-                    "disabled:cursor-default",
-                    isPending || blocked ? "opacity-60" : "",
-                  ].join(" ")}
-                >
-                  <span className="mb-3 flex h-[52px] w-[52px] items-center justify-center rounded-xl bg-white">
-                    <Icon className="h-7 w-7" size={28} />
-                  </span>
-
-                  <span className="text-[16px] font-semibold leading-tight">
-                    {channel.name}
-                  </span>
-
-                  <span className={["text-[13px] leading-snug", subtitleColor].join(" ")}>
-                    {isPending ? (
-                      REAL_OAUTH.includes(channel.key) ? "Redirecting..." : "Connecting..."
-                    ) : connected ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <CheckIcon className="h-4 w-4" />
-                        Connected
-                      </span>
-                    ) : (
-                      channel.subtitle
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }
 
@@ -683,6 +520,7 @@ export default function Channels({
       ...(youtube ? { youtube: youtube.connection } : {}),
     };
   });
+
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -795,7 +633,10 @@ export default function Channels({
             clearCache(userId, provider);
           }
 
-          setConnections((current) => ({ ...current, [provider]: connection }));
+          setConnections((current) => ({
+            ...current,
+            [provider]: connection,
+          }));
         } catch (error) {
           // Non bloquant : on garde ce qui est affiché (cache éventuel).
           console.warn(`[Stone] Could not load ${provider} status:`, error);
@@ -812,7 +653,7 @@ export default function Channels({
     };
   }, [userId]);
 
-  /* ── Thème : mêmes couleurs que ta version précédente ── */
+  /* ── Thème : mêmes couleurs que la version précédente ── */
 
   const t = useMemo<ThemeTokens>(
     () =>
@@ -829,7 +670,8 @@ export default function Channels({
             planCard: "border-white/10 bg-white/[0.04]",
             progressOn: "bg-[#f3f3ef]",
             progressOff: "bg-white/10",
-            iconBtn: "text-[#99a2a2] hover:bg-white/[0.07] hover:text-[#f3f3ef]",
+            iconBtn:
+              "text-[#99a2a2] hover:bg-white/[0.07] hover:text-[#f3f3ef]",
             menu: "border-white/10 bg-[#1f2020] text-[#f3f3ef]",
             menuItem: "hover:bg-white/[0.07]",
           }
@@ -845,7 +687,8 @@ export default function Channels({
             planCard: "border-black/[0.08] bg-black/[0.03]",
             progressOn: "bg-[#151515]",
             progressOff: "bg-black/10",
-            iconBtn: "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
+            iconBtn:
+              "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
             menu: "border-black/10 bg-white text-[#151515]",
             menuItem: "hover:bg-black/[0.05]",
           },
@@ -1056,7 +899,9 @@ export default function Channels({
   const closeModal = () => setShowConnectModal(false);
 
   return (
-    <div className={["relative h-full w-full overflow-hidden", t.page].join(" ")}>
+    <div
+      className={["relative h-full w-full overflow-hidden", t.page].join(" ")}
+    >
       <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
       <main className="h-full overflow-y-auto py-12 pl-[104px] pr-6 sm:pr-10">
@@ -1080,7 +925,9 @@ export default function Channels({
               t.planCard,
             ].join(" ")}
           >
-            <LayersIcon className={["mt-0.5 h-5 w-5 shrink-0", t.title].join(" ")} />
+            <LayersIcon
+              className={["mt-0.5 h-5 w-5 shrink-0", t.title].join(" ")}
+            />
 
             <div className="flex min-w-0 flex-col items-start gap-1">
               <h2 className={["text-[16px] font-semibold", t.title].join(" ")}>
@@ -1105,7 +952,7 @@ export default function Channels({
             </div>
           </section>
 
-          {/* Compteur + segments de progression */}
+          {/* Compteur + bouton */}
           <div className="mt-10 flex items-center justify-between gap-4">
             <h2 className={["text-[18px] font-semibold", t.title].join(" ")}>
               {connectedCount}/{PLAN.maxChannels} Channels connected
@@ -1191,7 +1038,12 @@ export default function Channels({
                       >
                         {connection.handle || channel.name}
                       </span>
-                      <span className={["truncate text-[13px]", t.muted].join(" ")}>
+                      <span
+                        className={[
+                          "truncate text-[13px]",
+                          t.muted,
+                        ].join(" ")}
+                      >
                         {isPending ? "Updating..." : channel.accountLabel}
                       </span>
                     </div>
@@ -1227,15 +1079,17 @@ export default function Channels({
       </main>
 
       {showConnectModal && (
-        <ConnectModal
+        <ConnectChannelModal
           channels={CHANNELS}
           connections={connections}
           pendingKey={pendingKey}
           limitReached={limitReached}
-          onToggle={handleToggle}
-          onClose={closeModal}
+          planName={PLAN.name}
+          realOAuthKeys={REAL_OAUTH}
           errorMessage={errorMessage}
           isDark={isDark}
+          onToggle={handleToggle}
+          onClose={closeModal}
         />
       )}
     </div>

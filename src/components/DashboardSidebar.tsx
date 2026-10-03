@@ -30,6 +30,9 @@ import {
   PinterestIcon,
   ThreadsIcon,
 } from "./IntegrationIcons";
+import ConnectChannelModal, {
+  type ConnectChannelModalProps,
+} from "./ConnectChannelModal";
 
 /* ============================================================================
    Types
@@ -661,6 +664,7 @@ type SidebarChannelsProps = {
   onNavigate: (route: string) => void;
   onToggleGroup: (label: string) => void;
   onExpandAndOpen: (label: string) => void;
+  onConnect: () => void;
 };
 
 const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
@@ -673,29 +677,6 @@ const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
   pinterest: PinterestIcon,
   threads: ThreadsIcon as IconComponent,
 };
-
-/** Couleurs des pastilles « Connect more channels ». */
-const NETWORK_TILES: Record<NetworkKey, string> = {
-  instagram: "bg-[#e1006e] text-white",
-  threads: "bg-white text-black",
-  linkedin: "bg-[#2f6db5] text-white",
-  tiktok: "bg-black text-white ring-1 ring-white/15",
-  x: "bg-black text-white ring-1 ring-white/15",
-  youtube: "bg-[#ff0033] text-white",
-  facebook: "bg-[#1877f2] text-white",
-  pinterest: "bg-[#e60023] text-white",
-};
-
-const SUGGESTION_ORDER: NetworkKey[] = [
-  "instagram",
-  "threads",
-  "linkedin",
-  "tiktok",
-  "youtube",
-  "x",
-  "facebook",
-  "pinterest",
-];
 
 function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
@@ -822,12 +803,8 @@ function SidebarChannels({
   onNavigate,
   onToggleGroup,
   onExpandAndOpen,
+  onConnect,
 }: SidebarChannelsProps) {
-  const connected = new Set(
-    channels.map(getNetworkId).filter((id): id is NetworkKey => id !== null)
-  );
-  const suggestions = SUGGESTION_ORDER.filter((id) => !connected.has(id)).slice(0, 3);
-
   const headerButton = [
     "flex h-6 w-6 items-center justify-center rounded-md",
     "transition-colors duration-150 motion-reduce:transition-none",
@@ -868,7 +845,7 @@ function SidebarChannels({
             tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
             title="Connect a channel"
-            onClick={() => onNavigate("channels")}
+            onClick={onConnect}
             className={headerButton}
           >
             <PlusIcon className="h-4 w-4" />
@@ -967,62 +944,24 @@ function SidebarChannels({
         })}
       </div>
 
-      {/* Connect more channels (sidebar ouverte) */}
-      <div
-        aria-hidden={isCollapsed}
-        className={[
-          "overflow-hidden px-1 transition-[max-height,margin,opacity] duration-300",
-          "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
-          isCollapsed ? "mt-0 max-h-0 opacity-0" : "mt-4 max-h-32 opacity-100 delay-100",
-        ].join(" ")}
-      >
-        <p className={["mb-2 select-none whitespace-nowrap px-2 text-[12px] font-medium", t.muted].join(" ")}>
-          {channels.length > 0 ? "Connect more channels" : "Connect a channel"}
-        </p>
-
-        <div className="flex items-center gap-2 px-2 pb-1">
-          {suggestions.map((id) => {
-            const Icon = NETWORK_ICONS[id];
-            return (
-              <button
-                key={id}
-                type="button"
-                tabIndex={isCollapsed ? -1 : 0}
-                aria-label={`Connect ${id}`}
-                title={`Connect ${id}`}
-                onClick={() => onNavigate("channels")}
-                className={[
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                  "transition-transform duration-200 hover:scale-105 active:scale-95",
-                  "motion-reduce:transition-none motion-reduce:hover:scale-100",
-                  focus,
-                  NETWORK_TILES[id],
-                ].join(" ")}
-              >
-                <Icon className="h-[18px] w-[18px]" />
-              </button>
-            );
-          })}
-
-          <button
-            type="button"
-            tabIndex={isCollapsed ? -1 : 0}
-            aria-label="More channels"
-            title="More channels"
-            onClick={() => onNavigate("channels")}
-            className={[
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
-              "transition-colors duration-150 motion-reduce:transition-none",
-              t.rail,
-              t.menuIcon,
-              focus,
-              t.row,
-            ].join(" ")}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      {/* Aucun réseau (sidebar ouverte) */}
+      {channels.length === 0 && !isCollapsed && (
+        <button
+          type="button"
+          onClick={onConnect}
+          className={[
+            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
+            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
+            "transition-colors duration-150 motion-reduce:transition-none",
+            t.rail,
+            focus,
+            t.navIdle,
+          ].join(" ")}
+        >
+          <PlusIcon className="h-4 w-4 shrink-0" />
+          Connect a channel
+        </button>
+      )}
 
       {/* Sidebar réduite : un seul bouton « ajouter » */}
       {isCollapsed && (
@@ -1030,7 +969,7 @@ function SidebarChannels({
           type="button"
           aria-label="Connect a channel"
           title="Connect a channel"
-          onClick={() => onNavigate("channels")}
+          onClick={onConnect}
           className={[
             "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
             "transition-[background-color,transform] duration-200 active:scale-[0.97]",
@@ -1079,6 +1018,11 @@ function resetSidebarModuleState() {
    Sidebar
 ============================================================================ */
 
+export type ChannelConnectProps = Omit<
+  ConnectChannelModalProps,
+  "isDark" | "onClose"
+>;
+
 type DashboardSidebarProps = {
   /**
    * Optionnel : si non fourni, la sidebar utilise directement le
@@ -1087,10 +1031,16 @@ type DashboardSidebarProps = {
   theme?: Theme;
   /** Conservée pour compatibilité avec les pages existantes ; inutilisée. */
   onToggleTheme?: ToggleThemeFn;
+  /**
+   * Données/actions du modal « Connect a New Channel ». Si absent, le « + »
+   * redirige vers la page Channels.
+   */
+  channelConnect?: ChannelConnectProps;
 };
 
 export default function DashboardSidebar({
   theme: themeProp,
+  channelConnect,
 }: DashboardSidebarProps) {
   const themeContext = useTheme();
   const theme = themeProp ?? themeContext.theme;
@@ -1104,6 +1054,7 @@ export default function DashboardSidebar({
     sidebarMemory.openGroup
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(sidebarMemory.entered);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(
     userProfileCache.profile
@@ -1309,6 +1260,18 @@ export default function DashboardSidebar({
   const handleToggleGroup = useCallback((label: string) => {
     setOpenGroup((current) => (current === label ? null : label));
   }, []);
+
+  const openConnect = useCallback(() => {
+    setMenuOpen(false);
+
+    if (channelConnect) {
+      setConnectOpen(true);
+    } else {
+      navigate("channels");
+    }
+  }, [channelConnect]);
+
+  const closeConnect = useCallback(() => setConnectOpen(false), []);
 
   const handleExpandAndOpen = useCallback((label: string) => {
     setIsCollapsed(false);
@@ -1540,6 +1503,7 @@ export default function DashboardSidebar({
               onNavigate={handleNavigate}
               onToggleGroup={handleToggleGroup}
               onExpandAndOpen={handleExpandAndOpen}
+              onConnect={openConnect}
             />
           </div>
         </nav>
@@ -1777,6 +1741,14 @@ export default function DashboardSidebar({
           </div>
         </div>
       </aside>
+
+      {connectOpen && channelConnect && (
+        <ConnectChannelModal
+          {...channelConnect}
+          isDark={isDark}
+          onClose={closeConnect}
+        />
+      )}
     </div>
   );
 }
