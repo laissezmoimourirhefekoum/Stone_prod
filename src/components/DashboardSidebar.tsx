@@ -417,16 +417,7 @@ const navSections: NavSection[] = [
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
       { label: "Queue", icon: QueueIcon, route: "queue" },
       { label: "Analytics", icon: AnalyticsIcon, route: "analytics" },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
-      {
-        label: "Templates",
-        icon: TemplatesIcon,
-        route: "template",
-      },
+      { label: "Templates", icon: TemplatesIcon, route: "template" },
     ],
   },
 ];
