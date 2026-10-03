@@ -334,9 +334,7 @@ function NotFound() {
 /** Pages qui nécessitent d'être connecté. */
 const PROTECTED_ROUTES = new Set([
   "home",
-  "captions",
-  "hashtags",
-  "replies",
+  "template",
   "billing",
   "help",
   "api",
@@ -355,9 +353,6 @@ const PROTECTED_ROUTES = new Set([
   "pinterest-callback",
   "youtube-callback",
 ]);
-
-/** Routes qui affichent la page Templates (3 onglets). */
-const TEMPLATE_ROUTES = new Set(["captions", "hashtags", "replies"]);
 
 /** Routes qui affichent le DashboardHome. */
 const DASHBOARD_HOME_ROUTES = new Set([
@@ -415,7 +410,7 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
 
   const isAuth = AUTH_ROUTES.has(route);
   const isProtected = PROTECTED_ROUTES.has(route);
-  const isTemplate = TEMPLATE_ROUTES.has(route);
+  const isTemplate = route === "template";
   const isPublic = PUBLIC_ROUTES.has(route);
   const isPricing = route === "pricing";
   const isFaq = route === "faq";
@@ -598,7 +593,7 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     );
   }
 
-  /* Templates : captions / hashtags / replies */
+  /* Templates : page unique avec onglets "My template" / "Discover" */
   if (isTemplate) {
     return (
       <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
