@@ -174,6 +174,22 @@ function FlameIcon({
   );
 }
 
+function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg
@@ -202,6 +218,23 @@ function PuzzleIcon({ className = "h-5 w-5" }: { className?: string }) {
     >
       <path d="M8 8h8v8H8z" />
       <path d="M4 12h4M16 12h4M12 4v4M12 16v4" />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
     </svg>
   );
 }
@@ -495,135 +528,68 @@ function ConnectedChannelsCard({
 }
 
 /* ============================================================================
-   Petites cartes : série, intégrations
+   Petites cartes : série, intégrations, publications
 ============================================================================ */
 
-// Indexé par Date.getDay() : dimanche = 0 ... samedi = 6.
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
 function StreakCard({ isDark }: { isDark: boolean }) {
   const streakCount = 0;
+  const challengeName = "0 day of post";
 
-  // Les 7 jours affichés commencent par aujourd'hui (tout à gauche).
+  const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
     return WEEKDAYS_FR_SHORT[d.getDay()];
   });
 
-  // Carte inversée : sombre en thème clair, claire en thème sombre.
-  const t = isDark
-    ? {
-        card: "border-black/10 bg-white",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.4)]",
-        text: "text-neutral-900",
-        muted: "text-neutral-500",
-        panel: "bg-black/[0.06]",
-        ring: "border-neutral-900/25",
-        solid: "bg-neutral-900",
-        onSolid: "text-white",
-        onSolidHex: "#ffffff",
-        flameHex: "#171717",
-        outlineHex: "#171717",
-      }
-    : {
-        card: "border-white/10 bg-neutral-900",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        text: "text-white",
-        muted: "text-neutral-400",
-        panel: "bg-white/10",
-        ring: "border-white/30",
-        solid: "bg-white",
-        onSolid: "text-neutral-900",
-        onSolidHex: "#171717",
-        flameHex: "#ffffff",
-        outlineHex: "#ffffff",
-      };
-
-  const title = `${streakCount === 1 ? "Day" : "Days"} Streak!!`;
-  const message =
-    streakCount > 0
-      ? "Every day counts! keep the momentum going!"
-      : "Post today to start your streak!";
-
   return (
-    <div
-      className={[
-        "flex h-full min-h-[190px] flex-col justify-between gap-4 rounded-[22px] border p-3.5",
-        t.card,
-        t.shadow,
-      ].join(" ")}
-    >
-      {/* Panneau : grand chiffre + message */}
-      <div
-        className={[
-          "flex items-center gap-4 rounded-2xl px-4 py-5",
-          t.panel,
-        ].join(" ")}
-      >
-        <div className="relative shrink-0 pr-3">
-          {/* Contour = couleur opposée au fond, intérieur = couleur du fond */}
-          <span
-            className="font-display text-[56px] font-bold leading-none tracking-[-0.04em]"
-            style={{
-              color: "transparent",
-              WebkitTextStroke: `2.5px ${t.outlineHex}`,
-            }}
-          >
-            {streakCount}
-          </span>
+    <DashboardCard isDark={isDark}>
+      <CardTitle
+        isDark={isDark}
+        title={`${streakCount} days streak`}
+        subtitle={challengeName}
+        trailing={
           <FlameIcon
-            className="absolute -bottom-1 right-0 h-6 w-6"
-            color={t.flameHex}
+            className="h-7 w-7 shrink-0"
+            color={isDark ? "#3a3a3d" : "#d9d9d9"}
           />
-        </div>
+        }
+      />
 
-        <div className="min-w-0">
-          <p className={["text-[17px] font-bold leading-tight", t.text].join(" ")}>
-            {title}
-          </p>
-          <p className={["mt-1 text-[12.5px] leading-snug", t.muted].join(" ")}>
-            {message}
-          </p>
-        </div>
-      </div>
-
-      {/* Semaine : aujourd'hui est le premier jour, tout à gauche */}
-      <div className="flex items-start justify-between gap-1 px-1">
+      <div className="mt-auto flex items-start justify-between gap-1 pt-5">
         {days.map((dayLabel, index) => {
-          const isToday = index === 0;
-          // Seul aujourd'hui peut être validé : les jours suivants sont à venir.
-          const isDone = isToday && streakCount > 0;
-
+          const isChecked = index < streakCount;
           return (
             <div
               key={`${dayLabel}-${index}`}
-              className="flex flex-1 flex-col items-center gap-2"
+              className="flex flex-1 flex-col items-center gap-1.5"
             >
               <span
                 className={[
-                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold leading-none",
-                  isToday ? `${t.solid} ${t.onSolid}` : t.muted,
+                  "text-[10px] font-semibold uppercase leading-none",
+                  isDark ? "text-neutral-400" : "text-neutral-500",
                 ].join(" ")}
               >
                 {dayLabel}
               </span>
 
-              {isDone ? (
+              {isChecked ? (
                 <div
                   className={[
-                    "flex aspect-square w-full max-w-[34px] items-center justify-center rounded-full",
-                    t.solid,
+                    "flex aspect-square w-full max-w-[24px] items-center justify-center rounded-full",
+                    isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
                   ].join(" ")}
                 >
-                  <FlameIcon className="h-4 w-4" color={t.onSolidHex} />
+                  <CheckIcon className="h-3 w-3" />
                 </div>
               ) : (
                 <div
                   aria-hidden="true"
                   className={[
-                    "aspect-square w-full max-w-[34px] rounded-full border-2",
-                    t.ring,
+                    "aspect-square w-full max-w-[24px] rounded-full",
+                    isDark ? "bg-white/10" : "bg-neutral-100",
                   ].join(" ")}
                 />
               )}
@@ -631,7 +597,7 @@ function StreakCard({ isDark }: { isDark: boolean }) {
           );
         })}
       </div>
-    </div>
+    </DashboardCard>
   );
 }
 
@@ -651,6 +617,34 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
 
         <PillButton isDark={isDark} onClick={() => navigate("integrations")}>
           Gérer
+        </PillButton>
+      </div>
+    </DashboardCard>
+  );
+}
+
+function UpcomingPostsCard({
+  isDark,
+  onPlan,
+}: {
+  isDark: boolean;
+  onPlan: () => void;
+}) {
+  return (
+    <DashboardCard isDark={isDark}>
+      <CardTitle
+        isDark={isDark}
+        title="Aucune publication"
+        subtitle="Publications à venir"
+      />
+
+      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+        <IconTile isDark={isDark}>
+          <CalendarIcon />
+        </IconTile>
+
+        <PillButton isDark={isDark} onClick={onPlan}>
+          Planifier
         </PillButton>
       </div>
     </DashboardCard>
@@ -883,9 +877,9 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Grille : une grande carte + deux petites sur la même ligne */}
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr]">
-              <div className="sm:col-span-2 lg:col-span-1">
+            {/* Grille : une grande carte + trois petites sur la même ligne */}
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-[2.5fr_1fr_1fr_1fr]">
+              <div className="sm:col-span-3 lg:col-span-1">
                 <ConnectedChannelsCard
                   isDark={isDark}
                   channels={connectedChannels}
@@ -894,6 +888,10 @@ export default function Home() {
 
               <StreakCard isDark={isDark} />
               <IntegrationsCard isDark={isDark} />
+              <UpcomingPostsCard
+                isDark={isDark}
+                onPlan={() => setIsNewPostOpen(true)}
+              />
             </div>
 
             <FromTheBlogSection isDark={isDark} />
