@@ -1,6 +1,6 @@
 // src/services/channelsCache.ts
 //
-// Cache partagé du profil des réseaux connectés (Channels + Home).
+// Cache partagé du profil des réseaux connectés (Channels + Home + NewPostModal).
 // Mémoire (navigation dans l'app) + localStorage (rechargement de page),
 // séparé par utilisateur ET par réseau.
 // Préfixe "stone_" : volontairement différent de "crossflow_" pour ne pas
@@ -21,6 +21,13 @@ export type CachedTikTok = CachedProfile;
 
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
 
+// Liste de tous les réseaux qui ont un cache (utile pour les hooks).
+export const CACHE_PROVIDERS: CacheProvider[] = ["tiktok", "youtube", "pinterest"];
+
+// Événement émis à chaque écriture / suppression du cache : les hooks
+// (useConnectedChannels) s'y abonnent pour se mettre à jour sans recharger.
+export const CHANNELS_CHANGED_EVENT = "stone:channels-changed";
+
 // Le préfixe TikTok est inchangé : les caches existants restent valides.
 const CACHE_PREFIXES: Record<CacheProvider, string> = {
   tiktok: "stone_tiktok_profile_",
@@ -36,7 +43,12 @@ const memoryKey = (provider: CacheProvider, userId: string) =>
 const storageKey = (provider: CacheProvider, userId: string) =>
   CACHE_PREFIXES[provider] + userId;
 
-// `provider` vaut "tiktok" par défaut : le code existant (Home...) continue
+function notifyChange(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CHANNELS_CHANGED_EVENT));
+}
+
+// `provider` vaut "tiktok" par défaut : le code existant continue
 // de fonctionner sans modification.
 
 export function readCache(
@@ -71,6 +83,8 @@ export function writeCache(
   } catch {
     // localStorage indisponible : le cache mémoire suffit
   }
+
+  notifyChange();
 }
 
 export function clearCache(
@@ -84,4 +98,6 @@ export function clearCache(
   } catch {
     // ignore
   }
+
+  notifyChange();
 }

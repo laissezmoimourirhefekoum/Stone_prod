@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon, 
-  TikTokIcon, YouTubeIcon, PinterestIcon,
+  TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon,
 } from "./IntegrationIcons";
 import { CalendarPicker } from "./CalendarPicker";
 import { TimePicker } from "./TimePicker";
@@ -19,7 +19,9 @@ import {
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin" 
-  | "tiktok" | "youtube" | "pinterest";
+  | "tiktok" | "youtube" | "pinterest" | "threads";
+
+type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
 
 type MediaKind = "image" | "video";
 
@@ -54,7 +56,7 @@ const MAX_MEDIA = 20;
 const SOCIAL_NETWORKS: {
   id: SocialNetworkId;
   label: string;
-  Icon: (props: { className?: string }) => JSX.Element;
+  Icon: NetworkIconComponent;
 }[] = [
   { id: "x", label: "X", Icon: XIcon },
   { id: "facebook", label: "Facebook", Icon: FacebookIcon },
@@ -63,6 +65,11 @@ const SOCIAL_NETWORKS: {
   { id: "tiktok", label: "TikTok", Icon: TikTokIcon },
   { id: "youtube", label: "YouTube", Icon: YouTubeIcon },
   { id: "pinterest", label: "Pinterest", Icon: PinterestIcon },
+  {
+    id: "threads",
+    label: "Threads",
+    Icon: ThreadsIcon as unknown as NetworkIconComponent,
+  },
 ];
 
 const SCHEDULE_ACTIONS: {
@@ -169,9 +176,16 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkId | null {
   if (raw.includes("facebook") || raw === "fb") return "facebook";
   if (raw.includes("linkedin")) return "linkedin";
   if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
+
+type ChannelTileData = {
+  channel: ConnectedChannel;
+  network: (typeof SOCIAL_NETWORKS)[number];
+  order: number;
+};
 
 /* ──────────────────────────────────────────────────────────────
    Pastille d'un canal connecté : photo de profil + badge du réseau
@@ -185,7 +199,7 @@ function ChannelTile({
   onToggle,
 }: {
   channel: ConnectedChannel;
-  NetworkIcon: (props: { className?: string }) => JSX.Element;
+  NetworkIcon: NetworkIconComponent;
   isDark: boolean;
   isSelected: boolean;
   onToggle: () => void;
@@ -270,7 +284,8 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
 
-  // Réseaux connectés (cache partagé avec la page Channels).
+  // Réseaux connectés (cache partagé avec la page Channels) :
+  // TikTok, YouTube, Pinterest... tous sont affichés.
   const connectedChannels = useConnectedChannels();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -290,24 +305,20 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   // Ce useMemo DOIT être avant le `if (!isOpen) return null;`
   // sinon React voit plus de hooks au 2e rendu → erreur #310.
   // Trié selon SOCIAL_NETWORKS : YouTube se place juste après TikTok.
-  const channelTiles = useMemo(() => {
-    return connectedChannels
-      .map((channel) => {
-        const networkId = getNetworkId(channel);
-        const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
-        if (order === -1) return null;
-        return { channel, network: SOCIAL_NETWORKS[order], order };
-      })
-      .filter(
-        (
-          tile
-        ): tile is {
-          channel: ConnectedChannel;
-          network: (typeof SOCIAL_NETWORKS)[number];
-          order: number;
-        } => tile !== null
-      )
-      .sort((a, b) => a.order - b.order);
+  const channelTiles = useMemo<ChannelTileData[]>(() => {
+    const tiles: ChannelTileData[] = [];
+
+    for (const channel of connectedChannels) {
+      const networkId = getNetworkId(channel);
+      if (!networkId) continue;
+
+      const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
+      if (order === -1) continue;
+
+      tiles.push({ channel, network: SOCIAL_NETWORKS[order], order });
+    }
+
+    return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
 
   useEffect(() => {

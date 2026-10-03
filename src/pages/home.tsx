@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -19,6 +19,7 @@ import {
   TikTokIcon,
   YouTubeIcon,
   PinterestIcon,
+  ThreadsIcon,
 } from "../components/IntegrationIcons";
 
 const SIDEBAR_OFFSET = 104;
@@ -34,7 +35,8 @@ type SocialNetworkKey =
   | "linkedin"
   | "tiktok"
   | "youtube"
-  | "pinterest";
+  | "pinterest"
+  | "threads";
 
 const NETWORK_ICONS: Record<
   SocialNetworkKey,
@@ -47,6 +49,7 @@ const NETWORK_ICONS: Record<
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
+  threads: ThreadsIcon as (props: { className?: string }) => JSX.Element,
 };
 
 function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
@@ -61,6 +64,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw.includes("facebook") || raw === "fb") return "facebook";
   if (raw.includes("linkedin")) return "linkedin";
   if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
@@ -458,7 +462,7 @@ function ConnectFirstChannelWidget({
         <div className="flex items-center">
           {channels.map((channel, index) => {
             const networkId = getNetworkId(channel);
-            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+            const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
             return (
               <ChannelAvatar
                 key={channel.key}
@@ -829,17 +833,8 @@ export default function Home() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
+  // Tous les réseaux sont affichés, YouTube compris.
   const connectedChannels = useConnectedChannels();
-
-  // Sur l'accueil, YouTube est volontairement retiré du widget
-  // « réseaux connectés ».
-  const homeConnectedChannels = useMemo(
-    () =>
-      connectedChannels.filter(
-        (channel) => getNetworkId(channel) !== "youtube"
-      ),
-    [connectedChannels]
-  );
 
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
@@ -936,7 +931,7 @@ export default function Home() {
 
             <ConnectFirstChannelWidget
               isDark={isDark}
-              channels={homeConnectedChannels}
+              channels={connectedChannels}
             />
 
             <FromTheBlogSection isDark={isDark} />
