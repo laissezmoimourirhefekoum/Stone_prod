@@ -14,11 +14,8 @@ import { navigate, useHashRoute } from "../hooks/useHashRoute";
    Types
 ============================================================================ */
 
-type TemplateKind = "captions" | "hashtags" | "replies";
-
 type Template = {
   id: string;
-  kind: TemplateKind;
   emoji?: string;
   name: string;
   description: string;
@@ -28,10 +25,11 @@ type Template = {
   updatedAt: string;
 };
 
-const KIND_LABELS: Record<TemplateKind, string> = {
-  captions: "Captions",
-  hashtags: "Hashtags",
-  replies: "Replies",
+type ViewTab = "mine" | "discover";
+
+const VIEW_LABELS: Record<ViewTab, string> = {
+  mine: "My template",
+  discover: "Discover",
 };
 
 const sampleData: Record<string, string> = {
@@ -219,12 +217,6 @@ const XIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   </Svg>
 );
 
-const ChevronRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <Svg className={className}>
-    <path d="m9 6 6 6-6 6" />
-  </Svg>
-);
-
 /* ============================================================================
    Hook : état collapsed de la sidebar
 ============================================================================ */
@@ -257,14 +249,12 @@ function PromptCard({
   surface,
   titleClass,
   descClass,
-  fixedWidth = false,
 }: {
   template: FeaturedTemplate;
   onOpen: (t: FeaturedTemplate) => void;
   surface: string;
   titleClass: string;
   descClass: string;
-  fixedWidth?: boolean;
 }) {
   return (
     <button
@@ -275,7 +265,6 @@ function PromptCard({
         "transition-[background-color,border-color,transform] duration-150",
         "hover:-translate-y-0.5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/20",
-        fixedWidth ? "w-[280px] shrink-0" : "",
         surface,
       ].join(" ")}
     >
@@ -305,77 +294,6 @@ function PromptCard({
 }
 
 /* ============================================================================
-   Section horizontale (Tip / Case Study)
-============================================================================ */
-
-function HorizontalSection({
-  title,
-  items,
-  onOpen,
-  surface,
-  titleClass,
-  descClass,
-  sectionTitleClass,
-  seeAllClass,
-}: {
-  title: string;
-  items: FeaturedTemplate[];
-  onOpen: (t: FeaturedTemplate) => void;
-  surface: string;
-  titleClass: string;
-  descClass: string;
-  sectionTitleClass: string;
-  seeAllClass: string;
-}) {
-  return (
-    <section className="mt-10">
-      <div className="flex items-center justify-between">
-        <h2
-          className={[
-            "text-[18px] font-semibold tracking-tight",
-            sectionTitleClass,
-          ].join(" ")}
-        >
-          {title}
-        </h2>
-
-        <button
-          type="button"
-          className={[
-            "flex items-center gap-1 text-[13px] font-medium",
-            "transition-colors duration-150",
-            seeAllClass,
-          ].join(" ")}
-        >
-          See All
-          <ChevronRightIcon className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <div
-        className={[
-          "mt-4 flex gap-4 overflow-x-auto pb-2",
-          "[scrollbar-width:none] [-ms-overflow-style:none]",
-          "[&::-webkit-scrollbar]:hidden",
-        ].join(" ")}
-      >
-        {items.map((item) => (
-          <PromptCard
-            key={item.id}
-            template={item}
-            onOpen={onOpen}
-            surface={surface}
-            titleClass={titleClass}
-            descClass={descClass}
-            fixedWidth
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================================
    Page
 ============================================================================ */
 
@@ -385,12 +303,7 @@ export default function TemplatesPage() {
   const route = useHashRoute();
   const sidebarCollapsed = useSidebarCollapsed();
 
-  const activeKind: TemplateKind =
-    route === "hashtags"
-      ? "hashtags"
-      : route === "replies"
-        ? "replies"
-        : "captions";
+  const activeTab: ViewTab = route === "discover" ? "discover" : "mine";
 
   const [templates, setTemplates] = useState<Template[]>(initialTemplates);
   const [query, setQuery] = useState("");
@@ -502,14 +415,13 @@ export default function TemplatesPage() {
   );
 
   /* --------------------------------------------------------------------------
-     Filtrage (grid principale)
+     Filtrage
   -------------------------------------------------------------------------- */
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
     return templates.filter((template) => {
-      if (template.kind !== activeKind) return false;
       if (!q) return true;
 
       return (
@@ -519,7 +431,19 @@ export default function TemplatesPage() {
         template.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     });
-  }, [templates, activeKind, query]);
+  }, [templates, query]);
+
+  const discoverItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const items = [...TIPS, ...CASE_STUDIES];
+    if (!q) return items;
+
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q)
+    );
+  }, [query]);
 
   const hasAnyTemplate = templates.length > 0;
 
@@ -532,7 +456,6 @@ export default function TemplatesPage() {
     setTagsInput("");
     setDraft({
       id: "",
-      kind: activeKind,
       name: "",
       description: "",
       content: "",
@@ -541,7 +464,7 @@ export default function TemplatesPage() {
       updatedAt: new Date().toISOString().slice(0, 10),
     });
     setEditorOpen(true);
-  }, [activeKind]);
+  }, []);
 
   const openEdit = useCallback((template: Template) => {
     setIsNew(false);
@@ -550,25 +473,21 @@ export default function TemplatesPage() {
     setEditorOpen(true);
   }, []);
 
-  const openFromPrompt = useCallback(
-    (prompt: FeaturedTemplate) => {
-      setIsNew(true);
-      setTagsInput("");
-      setDraft({
-        id: "",
-        kind: activeKind,
-        emoji: prompt.emoji,
-        name: prompt.name,
-        description: prompt.description,
-        content: "",
-        tags: [],
-        usage: 0,
-        updatedAt: new Date().toISOString().slice(0, 10),
-      });
-      setEditorOpen(true);
-    },
-    [activeKind]
-  );
+  const openFromPrompt = useCallback((prompt: FeaturedTemplate) => {
+    setIsNew(true);
+    setTagsInput("");
+    setDraft({
+      id: "",
+      emoji: prompt.emoji,
+      name: prompt.name,
+      description: prompt.description,
+      content: "",
+      tags: [],
+      usage: 0,
+      updatedAt: new Date().toISOString().slice(0, 10),
+    });
+    setEditorOpen(true);
+  }, []);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
@@ -671,7 +590,7 @@ export default function TemplatesPage() {
                 Templates
               </h1>
               <p className={["mt-1 text-[13px]", t.muted].join(" ")}>
-                Créez, réutilisez et adaptez vos captions, hashtags et réponses.
+                Créez, réutilisez et adaptez vos templates en quelques secondes.
               </p>
             </div>
 
@@ -743,7 +662,7 @@ export default function TemplatesPage() {
           </section>
 
           {/* ============================================================
-              MY TEMPLATES
+              MY TEMPLATE / DISCOVER
           ============================================================ */}
           <section className="mt-12">
             <h2
@@ -752,7 +671,7 @@ export default function TemplatesPage() {
                 t.sectionTitle,
               ].join(" ")}
             >
-              My templates
+              {activeTab === "discover" ? "Discover" : "My templates"}
             </h2>
 
             {/* Tabs + recherche */}
@@ -761,22 +680,22 @@ export default function TemplatesPage() {
                 className={["flex gap-1 rounded-xl p-1", t.tabList].join(" ")}
                 role="tablist"
               >
-                {(Object.keys(KIND_LABELS) as TemplateKind[]).map((kind) => {
-                  const active = kind === activeKind;
+                {(Object.keys(VIEW_LABELS) as ViewTab[]).map((tab) => {
+                  const active = tab === activeTab;
                   return (
                     <button
-                      key={kind}
+                      key={tab}
                       type="button"
                       role="tab"
                       aria-selected={active}
-                      onClick={() => navigate(kind)}
+                      onClick={() => navigate(tab)}
                       className={[
                         "rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium",
                         "transition-colors duration-150",
                         active ? t.tabActive : t.tabIdle,
                       ].join(" ")}
                     >
-                      {KIND_LABELS[kind]}
+                      {VIEW_LABELS[tab]}
                     </button>
                   );
                 })}
@@ -797,8 +716,46 @@ export default function TemplatesPage() {
               </div>
             </div>
 
-            {/* Grid OU empty state OU recherche vide */}
-            {filtered.length > 0 ? (
+            {/* Contenu de l'onglet actif */}
+            {activeTab === "discover" ? (
+              discoverItems.length > 0 ? (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {discoverItems.map((item) => (
+                    <PromptCard
+                      key={item.id}
+                      template={item}
+                      onOpen={openFromPrompt}
+                      surface={t.cardFlat}
+                      titleClass={t.cardTitle}
+                      descClass={t.cardDesc}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className={[
+                    "mt-10 flex flex-col items-center gap-2 text-center text-[13px]",
+                    t.muted,
+                  ].join(" ")}
+                >
+                  <SearchIcon className="h-5 w-5 opacity-50" />
+                  <p>{`Aucun résultat pour « ${query} ».`}</p>
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className={[
+                      "mt-1 inline-flex h-8 items-center gap-2 rounded-lg border px-3",
+                      "text-[12px] font-semibold",
+                      "transition-[background-color,transform] duration-150",
+                      "active:scale-[0.98]",
+                      t.buttonGhost,
+                    ].join(" ")}
+                  >
+                    Effacer la recherche
+                  </button>
+                </div>
+              )
+            ) : filtered.length > 0 ? (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((template) => (
                   <article
@@ -954,8 +911,7 @@ export default function TemplatesPage() {
                     t.emptyDesc,
                   ].join(" ")}
                 >
-                  Once created, you'll see your{" "}
-                  {KIND_LABELS[activeKind].toLowerCase()} listed here.
+                  Once created, you'll see your templates listed here.
                 </p>
 
                 <button
@@ -973,31 +929,6 @@ export default function TemplatesPage() {
               </div>
             )}
           </section>
-
-          {/* ============================================================
-              SECTIONS HORIZONTALES
-          ============================================================ */}
-          <HorizontalSection
-            title="Tip"
-            items={TIPS}
-            onOpen={openFromPrompt}
-            surface={t.cardFlat}
-            titleClass={t.cardTitle}
-            descClass={t.cardDesc}
-            sectionTitleClass={t.sectionTitle}
-            seeAllClass={t.seeAll}
-          />
-
-          <HorizontalSection
-            title="Case Study"
-            items={CASE_STUDIES}
-            onOpen={openFromPrompt}
-            surface={t.cardFlat}
-            titleClass={t.cardTitle}
-            descClass={t.cardDesc}
-            sectionTitleClass={t.sectionTitle}
-            seeAllClass={t.seeAll}
-          />
         </div>
       </main>
 
