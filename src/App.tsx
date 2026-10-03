@@ -21,7 +21,7 @@ import Privacy from "./pages/Privacy";
 import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
-import YouTubeCallback from "./pages/YouTubeCallback";
+import YouTubeCallback from "./pages/Youtubecallback";
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
