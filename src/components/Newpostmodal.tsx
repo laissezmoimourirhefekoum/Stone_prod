@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { 
   Maximize2, Minimize2, X, Tag, FileText, 
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
@@ -345,7 +345,42 @@ function saveRecentEmojis(list: string[]): void {
   }
 }
 
-function EmojiPicker({
+// Grille d'une catégorie. Mémoïsée : elle n'est rendue qu'une fois et ne bouge
+// plus (changer de catégorie ne fait que la masquer / l'afficher).
+const EmojiGrid = memo(function EmojiGrid({
+  emojis,
+  visible,
+  isDark,
+}: {
+  emojis: string[];
+  visible: boolean;
+  isDark: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "h-[200px] grid-cols-8 content-start gap-0.5 overflow-y-auto px-2 pb-2",
+        visible ? "grid" : "hidden",
+      ].join(" ")}
+    >
+      {emojis.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          data-emoji={emoji}
+          className={[
+            "flex h-8 w-8 items-center justify-center rounded-lg text-[20px] leading-none",
+            isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]",
+          ].join(" ")}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+});
+
+const EmojiPicker = memo(function EmojiPicker({
   isDark,
   recent,
   onPick,
@@ -358,17 +393,68 @@ function EmojiPicker({
     recent.length > 0 ? "recent" : "smileys"
   );
 
-  const tabs: EmojiCategory[] = [
-    ...(recent.length > 0
-      ? [{ id: "recent", label: "Récents", icon: "🕘", emojis: recent }]
-      : []),
-    ...EMOJI_CATEGORIES,
-  ];
+  // Catégories déjà rendues. On en monte une seule à l'ouverture,
+  // les autres sont préparées en arrière-plan (voir l'effet plus bas).
+  const [mounted, setMounted] = useState<Set<string>>(
+    () => new Set([recent.length > 0 ? "recent" : "smileys"])
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    let index = 0;
+
+    const schedule = (callback: () => void) => {
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(callback, { timeout: 400 });
+      } else {
+        window.setTimeout(callback, 60);
+      }
+    };
+
+    const step = () => {
+      if (cancelled || index >= EMOJI_CATEGORIES.length) return;
+      const id = EMOJI_CATEGORIES[index].id;
+      index += 1;
+      setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+      schedule(step);
+    };
+
+    schedule(step);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const tabs: EmojiCategory[] = useMemo(
+    () => [
+      ...(recent.length > 0
+        ? [{ id: "recent", label: "Récents", icon: "🕘", emojis: recent }]
+        : []),
+      ...EMOJI_CATEGORIES,
+    ],
+    [recent]
+  );
 
   const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
 
+  const selectTab = (id: string) => {
+    // Si la catégorie n'est pas encore prête, on la monte tout de suite.
+    setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    setActiveId(id);
+  };
+
   // On garde le focus (et donc le curseur) dans le champ de texte.
   const keepFocus = (event: React.MouseEvent) => event.preventDefault();
+
+  // Un seul gestionnaire de clic pour tous les emoji (au lieu de ~450).
+  const handleGridClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+      "button[data-emoji]"
+    );
+    const emoji = button?.dataset.emoji;
+    if (emoji) onPick(emoji);
+  };
 
   return (
     <div
@@ -395,9 +481,9 @@ function EmojiPicker({
               aria-label={tab.label}
               aria-pressed={isActive}
               onMouseDown={keepFocus}
-              onClick={() => setActiveId(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={[
-                "flex h-8 w-8 items-center justify-center rounded-lg text-[17px] transition",
+                "flex h-8 w-8 items-center justify-center rounded-lg text-[17px]",
                 isActive
                   ? isDark
                     ? "bg-white/15"
@@ -422,25 +508,29 @@ function EmojiPicker({
         {active.label}
       </p>
 
-      <div className="grid h-[200px] grid-cols-8 content-start gap-0.5 overflow-y-auto px-2 pb-2">
-        {active.emojis.map((emoji, index) => (
-          <button
-            key={`${emoji}-${index}`}
-            type="button"
-            onMouseDown={keepFocus}
-            onClick={() => onPick(emoji)}
-            className={[
-              "flex h-8 w-8 items-center justify-center rounded-lg text-[20px] leading-none transition",
-              isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]",
-            ].join(" ")}
-          >
-            {emoji}
-          </button>
-        ))}
+      <div onMouseDown={keepFocus} onClick={handleGridClick}>
+        {recent.length > 0 && (
+          <EmojiGrid
+            emojis={recent}
+            visible={active.id === "recent"}
+            isDark={isDark}
+          />
+        )}
+
+        {EMOJI_CATEGORIES.map((category) =>
+          mounted.has(category.id) ? (
+            <EmojiGrid
+              key={category.id}
+              emojis={category.emojis}
+              visible={active.id === category.id}
+              isDark={isDark}
+            />
+          ) : null
+        )}
       </div>
     </div>
   );
-}
+});
 
 /* ──────────────────────────────────────────────────────────────
    Composant principal
@@ -482,6 +572,12 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   const emojiWrapRef = useRef<HTMLDivElement>(null);
   // Dernière position du curseur dans le texte (null = jamais placé : on ajoute à la fin).
   const caretRef = useRef<{ start: number; end: number } | null>(null);
+  // Référence vers la dernière version de insertEmoji : le sélecteur reçoit
+  // ainsi une fonction stable et ne se re-rend pas à chaque frappe.
+  const insertEmojiRef = useRef<(emoji: string) => void>(() => {});
+  const handlePickEmoji = useCallback((emoji: string) => {
+    insertEmojiRef.current(emoji);
+  }, []);
 
   const timeMin = useMemo(() => {
     const now = new Date();
@@ -688,6 +784,8 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       el.setSelectionRange(position, position);
     });
   };
+
+  insertEmojiRef.current = insertEmoji;
 
   const toggleNetwork = (id: SocialNetworkId) => {
     setNetworks((prev) =>
@@ -1100,7 +1198,7 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
                   <EmojiPicker
                     isDark={isDark}
                     recent={recentEmojis}
-                    onPick={insertEmoji}
+                    onPick={handlePickEmoji}
                   />
                 )}
               </div>

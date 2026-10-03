@@ -8,14 +8,18 @@ import {
 
 import DashboardSidebar from "../components/DashboardSidebar";
 import { useTheme } from "../hooks/useTheme";
+import { navigate, useHashRoute } from "../hooks/useHashRoute";
 
 /* ============================================================================
    Types
 ============================================================================ */
 
+type TemplateKind = "captions" | "hashtags" | "replies";
+
 type Template = {
   id: string;
-  emoji: string;
+  kind: TemplateKind;
+  emoji?: string;
   name: string;
   description: string;
   content: string;
@@ -24,21 +28,107 @@ type Template = {
   updatedAt: string;
 };
 
+const KIND_LABELS: Record<TemplateKind, string> = {
+  captions: "Captions",
+  hashtags: "Hashtags",
+  replies: "Replies",
+};
+
+const sampleData: Record<string, string> = {
+  product: "Stone",
+  benefit: "publie plus vite, avec plus de clarté",
+  link: "stone.app",
+  hashtag: "buildinpublic",
+  name: "Ronan",
+};
+
 /* ============================================================================
    Mock data
 ============================================================================ */
 
-const FEATURED: Template[] = [
+/* Templates "classiques" (créés / édités par l'utilisateur) */
+const initialTemplates: Template[] = [
+  {
+    id: "t1",
+    kind: "captions",
+    name: "Lancement produit",
+    description: "Annonce courte et énergique pour un nouveau produit.",
+    content:
+      "🚀 {{product}} est là ! {{benefit}}. Découvrez-le sur {{link}} #{{hashtag}}",
+    tags: ["produit", "lancement"],
+    usage: 12,
+    updatedAt: "2025-02-10",
+  },
+  {
+    id: "t2",
+    kind: "captions",
+    name: "Conseil rapide",
+    description: "Format tips pour les réseaux.",
+    content:
+      "💡 Le tip du jour : {{benefit}}. Enregistre ce post pour plus tard !",
+    tags: ["tips", "growth"],
+    usage: 8,
+    updatedAt: "2025-02-08",
+  },
+  {
+    id: "t3",
+    kind: "hashtags",
+    name: "Pack growth FR",
+    description:
+      "Hashtags génériques pour toucher une audience francophone.",
+    content: "#growth #marketing #startup #buildinpublic #indiehacker",
+    tags: ["growth", "francophone"],
+    usage: 24,
+    updatedAt: "2025-02-11",
+  },
+  {
+    id: "t4",
+    kind: "hashtags",
+    name: "Pack design",
+    description: "Pour les posts design / UI.",
+    content: "#design #ui #ux #figma #productdesign",
+    tags: ["design", "ui"],
+    usage: 5,
+    updatedAt: "2025-02-05",
+  },
+  {
+    id: "t5",
+    kind: "replies",
+    name: "Remerciement",
+    description: "Réponse courte pour remercier un commentaire.",
+    content: "Merci beaucoup {{name}} ! 🙏 Ça fait plaisir à lire.",
+    tags: ["community", "merci"],
+    usage: 17,
+    updatedAt: "2025-02-09",
+  },
+  {
+    id: "t6",
+    kind: "replies",
+    name: "Question ouverte",
+    description: "Relance la discussion sous un post.",
+    content:
+      "Très bonne question ! Et toi {{name}}, tu utilises quoi aujourd'hui ?",
+    tags: ["engagement", "question"],
+    usage: 6,
+    updatedAt: "2025-02-07",
+  },
+];
+
+/* Featured templates (section teintée verte) */
+type FeaturedTemplate = {
+  id: string;
+  emoji: string;
+  name: string;
+  description: string;
+};
+
+const FEATURED: FeaturedTemplate[] = [
   {
     id: "f1",
     emoji: "📊",
     name: "Report on a one-week experiment you ran",
     description:
       "Share a one-week experiment you actually ran, what was hard about it, and what shifted by the end.",
-    content: "",
-    tags: ["experiment"],
-    usage: 0,
-    updatedAt: "",
   },
   {
     id: "f2",
@@ -46,10 +136,6 @@ const FEATURED: Template[] = [
     name: "Describe the rule you broke and what happened",
     description:
       "Share a “best practice” or common belief that no longer served you and what you now do instead.",
-    content: "",
-    tags: ["story"],
-    usage: 0,
-    updatedAt: "",
   },
   {
     id: "f3",
@@ -57,126 +143,76 @@ const FEATURED: Template[] = [
     name: "Walk through how your pricing changed",
     description:
       "How you used to set prices, what that cost you, and how you price now.",
-    content: "",
-    tags: ["pricing"],
-    usage: 0,
-    updatedAt: "",
   },
 ];
 
-const TIPS: Template[] = [
+/* Sections horizontales */
+const TIPS: FeaturedTemplate[] = [
   {
-    id: "t1",
+    id: "tip1",
     emoji: "💬",
     name: "The fuller answer to a question you get a lot",
     description:
       "What's the question people ask you over and over? This prompt is space for the answer you'd give if you had the time.",
-    content: "",
-    tags: ["audience"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "t2",
+    id: "tip2",
     emoji: "🕯️",
     name: "The thing that nearly made you stop",
     description:
       "Many of us have had a stretch when carrying on with the work felt like too much. If you've been through one, describe it.",
-    content: "",
-    tags: ["story"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "t3",
+    id: "tip3",
     emoji: "🔍",
     name: "Feedback that turned out to be right",
     description:
       "Has a piece of feedback ever stung at first and stuck with you anyway? If it took you a while to come around, share it.",
-    content: "",
-    tags: ["feedback"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "t4",
+    id: "tip4",
     emoji: "✏️",
     name: "A mistake that taught you something specific",
     description:
       "Think of a mistake you've made that taught you something you still use. Small ones work just as well as big ones.",
-    content: "",
-    tags: ["lesson"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "t5",
+    id: "tip5",
     emoji: "📐",
     name: "Something you're still working on",
     description:
       "There might be a part of your craft that has never come naturally, however long you've been at it. Name it.",
-    content: "",
-    tags: ["craft"],
-    usage: 0,
-    updatedAt: "",
-  },
-  {
-    id: "t6",
-    emoji: "🧭",
-    name: "The advice you'd give your past self",
-    description:
-      "If you could send one short message back to yourself a year ago, what would it say?",
-    content: "",
-    tags: ["advice"],
-    usage: 0,
-    updatedAt: "",
   },
 ];
 
-const CASE_STUDIES: Template[] = [
+const CASE_STUDIES: FeaturedTemplate[] = [
   {
-    id: "c1",
+    id: "cs1",
     emoji: "🚀",
     name: "From 0 to 10k users in 90 days",
     description:
       "Break down the tactics, channels, and turning points that grew your product fastest.",
-    content: "",
-    tags: ["growth"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "c2",
+    id: "cs2",
     emoji: "🔁",
     name: "A pivot that saved the product",
     description:
       "What signal told you to change direction, and what did the pivot actually look like?",
-    content: "",
-    tags: ["pivot"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "c3",
+    id: "cs3",
     emoji: "📉",
     name: "The launch that flopped",
     description:
       "Walk through what you expected, what actually happened, and what you'd do differently.",
-    content: "",
-    tags: ["launch"],
-    usage: 0,
-    updatedAt: "",
   },
   {
-    id: "c4",
+    id: "cs4",
     emoji: "🤝",
     name: "The partnership that unlocked growth",
     description:
       "Who did you partner with, how did you find them, and what did both sides actually get out of it?",
-    content: "",
-    tags: ["partnership"],
-    usage: 0,
-    updatedAt: "",
   },
 ];
 
@@ -207,21 +243,57 @@ function Svg({
   );
 }
 
-const ChevronRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <Svg className={className}>
-    <path d="m9 6 6 6-6 6" />
-  </Svg>
-);
-
 const PlusIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <Svg className={className}>
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
 
+const SearchIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </Svg>
+);
+
+const EditIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </Svg>
+);
+
+const CopyIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </Svg>
+);
+
+const TrashIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14H6L5 6" />
+    <path d="M10 11v6M14 11v6" />
+  </Svg>
+);
+
 const XIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <Svg className={className}>
     <path d="M18 6 6 18M6 6l12 12" />
+  </Svg>
+);
+
+const SparkIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+  </Svg>
+);
+
+const ChevronRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="m9 6 6 6-6 6" />
   </Svg>
 );
 
@@ -248,10 +320,10 @@ function useSidebarCollapsed() {
 }
 
 /* ============================================================================
-   Carte de template
+   Carte "prompt" (avec emoji) — utilisée dans Featured / Tip / Case Study
 ============================================================================ */
 
-function TemplateCard({
+function PromptCard({
   template,
   onOpen,
   surface,
@@ -259,8 +331,8 @@ function TemplateCard({
   descClass,
   fixedWidth = false,
 }: {
-  template: Template;
-  onOpen: (t: Template) => void;
+  template: FeaturedTemplate;
+  onOpen: (t: FeaturedTemplate) => void;
   surface: string;
   titleClass: string;
   descClass: string;
@@ -279,11 +351,7 @@ function TemplateCard({
         surface,
       ].join(" ")}
     >
-      <span
-        className="text-[20px] leading-none"
-        role="img"
-        aria-hidden="true"
-      >
+      <span className="text-[20px] leading-none" role="img" aria-hidden="true">
         {template.emoji}
       </span>
 
@@ -323,8 +391,8 @@ function HorizontalSection({
   seeAllClass,
 }: {
   title: string;
-  items: Template[];
-  onOpen: (t: Template) => void;
+  items: FeaturedTemplate[];
+  onOpen: (t: FeaturedTemplate) => void;
   surface: string;
   titleClass: string;
   descClass: string;
@@ -364,7 +432,7 @@ function HorizontalSection({
         ].join(" ")}
       >
         {items.map((item) => (
-          <TemplateCard
+          <PromptCard
             key={item.id}
             template={item}
             onOpen={onOpen}
@@ -386,32 +454,27 @@ function HorizontalSection({
 export default function TemplatesPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const route = useHashRoute();
   const sidebarCollapsed = useSidebarCollapsed();
 
-  /* ----- Éditeur ----- */
+  const activeKind: TemplateKind =
+    route === "hashtags"
+      ? "hashtags"
+      : route === "replies"
+        ? "replies"
+        : "captions";
+
+  const [templates, setTemplates] = useState<Template[]>(initialTemplates);
+  const [query, setQuery] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState<Template | null>(null);
+  const [isNew, setIsNew] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
 
-  const openEditor = useCallback((template: Template) => {
-    setDraft({ ...template });
-    setEditorOpen(true);
-  }, []);
+  /* --------------------------------------------------------------------------
+     Theme tokens
+  -------------------------------------------------------------------------- */
 
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setDraft(null);
-  }, []);
-
-  useEffect(() => {
-    if (!editorOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeEditor();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [editorOpen, closeEditor]);
-
-  /* ----- Thème ----- */
   const t = useMemo(
     () =>
       isDark
@@ -420,36 +483,42 @@ export default function TemplatesPage() {
             title: "text-white",
             muted: "text-[#99a2a2]",
 
-            // Section "Featured" : fond sombre + halo vert
+            /* Featured section : fond sombre + halo vert */
             featuredBg:
               "border border-white/10 bg-[#111112] " +
               "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(16,185,129,0.12),rgba(0,0,0,0)_55%)]",
-
             featuredLabel: "text-emerald-400/80",
             featuredTitle: "text-white",
             featuredDesc: "text-white/55",
-
-            // Cartes dans le Featured (un peu plus claires que la section)
             cardFeatured:
               "border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/20",
 
-            // Cartes des sections horizontales (sur fond de page)
-            cardFlat:
-              "border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20",
-
+            /* Cartes de la grid principale */
+            card: "border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20",
             cardTitle: "text-white",
             cardDesc: "text-[#99a2a2]",
+            cardBody: "text-[#d7d7d2]",
+            tag: "bg-white/10 text-[#d7d7d2]",
 
+            /* Cartes horizontales (Tip / Case Study) */
+            cardFlat:
+              "border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20",
             sectionTitle: "text-white",
             seeAll: "text-[#99a2a2] hover:text-white",
 
+            tabList: "border border-white/10 bg-white/[0.04]",
+            tabActive: "bg-white/15 text-white",
+            tabIdle: "text-[#99a2a2] hover:text-white",
+
             input:
-              "border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-white/30",
+              "border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-white/30 focus:bg-white/[0.06]",
             buttonPrimary: "bg-white text-black hover:bg-white/90",
-            buttonGhost: "border-white/10 text-[#d7d7d2] hover:bg-white/[0.06]",
+            buttonGhost:
+              "border-white/10 text-[#d7d7d2] hover:bg-white/[0.06]",
             modal: "border-white/10 bg-[#111112]",
             divider: "border-white/10",
             iconBtn: "hover:bg-white/10 text-[#d7d7d2]",
+            empty: "text-[#99a2a2]",
           }
         : {
             page: "bg-[#f7f7f5] text-[#151515]",
@@ -459,33 +528,172 @@ export default function TemplatesPage() {
             featuredBg:
               "border border-black/[0.06] bg-[#eef3ec] " +
               "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(16,185,129,0.10),rgba(255,255,255,0)_55%)]",
-
             featuredLabel: "text-emerald-600/90",
             featuredTitle: "text-[#151515]",
             featuredDesc: "text-[#52514e]",
-
             cardFeatured:
               "border-black/[0.06] bg-white hover:bg-white hover:border-black/20 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
 
-            cardFlat:
-              "border-black/10 bg-white hover:bg-black/[0.02] hover:border-black/20",
-
+            card: "border-black/10 bg-white hover:bg-black/[0.02] hover:border-black/20",
             cardTitle: "text-[#151515]",
             cardDesc: "text-[#71706d]",
+            cardBody: "text-[#3f3f3d]",
+            tag: "bg-black/[0.05] text-[#3f3f3d]",
 
+            cardFlat:
+              "border-black/10 bg-white hover:bg-black/[0.02] hover:border-black/20",
             sectionTitle: "text-[#151515]",
             seeAll: "text-[#71706d] hover:text-[#151515]",
 
+            tabList: "border border-black/10 bg-black/[0.03]",
+            tabActive: "bg-white text-[#151515] shadow-sm",
+            tabIdle: "text-[#71706d] hover:text-[#151515]",
+
             input:
-              "border-black/10 bg-white text-[#151515] placeholder:text-black/40 focus:border-black/30",
+              "border-black/10 bg-white text-[#151515] placeholder:text-black/40 focus:border-black/30 focus:bg-white",
             buttonPrimary: "bg-[#151515] text-white hover:bg-[#2a2a2a]",
-            buttonGhost: "border-black/10 text-[#3f3f3d] hover:bg-black/[0.04]",
+            buttonGhost:
+              "border-black/10 text-[#3f3f3d] hover:bg-black/[0.04]",
             modal: "border-black/10 bg-white",
             divider: "border-black/[0.07]",
             iconBtn: "hover:bg-black/[0.05] text-[#3f3f3d]",
+            empty: "text-[#71706d]",
           },
     [isDark]
   );
+
+  /* --------------------------------------------------------------------------
+     Filtrage (grid principale)
+  -------------------------------------------------------------------------- */
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    return templates.filter((template) => {
+      if (template.kind !== activeKind) return false;
+      if (!q) return true;
+
+      return (
+        template.name.toLowerCase().includes(q) ||
+        template.description.toLowerCase().includes(q) ||
+        template.content.toLowerCase().includes(q) ||
+        template.tags.some((tag) => tag.toLowerCase().includes(q))
+      );
+    });
+  }, [templates, activeKind, query]);
+
+  /* --------------------------------------------------------------------------
+     Actions
+  -------------------------------------------------------------------------- */
+
+  const openNew = useCallback(() => {
+    setIsNew(true);
+    setTagsInput("");
+    setDraft({
+      id: "",
+      kind: activeKind,
+      name: "",
+      description: "",
+      content: "",
+      tags: [],
+      usage: 0,
+      updatedAt: new Date().toISOString().slice(0, 10),
+    });
+    setEditorOpen(true);
+  }, [activeKind]);
+
+  const openEdit = useCallback((template: Template) => {
+    setIsNew(false);
+    setTagsInput(template.tags.join(", "));
+    setDraft({ ...template });
+    setEditorOpen(true);
+  }, []);
+
+  /* Ouvre l'éditeur à partir d'une carte "prompt" (Featured / Tip / Case Study) */
+  const openFromPrompt = useCallback(
+    (prompt: FeaturedTemplate) => {
+      setIsNew(true);
+      setTagsInput("");
+      setDraft({
+        id: "",
+        kind: activeKind,
+        emoji: prompt.emoji,
+        name: prompt.name,
+        description: prompt.description,
+        content: "",
+        tags: [],
+        usage: 0,
+        updatedAt: new Date().toISOString().slice(0, 10),
+      });
+      setEditorOpen(true);
+    },
+    [activeKind]
+  );
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setDraft(null);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (!draft) return;
+
+    const now = new Date().toISOString().slice(0, 10);
+    const tags = tagsInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (isNew) {
+      setTemplates((prev) => [
+        {
+          ...draft,
+          id: `t-${Date.now()}`,
+          tags,
+          usage: 0,
+          updatedAt: now,
+        },
+        ...prev,
+      ]);
+    } else {
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === draft.id ? { ...draft, tags, updatedAt: now } : item
+        )
+      );
+    }
+
+    closeEditor();
+  }, [draft, tagsInput, isNew, closeEditor]);
+
+  const handleDuplicate = useCallback((template: Template) => {
+    setTemplates((prev) => [
+      {
+        ...template,
+        id: `t-${Date.now()}`,
+        name: `${template.name} (copie)`,
+        usage: 0,
+        updatedAt: new Date().toISOString().slice(0, 10),
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  const handleDelete = useCallback((id: string) => {
+    setTemplates((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  /* Ferme l'éditeur avec Escape */
+  useEffect(() => {
+    if (!editorOpen) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeEditor();
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editorOpen, closeEditor]);
 
   /* ==========================================================================
      Render
@@ -495,8 +703,10 @@ export default function TemplatesPage() {
     <div
       className={["relative h-screen w-screen overflow-hidden", t.page].join(" ")}
     >
+      {/* Sidebar flottante */}
       <DashboardSidebar />
 
+      {/* Contenu principal */}
       <main
         className={[
           "h-full overflow-y-auto",
@@ -507,15 +717,49 @@ export default function TemplatesPage() {
         ].join(" ")}
       >
         <div className="mx-auto max-w-[1200px] px-6 py-10 sm:px-10 sm:py-12">
-          {/* ---------- Featured templates ---------- */}
+          {/* ============================================================
+              HEADER (partie haute d'origine)
+          ============================================================ */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1
+                className={[
+                  "text-[26px] font-semibold tracking-tight",
+                  t.title,
+                ].join(" ")}
+              >
+                Templates
+              </h1>
+              <p className={["mt-1 text-[13px]", t.muted].join(" ")}>
+                Créez, réutilisez et adaptez vos captions, hashtags et réponses.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openNew}
+              className={[
+                "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4",
+                "text-[13px] font-semibold",
+                "transition-[background-color,transform] duration-150",
+                "active:scale-[0.98]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/20",
+                t.buttonPrimary,
+              ].join(" ")}
+            >
+              <PlusIcon />
+              Nouveau template
+            </button>
+          </div>
+
+          {/* ---------- Section "Featured templates" (mix design) ---------- */}
           <section
             className={[
-              "relative overflow-hidden rounded-3xl p-6 sm:p-8",
+              "mt-8 relative overflow-hidden rounded-3xl p-6 sm:p-8",
               t.featuredBg,
             ].join(" ")}
           >
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr] lg:gap-8">
-              {/* Colonne gauche */}
               <div className="flex flex-col justify-center">
                 <span
                   className={[
@@ -543,13 +787,12 @@ export default function TemplatesPage() {
                 </p>
               </div>
 
-              {/* Colonne droite : 3 cartes */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {FEATURED.map((template) => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    onOpen={openEditor}
+                {FEATURED.map((item) => (
+                  <PromptCard
+                    key={item.id}
+                    template={item}
+                    onOpen={openFromPrompt}
                     surface={t.cardFeatured}
                     titleClass={t.cardTitle}
                     descClass={t.cardDesc}
@@ -559,11 +802,190 @@ export default function TemplatesPage() {
             </div>
           </section>
 
-          {/* ---------- Tip ---------- */}
+          {/* ============================================================
+              TABS + RECHERCHE (partie haute d'origine)
+          ============================================================ */}
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              className={["flex gap-1 rounded-xl p-1", t.tabList].join(" ")}
+              role="tablist"
+            >
+              {(Object.keys(KIND_LABELS) as TemplateKind[]).map((kind) => {
+                const active = kind === activeKind;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => navigate(kind)}
+                    className={[
+                      "rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium",
+                      "transition-colors duration-150",
+                      active ? t.tabActive : t.tabIdle,
+                    ].join(" ")}
+                  >
+                    {KIND_LABELS[kind]}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative w-full sm:w-72">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Rechercher un template…"
+                className={[
+                  "h-10 w-full rounded-xl border pl-9 pr-3 text-[13px]",
+                  "outline-none transition-colors duration-150",
+                  t.input,
+                ].join(" ")}
+              />
+            </div>
+          </div>
+
+          {/* ---------- Grid principale (partie haute d'origine) ---------- */}
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((template) => (
+              <article
+                key={template.id}
+                className={[
+                  "group flex flex-col rounded-2xl border p-4",
+                  "transition-[background-color,border-color,transform] duration-150",
+                  "hover:-translate-y-0.5",
+                  t.card,
+                ].join(" ")}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2
+                      className={[
+                        "truncate text-[14px] font-semibold",
+                        t.cardTitle,
+                      ].join(" ")}
+                    >
+                      {template.name}
+                    </h2>
+                    <p
+                      className={[
+                        "mt-0.5 line-clamp-2 text-[12px]",
+                        t.cardDesc,
+                      ].join(" ")}
+                    >
+                      {template.description}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                    <button
+                      type="button"
+                      aria-label="Éditer"
+                      onClick={() => openEdit(template)}
+                      className={[
+                        "rounded-lg p-1.5 transition-colors",
+                        t.iconBtn,
+                      ].join(" ")}
+                    >
+                      <EditIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Dupliquer"
+                      onClick={() => handleDuplicate(template)}
+                      className={[
+                        "rounded-lg p-1.5 transition-colors",
+                        t.iconBtn,
+                      ].join(" ")}
+                    >
+                      <CopyIcon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Supprimer"
+                      onClick={() => handleDelete(template.id)}
+                      className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <p
+                  className={[
+                    "mt-3 line-clamp-3 whitespace-pre-wrap text-[12px]",
+                    t.cardBody,
+                  ].join(" ")}
+                >
+                  {template.content}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {template.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className={[
+                        "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        t.tag,
+                      ].join(" ")}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div
+                  className={[
+                    "mt-4 flex items-center justify-between border-t pt-3 text-[11px]",
+                    t.divider,
+                    t.muted,
+                  ].join(" ")}
+                >
+                  <span>{template.usage} utilisations</span>
+                  <span>{template.updatedAt}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {filtered.length === 0 && (
+            <div
+              className={[
+                "mt-16 flex flex-col items-center gap-3 text-center text-[13px]",
+                t.empty,
+              ].join(" ")}
+            >
+              <SparkIcon className="h-6 w-6 opacity-50" />
+              <p>
+                {query
+                  ? `Aucun template trouvé pour « ${query} ».`
+                  : "Aucun template dans cette catégorie."}
+              </p>
+              <button
+                type="button"
+                onClick={openNew}
+                className={[
+                  "mt-1 inline-flex h-9 items-center gap-2 rounded-xl px-3.5",
+                  "text-[12.5px] font-semibold",
+                  "transition-[background-color,transform] duration-150",
+                  "active:scale-[0.98]",
+                  t.buttonPrimary,
+                ].join(" ")}
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+                Créer un template
+              </button>
+            </div>
+          )}
+
+          {/* ============================================================
+              SECTIONS HORIZONTALES (design de l'image)
+          ============================================================ */}
           <HorizontalSection
             title="Tip"
             items={TIPS}
-            onOpen={openEditor}
+            onOpen={openFromPrompt}
             surface={t.cardFlat}
             titleClass={t.cardTitle}
             descClass={t.cardDesc}
@@ -571,11 +993,10 @@ export default function TemplatesPage() {
             seeAllClass={t.seeAll}
           />
 
-          {/* ---------- Case Study ---------- */}
           <HorizontalSection
             title="Case Study"
             items={CASE_STUDIES}
-            onOpen={openEditor}
+            onOpen={openFromPrompt}
             surface={t.cardFlat}
             titleClass={t.cardTitle}
             descClass={t.cardDesc}
@@ -585,7 +1006,9 @@ export default function TemplatesPage() {
         </div>
       </main>
 
-      {/* ---------- Éditeur (panneau latéral) ---------- */}
+      {/* ============================================================
+          ÉDITEUR (panneau latéral)
+      ============================================================ */}
       {editorOpen && draft && (
         <div
           className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-sm"
@@ -601,13 +1024,15 @@ export default function TemplatesPage() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-[22px] leading-none" aria-hidden="true">
-                  {draft.emoji}
-                </span>
+                {draft.emoji && (
+                  <span className="text-[22px] leading-none" aria-hidden="true">
+                    {draft.emoji}
+                  </span>
+                )}
                 <h2
                   className={["text-[16px] font-semibold", t.title].join(" ")}
                 >
-                  Utiliser ce template
+                  {isNew ? "Nouveau template" : "Éditer le template"}
                 </h2>
               </div>
               <button
@@ -623,7 +1048,7 @@ export default function TemplatesPage() {
             </div>
 
             <div className="mt-6 flex flex-col gap-4">
-              <Field label="Titre">
+              <Field label="Nom">
                 <input
                   value={draft.name}
                   onChange={(event) =>
@@ -655,14 +1080,55 @@ export default function TemplatesPage() {
                   onChange={(event) =>
                     setDraft({ ...draft, content: event.target.value })
                   }
-                  rows={8}
-                  placeholder="Écrivez votre post ici…"
+                  rows={5}
                   className={[
                     "resize-none rounded-xl border px-3 py-2 text-[13px] outline-none transition-colors",
                     t.input,
                   ].join(" ")}
                 />
               </Field>
+
+              <Field label="Tags (séparés par des virgules)">
+                <input
+                  value={tagsInput}
+                  onChange={(event) => setTagsInput(event.target.value)}
+                  placeholder="growth, tips, fr"
+                  className={[
+                    "h-10 rounded-xl border px-3 text-[13px] outline-none transition-colors",
+                    t.input,
+                  ].join(" ")}
+                />
+              </Field>
+
+              {/* Aperçu */}
+              <div
+                className={[
+                  "mt-2 rounded-xl border p-3.5",
+                  t.divider,
+                ].join(" ")}
+              >
+                <p
+                  className={[
+                    "text-[11px] font-semibold uppercase tracking-wide",
+                    t.muted,
+                  ].join(" ")}
+                >
+                  Aperçu
+                </p>
+                <p
+                  className={[
+                    "mt-2 whitespace-pre-wrap text-[13px]",
+                    t.cardBody,
+                  ].join(" ")}
+                >
+                  {draft.content
+                    ? draft.content.replace(
+                        /\{\{(\w+)\}\}/g,
+                        (_, key) => sampleData[key] ?? `{{${key}}}`
+                      )
+                    : "…"}
+                </p>
+              </div>
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
@@ -679,16 +1145,17 @@ export default function TemplatesPage() {
               </button>
               <button
                 type="button"
-                onClick={closeEditor}
+                onClick={handleSave}
+                disabled={!draft.name.trim() || !draft.content.trim()}
                 className={[
-                  "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-semibold",
+                  "h-10 rounded-xl px-4 text-[13px] font-semibold",
                   "transition-[background-color,transform] duration-150",
                   "active:scale-[0.98]",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
                   t.buttonPrimary,
                 ].join(" ")}
               >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Utiliser
+                Enregistrer
               </button>
             </div>
           </div>
