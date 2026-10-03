@@ -95,86 +95,69 @@ function computeTotals(channels: ConnectedChannel[]) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Claymorphism tokens                                                       */
+/*  Design tokens — neumorphisme                                              */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Claymorphism = "argile gonflée".
- * Signature : ombres INTERNES (lumière TG + ombre BD) + ombres EXTERNES
- * (lumière TG + ombre BD). Résultat : l'élément paraît gonflé, doux,
- * presque mou, comme une pastille d'argile.
- */
-function useClay(isDark: boolean) {
-  // Fond légèrement plus clair en dark / plus clair en light pour le "gonflé".
-  const base = isDark ? "#232326" : "#e9e9ec";
-  const surface = isDark ? "#28282c" : "#efeff2";
-
+/** Palette unifiée : fond = surface pour un vrai effet neumorphique. */
+function useNeu(isDark: boolean) {
+  // Fond et surface partagent la même teinte en neumorphisme.
+  const base = isDark ? "#1c1c1e" : "#ececec";
+  const baseRaised = isDark ? "#1e1e20" : "#f1f1f1";
   const text = isDark ? "#f5f5f7" : "#1a1a1a";
-  const muted = isDark ? "#9a9aa0" : "#8a8a92";
-  const faint = isDark ? "#6f6f76" : "#a4a4ac";
+  const muted = isDark ? "#8a8a8e" : "#8a8a8e";
+  const faint = isDark ? "#6a6a6e" : "#a0a0a4";
 
-  // Couleurs des ombres (clay = plus prononcées que neumorphisme).
-  const lightInner = isDark
-    ? "rgba(255,255,255,0.06)"
-    : "rgba(255,255,255,0.95)";
-  const darkInner = isDark
-    ? "rgba(0,0,0,0.65)"
-    : "rgba(0,0,0,0.16)";
-  const lightOuter = isDark
-    ? "rgba(255,255,255,0.04)"
-    : "rgba(255,255,255,0.9)";
-  const darkOuter = isDark
-    ? "rgba(0,0,0,0.55)"
-    : "rgba(0,0,0,0.12)";
+  // Ombres douces opposées (haut-gauche clair / bas-droite sombre)
+  const raised = isDark
+    ? "8px 8px 20px rgba(0,0,0,0.55), -8px -8px 20px rgba(255,255,255,0.03)"
+    : "10px 10px 24px rgba(0,0,0,0.08), -10px -10px 24px rgba(255,255,255,0.95)";
 
-  /** Blob d'argile standard : inner + outer. */
-  const clay = [
-    `inset 8px 8px 18px ${lightInner}`,
-    `inset -10px -10px 22px ${darkInner}`,
-    `10px 10px 28px ${darkOuter}`,
-    `-8px -8px 24px ${lightOuter}`,
-  ].join(", ");
+  const raisedSm = isDark
+    ? "5px 5px 12px rgba(0,0,0,0.5), -5px -5px 12px rgba(255,255,255,0.03)"
+    : "5px 5px 14px rgba(0,0,0,0.07), -5px -5px 14px rgba(255,255,255,0.9)";
 
-  /** Version plus petite, pour les pilules et pastilles. */
-  const claySm = [
-    `inset 4px 4px 10px ${lightInner}`,
-    `inset -5px -5px 12px ${darkInner}`,
-    `5px 5px 16px ${darkOuter}`,
-    `-4px -4px 14px ${lightOuter}`,
-  ].join(", ");
+  const inset = isDark
+    ? "inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.03)"
+    : "inset 4px 4px 10px rgba(0,0,0,0.07), inset -4px -4px 10px rgba(255,255,255,0.9)";
 
-  /** Version gonflée pour l'avatar / icône dans une pastille. */
-  const clayPill = [
-    `inset 3px 3px 8px ${lightInner}`,
-    `inset -4px -4px 10px ${darkInner}`,
-    `3px 3px 10px ${darkOuter}`,
-    `-2px -2px 8px ${lightOuter}`,
-  ].join(", ");
+  const insetSm = isDark
+    ? "inset 2px 2px 6px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(255,255,255,0.03)"
+    : "inset 2px 2px 6px rgba(0,0,0,0.06), inset -2px -2px 6px rgba(255,255,255,0.9)";
 
-  /** Élément « creusé » (inset uniquement) : input, piste, fond de liste. */
-  const clayPress = [
-    `inset 8px 8px 18px ${darkInner}`,
-    `inset -8px -8px 18px ${lightInner}`,
-  ].join(", ");
+  return { base, baseRaised, text, muted, faint, raised, raisedSm, inset, insetSm };
+}
 
-  /** Petite pression (champ de recherche, badge actif). */
-  const clayPressSm = [
-    `inset 4px 4px 10px ${darkInner}`,
-    `inset -4px -4px 10px ${lightInner}`,
-  ].join(", ");
+/** Surface neumorphique « relief ». */
+function Neu({
+  isDark,
+  variant = "raised",
+  radius = "rounded-[32px]",
+  className = "",
+  style,
+  children,
+  as: Tag = "div",
+  ...rest
+}: {
+  isDark: boolean;
+  variant?: "raised" | "inset";
+  radius?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children?: ReactNode;
+  as?: any;
+} & Record<string, any>) {
+  const n = useNeu(isDark);
+  const shadow = variant === "inset" ? n.inset : n.raised;
 
-  return {
-    base,
-    surface,
-    text,
-    muted,
-    faint,
-    clay,
-    claySm,
-    clayPill,
-    clayPress,
-    clayPressSm,
-  };
+  return (
+    <Tag
+      className={[radius, className].join(" ")}
+      style={{ background: n.base, boxShadow: shadow, ...style }}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -184,7 +167,7 @@ function useClay(isDark: boolean) {
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -193,17 +176,17 @@ function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
 function ArrowRightIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
     </svg>
   );
 }
 
-function GlyphFollowers({ className = "h-5 w-5" }: { className?: string }) {
+function GlyphFollowers({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="9" cy="8" r="3" />
       <path d="M3.5 19.5c.7-3 3-4.8 5.5-4.8s4.8 1.8 5.5 4.8" />
       <path d="M16.5 5.5a2.7 2.7 0 0 1 0 5M18.5 15c1.5.7 2.5 2.2 2.8 4.5" />
@@ -211,36 +194,75 @@ function GlyphFollowers({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function GlyphLikes({ className = "h-5 w-5" }: { className?: string }) {
+function GlyphLikes({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 19.5S4.5 15.3 4.5 9.8A3.8 3.8 0 0 1 12 7.2a3.8 3.8 0 0 1 7.5 2.6c0 5.5-7.5 9.7-7.5 9.7Z" />
     </svg>
   );
 }
 
-function GlyphComments({ className = "h-5 w-5" }: { className?: string }) {
+function GlyphComments({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.5 12a7.8 7.8 0 0 1-11.3 7L4.5 20l1-4.3A7.8 7.8 0 1 1 20.5 12Z" />
     </svg>
   );
 }
 
-function GlyphStreak({ className = "h-5 w-5" }: { className?: string }) {
+function GlyphStreak({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7" />
     </svg>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Header : profil à droite, heure à gauche                                  */
+/*  Header                                                                    */
 /* -------------------------------------------------------------------------- */
+
+function Avatar({
+  avatarUrl,
+  initials,
+  isDark,
+}: {
+  avatarUrl?: string | null;
+  initials: string;
+  isDark: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [avatarUrl]);
+  const show = Boolean(avatarUrl) && !failed;
+  const n = useNeu(isDark);
+
+  return (
+    <div
+      className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full"
+      style={{ boxShadow: n.raisedSm }}
+    >
+      {show ? (
+        <img
+          key={avatarUrl}
+          src={avatarUrl!}
+          alt=""
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div
+          className="flex h-full w-full items-center justify-center text-[12.5px] font-semibold"
+          style={{ background: n.base, color: n.text }}
+        >
+          {initials}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TimePill({ isDark }: { isDark: boolean }) {
   const [now, setNow] = useState(() => new Date());
@@ -258,23 +280,23 @@ function TimePill({ isDark }: { isDark: boolean }) {
     day: "numeric",
     month: "short",
   });
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <div
-      className="flex items-center gap-2.5 rounded-full px-5 py-2.5"
-      style={{ background: c.surface, boxShadow: c.claySm }}
+      className="hidden items-center gap-2 rounded-full px-4 py-2 sm:flex"
+      style={{ background: n.base, boxShadow: n.insetSm }}
     >
       <span
-        className="text-[13px] font-semibold tabular-nums"
-        style={{ color: c.text }}
+        className="text-[12.5px] font-semibold tabular-nums"
+        style={{ color: n.text }}
       >
         {time}
       </span>
-      <span className="opacity-30" style={{ color: c.muted }}>·</span>
+      <span className="opacity-30" style={{ color: n.muted }}>·</span>
       <span
         className="text-[11.5px] font-medium capitalize"
-        style={{ color: c.muted }}
+        style={{ color: n.muted }}
       >
         {date}
       </span>
@@ -282,72 +304,8 @@ function TimePill({ isDark }: { isDark: boolean }) {
   );
 }
 
-function ProfileBlock({
-  isDark,
-  avatarUrl,
-  initials,
-  firstName,
-  fullName,
-}: {
-  isDark: boolean;
-  avatarUrl?: string | null;
-  initials: string;
-  firstName: string;
-  fullName: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [avatarUrl]);
-  const show = Boolean(avatarUrl) && !failed;
-  const c = useClay(isDark);
-
-  return (
-    <div
-      className="flex items-center gap-4 rounded-full py-2.5 pl-6 pr-3"
-      style={{ background: c.surface, boxShadow: c.clay }}
-    >
-      <div className="text-right">
-        <p
-          className="text-[11.5px] font-medium leading-none"
-          style={{ color: c.muted }}
-        >
-          Bonjour
-        </p>
-        <p
-          title={fullName}
-          className="mt-1.5 truncate font-display text-[15px] font-semibold leading-none tracking-[-0.015em]"
-          style={{ color: c.text }}
-        >
-          {firstName || "Bienvenue"}.
-        </p>
-      </div>
-
-      <div
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
-        style={{ background: c.base, boxShadow: c.clayPill }}
-      >
-        {show ? (
-          <img
-            key={avatarUrl}
-            src={avatarUrl!}
-            alt=""
-            onError={() => setFailed(true)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
-            style={{ color: c.text }}
-          >
-            {initials}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
-/*  Stat tile « clay »                                                        */
+/*  Tuile stat individuelle (isolée)                                          */
 /* -------------------------------------------------------------------------- */
 
 function StatTile({
@@ -363,35 +321,38 @@ function StatTile({
   value: number;
   hint?: string;
 }) {
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <div
-      className="flex flex-col gap-5 rounded-[40px] p-7"
-      style={{ background: c.surface, boxShadow: c.clay }}
+      className="flex flex-col gap-4 rounded-[36px] p-6"
+      style={{ background: n.base, boxShadow: n.raised }}
     >
-      {/* Pastille icône gonflée */}
+      {/* Pastille icône en creux */}
       <div
-        className="flex h-12 w-12 items-center justify-center rounded-full"
-        style={{ background: c.surface, boxShadow: c.clayPill, color: c.text }}
+        className="flex h-10 w-10 items-center justify-center rounded-full"
+        style={{ background: n.base, boxShadow: n.insetSm, color: n.text }}
       >
         {icon}
       </div>
 
       <div>
-        <p className="text-[12px] font-medium" style={{ color: c.muted }}>
+        <p
+          className="text-[12px] font-medium"
+          style={{ color: n.muted }}
+        >
           {label}
         </p>
         <p
-          className="mt-1.5 font-display text-[clamp(30px,3.2vw,42px)] font-semibold leading-none tracking-[-0.03em] tabular-nums"
-          style={{ color: c.text }}
+          className="mt-1 font-display text-[clamp(28px,3vw,40px)] font-semibold leading-none tracking-[-0.03em] tabular-nums"
+          style={{ color: n.text }}
         >
           {numberFormatter.format(value)}
         </p>
         {hint && (
           <p
-            className="mt-2.5 text-[11.5px] font-medium"
-            style={{ color: c.faint }}
+            className="mt-2 text-[11.5px] font-medium"
+            style={{ color: n.faint }}
           >
             {hint}
           </p>
@@ -402,7 +363,7 @@ function StatTile({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Streak                                                                    */
+/*  Bloc série                                                                */
 /* -------------------------------------------------------------------------- */
 
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
@@ -415,68 +376,73 @@ function StreakTile({ isDark }: { isDark: boolean }) {
     d.setDate(today.getDate() + i);
     return WEEKDAYS_FR_SHORT[d.getDay()];
   });
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <div
-      className="flex flex-col gap-5 rounded-[40px] p-7"
-      style={{ background: c.surface, boxShadow: c.clay }}
+      className="flex flex-col gap-5 rounded-[36px] p-6"
+      style={{ background: n.base, boxShadow: n.raised }}
     >
       <div className="flex items-center justify-between">
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-full"
-          style={{ background: c.surface, boxShadow: c.clayPill, color: c.text }}
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: n.base, boxShadow: n.insetSm, color: n.text }}
         >
           <GlyphStreak />
         </div>
         <span
-          className="rounded-full px-3.5 py-1.5 text-[11px] font-semibold"
-          style={{ background: c.base, boxShadow: c.clayPressSm, color: c.muted }}
+          className="rounded-full px-3 py-1 text-[11px] font-semibold"
+          style={{ background: n.base, boxShadow: n.insetSm, color: n.muted }}
         >
           {streakCount > 0 ? "Actif" : "Inactif"}
         </span>
       </div>
 
       <div>
-        <p className="text-[12px] font-medium" style={{ color: c.muted }}>
+        <p className="text-[12px] font-medium" style={{ color: n.muted }}>
           Série
         </p>
         <p
-          className="mt-1.5 font-display text-[clamp(30px,3.2vw,42px)] font-semibold leading-none tracking-[-0.03em] tabular-nums"
-          style={{ color: c.text }}
+          className="mt-1 font-display text-[clamp(28px,3vw,40px)] font-semibold leading-none tracking-[-0.03em] tabular-nums"
+          style={{ color: n.text }}
         >
           {streakCount}
           <span
             className="ml-1.5 text-[13px] font-medium tracking-normal"
-            style={{ color: c.faint }}
+            style={{ color: n.faint }}
           >
             {streakCount > 1 ? "jours" : "jour"}
           </span>
         </p>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1.5">
         {days.map((label, i) => {
           const done = i < streakCount;
+          const isToday = i === 0;
           return (
             <div key={i} className="flex flex-col items-center gap-2">
               <span
                 className="text-[9.5px] font-semibold"
-                style={{ color: c.faint }}
+                style={{ color: n.faint }}
               >
                 {label}
               </span>
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-full transition"
+                className="flex h-6 w-6 items-center justify-center rounded-full transition"
                 style={{
-                  background: c.surface,
-                  boxShadow: done ? c.clayPill : c.clayPressSm,
+                  background: n.base,
+                  boxShadow: done
+                    ? n.raisedSm
+                    : isToday
+                      ? n.insetSm
+                      : n.insetSm,
                 }}
               >
                 {done && (
                   <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: c.text }}
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: n.text }}
                   />
                 )}
               </span>
@@ -489,7 +455,7 @@ function StreakTile({ isDark }: { isDark: boolean }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Réseaux                                                                   */
+/*  Réseaux : liste en creux                                                  */
 /* -------------------------------------------------------------------------- */
 
 function ChannelAvatar({
@@ -506,13 +472,13 @@ function ChannelAvatar({
 
   const label = (channel.handle || channel.name || "—").replace(/^@/, "");
   const show = Boolean(channel.avatarUrl) && !failed;
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
-    <div className="relative h-12 w-12 shrink-0">
+    <div className="relative h-11 w-11 shrink-0">
       <div
         className="h-full w-full overflow-hidden rounded-full"
-        style={{ background: c.base, boxShadow: c.clayPill }}
+        style={{ boxShadow: n.insetSm, background: n.base }}
       >
         {show ? (
           <img
@@ -524,8 +490,8 @@ function ChannelAvatar({
           />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
-            style={{ color: c.text }}
+            className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
+            style={{ color: n.text }}
           >
             {label.charAt(0).toUpperCase() || "?"}
           </div>
@@ -535,9 +501,9 @@ function ChannelAvatar({
         <span
           className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full"
           style={{
-            background: c.surface,
-            boxShadow: c.clayPill,
-            color: c.text,
+            background: n.base,
+            boxShadow: n.raisedSm,
+            color: n.text,
           }}
         >
           <Icon className="h-2.5 w-2.5" />
@@ -554,19 +520,22 @@ function ChannelsSection({
   isDark: boolean;
   channels: ConnectedChannel[];
 }) {
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 px-3">
+      <div className="flex items-center justify-between gap-3 px-2">
         <div className="flex items-baseline gap-2">
-          <h2 className="text-[14px] font-semibold" style={{ color: c.text }}>
+          <h2
+            className="text-[14px] font-semibold"
+            style={{ color: n.text }}
+          >
             Réseaux connectés
           </h2>
           {channels.length > 0 && (
             <span
               className="text-[12px] font-medium tabular-nums"
-              style={{ color: c.muted }}
+              style={{ color: n.muted }}
             >
               {channels.length}
             </span>
@@ -575,8 +544,12 @@ function ChannelsSection({
         <button
           type="button"
           onClick={() => navigate("channels")}
-          className="flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-semibold transition active:scale-[0.96]"
-          style={{ background: c.surface, boxShadow: c.claySm, color: c.text }}
+          className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition active:scale-[0.97]"
+          style={{
+            background: n.base,
+            boxShadow: n.raisedSm,
+            color: n.text,
+          }}
         >
           <PlusIcon className="h-3 w-3" />
           Connecter
@@ -587,20 +560,26 @@ function ChannelsSection({
         <button
           type="button"
           onClick={() => navigate("channels")}
-          className="flex flex-col items-start gap-1 rounded-[40px] px-7 py-8 text-left transition"
-          style={{ background: c.base, boxShadow: c.clayPress }}
+          className="flex flex-col items-start gap-1 rounded-[36px] px-6 py-7 text-left transition"
+          style={{
+            background: n.base,
+            boxShadow: n.inset,
+          }}
         >
-          <span className="text-[13.5px] font-semibold" style={{ color: c.text }}>
+          <span
+            className="text-[13.5px] font-semibold"
+            style={{ color: n.text }}
+          >
             Aucun réseau connecté
           </span>
-          <span className="text-[12.5px]" style={{ color: c.muted }}>
+          <span className="text-[12.5px]" style={{ color: n.muted }}>
             Reliez un canal pour commencer à publier.
           </span>
         </button>
       ) : (
         <div
-          className="flex flex-col gap-3.5 rounded-[44px] p-3.5"
-          style={{ background: c.base, boxShadow: c.clayPress }}
+          className="flex flex-col gap-3 rounded-[36px] p-3"
+          style={{ background: n.base, boxShadow: n.inset }}
         >
           {channels.map((channel) => {
             const networkId = getNetworkId(channel);
@@ -616,20 +595,27 @@ function ChannelsSection({
             return (
               <div
                 key={channel.key}
-                className="flex items-center gap-3.5 rounded-[32px] px-3.5 py-3.5"
-                style={{ background: c.surface, boxShadow: c.claySm }}
+                className="flex items-center gap-3 rounded-[26px] px-3 py-3 transition"
+                style={{
+                  background: n.base,
+                  boxShadow: n.raisedSm,
+                }}
               >
-                <ChannelAvatar channel={channel} isDark={isDark} Icon={Icon} />
+                <ChannelAvatar
+                  channel={channel}
+                  isDark={isDark}
+                  Icon={Icon}
+                />
                 <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-[13.5px] font-semibold"
-                    style={{ color: c.text }}
+                    style={{ color: n.text }}
                   >
                     @{label}
                   </p>
                   <p
                     className="mt-0.5 text-[11.5px] font-medium tabular-nums"
-                    style={{ color: c.muted }}
+                    style={{ color: n.muted }}
                   >
                     {numberFormatter.format(followers)} abonnés
                   </p>
@@ -644,7 +630,7 @@ function ChannelsSection({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Compose                                                                   */
+/*  CTA composer                                                              */
 /* -------------------------------------------------------------------------- */
 
 function ComposeTile({
@@ -654,18 +640,18 @@ function ComposeTile({
   isDark: boolean;
   onPlan: () => void;
 }) {
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <div
-      className="flex flex-col items-start justify-between gap-5 rounded-[44px] p-8 sm:flex-row sm:items-center"
-      style={{ background: c.surface, boxShadow: c.clay }}
+      className="flex flex-col items-start justify-between gap-5 rounded-[36px] p-6 sm:flex-row sm:items-center"
+      style={{ background: n.base, boxShadow: n.raised }}
     >
       <div className="min-w-0">
-        <p className="text-[15px] font-semibold" style={{ color: c.text }}>
+        <p className="text-[14px] font-semibold" style={{ color: n.text }}>
           Nouvelle publication
         </p>
-        <p className="mt-1 text-[12.5px]" style={{ color: c.muted }}>
+        <p className="mt-0.5 text-[12.5px]" style={{ color: n.muted }}>
           Rédigez ou planifiez sur tous vos canaux en quelques secondes.
         </p>
       </div>
@@ -673,8 +659,12 @@ function ComposeTile({
       <button
         type="button"
         onClick={onPlan}
-        className="flex shrink-0 items-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold transition active:scale-[0.96]"
-        style={{ background: c.surface, boxShadow: c.claySm, color: c.text }}
+        className="flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-[12.5px] font-semibold transition active:scale-[0.97]"
+        style={{
+          background: n.base,
+          boxShadow: n.raisedSm,
+          color: n.text,
+        }}
       >
         <PlusIcon className="h-3.5 w-3.5" />
         Composer
@@ -725,39 +715,42 @@ function BlogCard({
   isDark: boolean;
   post: BlogPostDefinition;
 }) {
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <a
       href={post.href}
-      className="group flex flex-col gap-4 rounded-[40px] p-4 transition"
-      style={{ background: c.surface, boxShadow: c.clay }}
+      className="group flex flex-col gap-4 rounded-[36px] p-3 transition"
+      style={{ background: n.base, boxShadow: n.raised }}
     >
       <div
-        className="aspect-[16/10] w-full overflow-hidden rounded-[32px]"
-        style={{ boxShadow: c.clayPressSm }}
+        className="aspect-[16/10] w-full overflow-hidden rounded-[28px]"
+        style={{ boxShadow: n.insetSm }}
       >
         <img
           src={post.imageUrl}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-2 pb-2">
-        <p className="text-[11.5px] font-medium" style={{ color: c.muted }}>
+      <div className="flex flex-1 flex-col gap-2 px-3 pb-3">
+        <p
+          className="text-[11.5px] font-medium"
+          style={{ color: n.muted }}
+        >
           {post.date}
         </p>
         <p
           className="line-clamp-2 text-[13.5px] font-semibold leading-snug tracking-[-0.005em]"
-          style={{ color: c.text }}
+          style={{ color: n.text }}
         >
           {post.title}
         </p>
         <span
           className="mt-auto inline-flex items-center gap-1.5 pt-2 text-[12px] font-medium"
-          style={{ color: c.muted }}
+          style={{ color: n.muted }}
         >
           Lire
           <ArrowRightIcon className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -768,24 +761,24 @@ function BlogCard({
 }
 
 function BlogSection({ isDark }: { isDark: boolean }) {
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 px-3">
-        <h2 className="text-[14px] font-semibold" style={{ color: c.text }}>
+      <div className="flex items-center justify-between gap-3 px-2">
+        <h2 className="text-[14px] font-semibold" style={{ color: n.text }}>
           From the blog
         </h2>
         <a
           href="#"
           className="text-[12.5px] font-medium transition"
-          style={{ color: c.muted }}
+          style={{ color: n.muted }}
         >
           Voir tout
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {blogPostDefinitions.map((post) => (
           <BlogCard key={post.title} isDark={isDark} post={post} />
         ))}
@@ -854,34 +847,49 @@ export default function Home() {
     }
   };
 
-  const c = useClay(isDark);
+  const n = useNeu(isDark);
   const networkCount = connectedChannels.length;
 
   return (
     <main
       className="relative h-screen w-full overflow-hidden transition-colors duration-300"
-      style={{ background: c.base }}
+      style={{ background: n.base }}
     >
       <DashboardSidebar theme={theme} />
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-9 px-[clamp(20px,3vw,40px)] pb-[112px] pt-[clamp(24px,3vw,40px)]">
+          <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-8 px-[clamp(20px,3vw,40px)] pb-[112px] pt-[clamp(20px,3vw,36px)]">
             {/* Header */}
-            <header className="flex flex-wrap items-center justify-between gap-4">
-              <TimePill isDark={isDark} />
+            <header className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <p
+                  className="text-[12.5px] font-medium"
+                  style={{ color: n.muted }}
+                >
+                  Bonjour
+                </p>
+                <h1
+                  title={fullName}
+                  className="mt-1 truncate font-display text-[clamp(24px,2.8vw,34px)] font-semibold leading-[1.1] tracking-[-0.025em]"
+                  style={{ color: n.text }}
+                >
+                  {firstName || "Bienvenue"}.
+                </h1>
+              </div>
 
-              <ProfileBlock
-                isDark={isDark}
-                avatarUrl={user?.avatar_url}
-                initials={initials}
-                firstName={firstName}
-                fullName={fullName}
-              />
+              <div className="flex items-center gap-3">
+                <TimePill isDark={isDark} />
+                <Avatar
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  isDark={isDark}
+                />
+              </div>
             </header>
 
-            {/* 4 tuiles stats */}
-            <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 4 tuiles stats séparées : Abonnés / Likes / Commentaires / Série */}
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile
                 isDark={isDark}
                 icon={<GlyphFollowers />}
@@ -912,7 +920,10 @@ export default function Home() {
 
             <ChannelsSection isDark={isDark} channels={connectedChannels} />
 
-            <ComposeTile isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
+            <ComposeTile
+              isDark={isDark}
+              onPlan={() => setIsNewPostOpen(true)}
+            />
 
             <BlogSection isDark={isDark} />
           </div>
