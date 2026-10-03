@@ -454,7 +454,7 @@ const menuGroups: MenuItem[][] = [
   ],
   [
     { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
-    { label: "Apps & Integrations", icon: AppsIcon, route: "integrations" },
+    { label: "Integrations", icon: AppsIcon, route: "integrations" },
     { label: "Beta Features", icon: BetaIcon },
   ],
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
