@@ -174,25 +174,6 @@ function FlameIcon({
   );
 }
 
-function ShareIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="18" cy="5" r="2.6" />
-      <circle cx="6" cy="12" r="2.6" />
-      <circle cx="18" cy="19" r="2.6" />
-      <path d="m8.3 10.8 7.4-4.4M8.3 13.2l7.4 4.4" />
-    </svg>
-  );
-}
-
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg
@@ -517,14 +498,18 @@ function ConnectedChannelsCard({
    Petites cartes : série, intégrations
 ============================================================================ */
 
-// Semaine calendaire, du lundi au dimanche.
-const WEEKDAYS_FR_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
+// Indexé par Date.getDay() : dimanche = 0 ... samedi = 6.
+const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
 function StreakCard({ isDark }: { isDark: boolean }) {
   const streakCount = 0;
 
-  // Index du jour courant dans la semaine (lundi = 0 ... dimanche = 6).
-  const todayIndex = (new Date().getDay() + 6) % 7;
+  // Les 7 jours affichés commencent par aujourd'hui (tout à gauche).
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return WEEKDAYS_FR_SHORT[d.getDay()];
+  });
 
   // Carte inversée : sombre en thème clair, claire en thème sombre.
   const t = isDark
@@ -538,8 +523,8 @@ function StreakCard({ isDark }: { isDark: boolean }) {
         solid: "bg-neutral-900",
         onSolid: "text-white",
         onSolidHex: "#ffffff",
-        shareBtn: "border-neutral-900/20 text-neutral-900 hover:bg-black/5",
         flameHex: "#171717",
+        outlineHex: "#171717",
       }
     : {
         card: "border-white/10 bg-neutral-900",
@@ -551,8 +536,8 @@ function StreakCard({ isDark }: { isDark: boolean }) {
         solid: "bg-white",
         onSolid: "text-neutral-900",
         onSolidHex: "#171717",
-        shareBtn: "border-white/25 text-white hover:bg-white/10",
         flameHex: "#ffffff",
+        outlineHex: "#ffffff",
       };
 
   const title = `${streakCount === 1 ? "Day" : "Days"} Streak!!`;
@@ -560,23 +545,6 @@ function StreakCard({ isDark }: { isDark: boolean }) {
     streakCount > 0
       ? "Every day counts! keep the momentum going!"
       : "Post today to start your streak!";
-
-  const handleShare = async () => {
-    const text =
-      streakCount > 0
-        ? `I'm on a ${streakCount}-day posting streak!`
-        : "I'm starting a posting streak!";
-
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "Posting streak", text });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-      }
-    } catch {
-      // Partage annulé ou indisponible : rien à faire.
-    }
-  };
 
   return (
     <div
@@ -589,26 +557,28 @@ function StreakCard({ isDark }: { isDark: boolean }) {
       {/* Panneau : grand chiffre + message */}
       <div
         className={[
-          "relative flex items-center gap-4 rounded-2xl px-4 py-5",
+          "flex items-center gap-4 rounded-2xl px-4 py-5",
           t.panel,
         ].join(" ")}
       >
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 pr-3">
+          {/* Contour = couleur opposée au fond, intérieur = couleur du fond */}
           <span
-            className={[
-              "font-display text-[56px] font-bold leading-none tracking-[-0.04em]",
-              t.text,
-            ].join(" ")}
+            className="font-display text-[56px] font-bold leading-none tracking-[-0.04em]"
+            style={{
+              color: "transparent",
+              WebkitTextStroke: `2.5px ${t.outlineHex}`,
+            }}
           >
             {streakCount}
           </span>
           <FlameIcon
-            className="absolute -bottom-1 -right-3 h-6 w-6"
+            className="absolute -bottom-1 right-0 h-6 w-6"
             color={t.flameHex}
           />
         </div>
 
-        <div className="min-w-0 pr-8">
+        <div className="min-w-0">
           <p className={["text-[17px] font-bold leading-tight", t.text].join(" ")}>
             {title}
           </p>
@@ -616,29 +586,14 @@ function StreakCard({ isDark }: { isDark: boolean }) {
             {message}
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleShare}
-          aria-label="Share your streak"
-          title="Share"
-          className={[
-            "absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg border transition",
-            t.shareBtn,
-          ].join(" ")}
-        >
-          <ShareIcon className="h-3.5 w-3.5" />
-        </button>
       </div>
 
-      {/* Semaine : le jour courant est mis en avant */}
+      {/* Semaine : aujourd'hui est le premier jour, tout à gauche */}
       <div className="flex items-start justify-between gap-1 px-1">
-        {WEEKDAYS_FR_SHORT.map((dayLabel, index) => {
-          const isToday = index === todayIndex;
-          const isDone =
-            streakCount > 0 &&
-            index <= todayIndex &&
-            index > todayIndex - streakCount;
+        {days.map((dayLabel, index) => {
+          const isToday = index === 0;
+          // Seul aujourd'hui peut être validé : les jours suivants sont à venir.
+          const isDone = isToday && streakCount > 0;
 
           return (
             <div
