@@ -134,15 +134,15 @@ function GreetingAvatar({
       src={avatarUrl!}
       alt="Profile"
       style={{ width: 40, height: 40 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
+      className="aspect-square shrink-0 rounded-full object-cover ring-2 ring-white/50 dark:ring-white/20"
       onError={() => setLoadFailed(true)}
     />
   ) : (
     <div
       style={{ width: 40, height: 40 }}
       className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ring-2 ring-white/50 dark:ring-white/20",
+        isDark ? "bg-indigo-500 text-white" : "bg-gradient-to-br from-indigo-500 to-purple-500 text-white",
       ].join(" ")}
     >
       {initials}
@@ -175,7 +175,7 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
       <span
         className={[
           "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
-          isDark ? "text-white" : "text-neutral-900",
+          isDark ? "text-white" : "text-slate-800",
         ].join(" ")}
       >
         {time}
@@ -183,7 +183,7 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
       <span
         className={[
           "mt-0.5 text-[12px] font-medium capitalize",
-          isDark ? "text-neutral-400" : "text-neutral-500",
+          isDark ? "text-slate-400" : "text-slate-500",
         ].join(" ")}
       >
         {date}
@@ -206,30 +206,31 @@ type StreakWidgetTokens = {
 };
 
 function buildStreakTokens(invert: boolean): StreakWidgetTokens {
+  // Nouveau style : Dégradé vibrant pour le widget de streak
   return invert
     ? {
-        cardBg: "bg-[#141416]",
-        cardBorder: "border-white/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.4)]",
+        cardBg: "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500",
+        cardBorder: "border-transparent",
+        shadow: "shadow-[0_16px_44px_rgba(99,102,241,0.3)]",
         heading: "text-white",
-        subtitle: "text-neutral-400",
-        flame: "#3a3a3d",
-        checkBg: "bg-white",
-        checkIcon: "text-black",
-        badgeBg: "bg-white/10",
+        subtitle: "text-white/80",
+        flame: "#ffffff",
+        checkBg: "bg-white/20",
+        checkIcon: "text-white",
+        badgeBg: "bg-black/20",
         badgeText: "text-white",
       }
     : {
-        cardBg: "bg-white",
-        cardBorder: "border-black/10",
-        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        heading: "text-neutral-900",
-        subtitle: "text-neutral-500",
-        flame: "#d9d9d9",
-        checkBg: "bg-neutral-900",
+        cardBg: "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500",
+        cardBorder: "border-transparent",
+        shadow: "shadow-[0_16px_44px_rgba(99,102,241,0.3)]",
+        heading: "text-white",
+        subtitle: "text-white/80",
+        flame: "#ffffff",
+        checkBg: "bg-white/20",
         checkIcon: "text-white",
-        badgeBg: "bg-neutral-100",
-        badgeText: "text-neutral-600",
+        badgeBg: "bg-black/20",
+        badgeText: "text-white",
       };
 }
 
@@ -284,7 +285,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
   return (
     <div
       className={[
-        "flex h-full w-full flex-col justify-between rounded-[22px] border p-4",
+        "flex h-full w-full flex-col justify-between rounded-[22px] border p-4 transition-all duration-300",
         tokens.cardBg,
         tokens.cardBorder,
         tokens.shadow,
@@ -310,7 +311,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
           </p>
         </div>
 
-        <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
+        <FlameIcon className="h-8 w-8 shrink-0 drop-shadow-md" color={tokens.flame} />
       </div>
 
       <div className="mt-3.5 flex items-start justify-between gap-1">
@@ -374,8 +375,8 @@ function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
 }
 
 function LinkStackIcon({ isDark }: { isDark: boolean }) {
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
-  const fill = isDark ? "bg-[#2a2a2d]" : "bg-neutral-200";
+  const ring = isDark ? "ring-[#1a1a2e]" : "ring-white";
+  const fill = isDark ? "bg-indigo-500/20" : "bg-indigo-100";
 
   return (
     <div className="flex items-center">
@@ -393,7 +394,7 @@ function LinkStackIcon({ isDark }: { isDark: boolean }) {
             viewBox="0 0 24 24"
             className={[
               "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              isDark ? "text-indigo-300" : "text-indigo-500",
             ].join(" ")}
             fill="none"
             stroke="currentColor"
@@ -429,7 +430,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
   const showImage = Boolean(channel.avatarUrl) && !failed;
 
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
+  const ring = isDark ? "ring-[#1a1a2e]" : "ring-white";
 
   return (
     <div title={label} className="relative h-10 w-10 shrink-0">
@@ -440,16 +441,16 @@ function ChannelAvatar({
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className={[
-            "h-full w-full rounded-full object-cover ring-2",
+            "h-full w-full rounded-full object-cover ring-2 shadow-sm",
             ring,
           ].join(" ")}
         />
       ) : (
         <div
           className={[
-            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
+            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2 shadow-sm",
             ring,
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+            isDark ? "bg-indigo-500 text-white" : "bg-gradient-to-br from-indigo-500 to-purple-500 text-white",
           ].join(" ")}
         >
           {initial}
@@ -459,7 +460,7 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
+            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2 shadow-sm",
             ring,
           ].join(" ")}
         >
@@ -477,19 +478,20 @@ function ConnectFirstChannelWidget({
   isDark: boolean;
   channels: ConnectedChannel[];
 }) {
+  // Cartes en verre dépoli (Glassmorphism)
   const cardClasses = [
-    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3",
-    isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white",
+    "flex w-full items-center justify-between gap-4 rounded-[22px] border px-4 py-3 backdrop-blur-xl transition-all duration-300",
     isDark
-      ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-      : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+      ? "border-white/10 bg-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+      : "border-white/60 bg-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.06)]",
   ].join(" ");
 
+  // Bouton avec dégradé vibrant
   const connectButtonClasses = [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
+    "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition-all duration-300",
     isDark
-      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-      : "bg-neutral-900 text-white hover:bg-neutral-800",
+      ? "bg-white/10 text-white hover:bg-white/20 hover:scale-105"
+      : "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105",
   ].join(" ");
 
   if (channels.length > 0) {
@@ -518,7 +520,7 @@ function ConnectFirstChannelWidget({
           <span
             className={[
               "text-[12.5px] font-semibold tabular-nums",
-              isDark ? "text-neutral-400" : "text-neutral-500",
+              isDark ? "text-slate-400" : "text-slate-500",
             ].join(" ")}
           >
             {count} réseau{count > 1 ? "x" : ""} connecté{count > 1 ? "s" : ""}
@@ -543,8 +545,8 @@ function ConnectFirstChannelWidget({
       onClick={() => navigate("channels")}
       className={[
         cardClasses,
-        "text-left transition",
-        isDark ? "hover:bg-[#19191c]" : "hover:bg-neutral-50",
+        "text-left transition-all duration-300 hover:-translate-y-0.5",
+        isDark ? "hover:bg-white/10" : "hover:bg-white/80",
       ].join(" ")}
     >
       <div className="flex items-center gap-3.5">
@@ -554,7 +556,7 @@ function ConnectFirstChannelWidget({
           <p
             className={[
               "text-[14px] font-semibold leading-tight",
-              isDark ? "text-white" : "text-neutral-900",
+              isDark ? "text-white" : "text-slate-800",
             ].join(" ")}
           >
             Connectez votre premier réseau
@@ -562,7 +564,7 @@ function ConnectFirstChannelWidget({
           <p
             className={[
               "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
+              isDark ? "text-slate-400" : "text-slate-500",
             ].join(" ")}
           >
             Reliez un canal pour commencer à publier
@@ -590,10 +592,10 @@ function DashboardCard({
   return (
     <div
       className={[
-        "flex h-full flex-col rounded-[22px] border p-4",
+        "flex h-full flex-col rounded-[22px] border p-4 backdrop-blur-xl transition-all duration-300",
         isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+          ? "border-white/10 bg-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:bg-white/10"
+          : "border-white/60 bg-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.06)] hover:bg-white/80",
         className,
       ].join(" ")}
     >
@@ -616,7 +618,7 @@ function CardHeading({
       <p
         className={[
           "text-[14px] font-semibold",
-          isDark ? "text-white" : "text-neutral-900",
+          isDark ? "text-white" : "text-slate-800",
         ].join(" ")}
       >
         {title}
@@ -689,7 +691,7 @@ function StatCard({
         <p
           className={[
             "font-display text-[clamp(28px,3vw,38px)] font-semibold leading-none tracking-[-0.02em] tabular-nums",
-            isDark ? "text-white" : "text-neutral-900",
+            isDark ? "text-white" : "text-slate-800",
           ].join(" ")}
         >
           {numberFormatter.format(value)}
@@ -697,15 +699,15 @@ function StatCard({
 
         <div
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300",
+            isDark ? "bg-indigo-500/20" : "bg-indigo-100",
           ].join(" ")}
         >
           <StatIcon
             kind={kind}
             className={[
               "h-5 w-5",
-              isDark ? "text-neutral-300" : "text-neutral-600",
+              isDark ? "text-indigo-300" : "text-indigo-500",
             ].join(" ")}
           />
         </div>
@@ -770,13 +772,10 @@ function BlogPostCard({
     <a
       href={post.href}
       className={[
-        "group flex flex-col overflow-hidden rounded-[22px] border transition",
+        "group flex flex-col overflow-hidden rounded-[22px] border backdrop-blur-xl transition-all duration-300 hover:-translate-y-1",
         isDark
-          ? "border-white/10 bg-[#141416] hover:bg-[#19191c]"
-          : "border-black/[0.06] bg-white hover:bg-neutral-50",
-        isDark
-          ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+          ? "border-white/10 bg-white/5 hover:bg-white/10 hover:shadow-[0_16px_44px_rgba(99,102,241,0.2)]"
+          : "border-white/60 bg-white/60 hover:bg-white/90 hover:shadow-[0_16px_44px_rgba(99,102,241,0.15)]",
       ].join(" ")}
     >
       <div className="h-[150px] w-full shrink-0 overflow-hidden">
@@ -784,19 +783,19 @@ function BlogPostCard({
           src={post.imageUrl}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
         />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 p-3.5">
+      <div className="flex shrink-0 flex-col gap-2 p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-pink-100 px-3 py-1 text-[11px] font-semibold text-pink-600">
+          <span className="rounded-full bg-gradient-to-r from-pink-500/10 to-purple-500/10 px-3 py-1 text-[11px] font-semibold text-pink-600 dark:text-pink-400">
             Blog post
           </span>
           <span
             className={[
               "text-[11.5px] font-medium",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              isDark ? "text-slate-500" : "text-slate-400",
             ].join(" ")}
           >
             {post.date}
@@ -807,7 +806,7 @@ function BlogPostCard({
           <p
             className={[
               "line-clamp-2 text-[13.5px] font-bold leading-snug",
-              isDark ? "text-white" : "text-neutral-900",
+              isDark ? "text-white" : "text-slate-800",
             ].join(" ")}
           >
             {post.title}
@@ -815,10 +814,10 @@ function BlogPostCard({
 
           <span
             className={[
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all duration-300",
               isDark
-                ? "text-neutral-400 group-hover:bg-white/10 group-hover:text-white"
-                : "text-neutral-400 group-hover:bg-black/5 group-hover:text-neutral-900",
+                ? "text-slate-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300"
+                : "text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600",
             ].join(" ")}
           >
             <ArrowRightIcon className="h-3.5 w-3.5" />
@@ -835,7 +834,7 @@ function FromTheBlogSection({ isDark }: { isDark: boolean }) {
       <p
         className={[
           "shrink-0 text-[13px] font-medium",
-          isDark ? "text-neutral-400" : "text-neutral-500",
+          isDark ? "text-slate-400" : "text-slate-500",
         ].join(" ")}
       >
         From the Blog
@@ -857,8 +856,6 @@ export default function Home() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
-  // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
-  // Tous les réseaux sont affichés, YouTube compris.
   const connectedChannels = useConnectedChannels();
 
   const totals = useMemo(
@@ -920,7 +917,10 @@ export default function Home() {
     <main
       className={[
         "relative h-screen w-full overflow-hidden transition-colors duration-500",
-        isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+        // Nouveau fond avec dégradé subtil
+        isDark
+          ? "bg-slate-950 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950"
+          : "bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100/60 via-slate-50 to-slate-50",
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
@@ -933,7 +933,7 @@ export default function Home() {
                 <h1
                   className={[
                     "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
-                    isDark ? "text-white" : "text-neutral-900",
+                    isDark ? "text-white" : "text-slate-800",
                   ].join(" ")}
                 >
                   Bonjour{fullName ? `, ${fullName}` : ""}
