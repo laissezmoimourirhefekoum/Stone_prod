@@ -21,324 +21,193 @@ import {
   PinterestIcon,
 } from "../components/IntegrationIcons";
 
-/**
- * Largeur réservée à la sidebar (68px + 16px d'inset + gap).
- */
 const SIDEBAR_OFFSET = 104;
 
-/**
- * Cache du profil utilisateur
- */
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
 
-/* ──────────────────────────────────────────────────────────────
-   Helpers Réseaux Sociaux
-   ────────────────────────────────────────────────────────────── */
+// --- ICONS POUR LA NOUVELLE MAQUETTE ---
+const StarIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </svg>
+);
 
-type SocialNetworkKey =
-  | "x"
-  | "facebook"
-  | "instagram"
-  | "linkedin"
-  | "tiktok"
-  | "youtube"
-  | "pinterest";
+const UsersIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
 
-const NETWORK_ICONS: Record<
-  SocialNetworkKey,
-  (props: { className?: string }) => JSX.Element
-> = {
-  x: XIcon,
-  facebook: FacebookIcon,
-  instagram: InstagramIcon,
-  linkedin: LinkedInIcon,
-  tiktok: TikTokIcon,
-  youtube: YouTubeIcon,
-  pinterest: PinterestIcon,
-};
+const HeartIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
 
-function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
-  const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
-    .toLowerCase()
-    .trim();
+const UserTaskIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
 
-  if (raw.includes("tiktok")) return "tiktok";
-  if (raw.includes("insta")) return "instagram";
-  if (raw.includes("youtube") || raw === "yt") return "youtube";
-  if (raw.includes("facebook") || raw === "fb") return "facebook";
-  if (raw.includes("linkedin")) return "linkedin";
-  if (raw.includes("pinterest")) return "pinterest";
-  if (raw === "x" || raw.includes("twitter")) return "x";
-  return null;
-}
+const ChatIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
 
-/* ──────────────────────────────────────────────────────────────
-   Composants d'interface (UI)
-   ────────────────────────────────────────────────────────────── */
+const PlusIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
 
-function GreetingAvatar({
-  avatarUrl,
-  initials,
-  isDark,
-}: {
-  avatarUrl?: string | null;
-  initials: string;
-  isDark: boolean;
-}) {
-  const [loadFailed, setLoadFailed] = useState(false);
+const ChevronDownIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
 
-  useEffect(() => {
-    setLoadFailed(false);
-  }, [avatarUrl]);
+// --- COMPOSANTS DE LA MAQUETTE ---
 
-  const showImage = Boolean(avatarUrl) && !loadFailed;
-
-  return showImage ? (
-    <img
-      key={avatarUrl}
-      src={avatarUrl!}
-      alt="Profile"
-      style={{ width: 40, height: 40 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-      onError={() => setLoadFailed(true)}
-    />
-  ) : (
-    <div
-      style={{ width: 40, height: 40 }}
-      className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-      ].join(" ")}
-    >
-      {initials}
+function StatCard({ icon, title, value, change, isDark }: { icon: React.ReactNode; title: string; value: string; change: string; isDark: boolean }) {
+  return (
+    <div className={`flex items-center gap-4 rounded-2xl border p-4 shadow-sm ${isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white"}`}>
+      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${isDark ? "bg-white/10 text-white" : "bg-neutral-900 text-white"}`}>
+        {icon}
+      </div>
+      <div>
+        <p className={`text-xs font-medium ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>{title}</p>
+        <div className="flex items-baseline gap-2">
+          <p className={`text-xl font-bold ${isDark ? "text-white" : "text-neutral-900"}`}>{value}</p>
+          <span className={`text-xs font-medium ${change.startsWith("+") ? "text-emerald-500" : "text-rose-500"}`}>{change}</span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ClockDisplay({ isDark }: { isDark: boolean }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const time = now.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const date = now.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
+function ChartCard({ title, value, isDark }: { title: string; value: string; isDark: boolean }) {
+  // Un faux graphique en SVG pour illustrer la maquette
+  const path = "M0 80 Q 20 40, 40 60 T 80 30 T 120 50 T 160 20 T 200 60 T 240 40 T 280 70 T 320 30 T 360 50 T 400 20";
   return (
-    <div className="flex flex-col items-end">
-      <span
-        className={[
-          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {time}
-      </span>
-      <span
-        className={[
-          "mt-0.5 text-[12px] font-medium capitalize",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        {date}
-      </span>
-    </div>
-  );
-}
-
-// NOUVEAU : Carte de projet (inspirée de l'image)
-function ProjectCard({
-  date,
-  title,
-  progress,
-  daysLeft,
-  gradient,
-  isDark,
-}: {
-  date: string;
-  title: string;
-  progress: number;
-  daysLeft: string;
-  gradient: string;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className={`relative flex flex-col justify-between rounded-[24px] p-5 text-white shadow-sm transition-transform hover:-translate-y-1 ${gradient}`}
-    >
-      <div className="flex items-center justify-between text-xs font-medium text-white/80">
-        <span>{date}</span>
-        <button className="rounded-full p-1 hover:bg-white/20">
-          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    <div className={`flex flex-col rounded-2xl border p-5 shadow-sm ${isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white"}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-neutral-900"}`}>{title}</h3>
+          <svg viewBox="0 0 24 24" className={`h-4 w-4 ${isDark ? "text-neutral-500" : "text-neutral-400"}`} fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" />
           </svg>
+        </div>
+        <button className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${isDark ? "bg-white/5 text-neutral-400 hover:bg-white/10" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}>
+          Last 7 days <ChevronDownIcon className="h-3 w-3" />
         </button>
       </div>
-
-      <div className="mt-6 mb-8 text-center">
-        <h3 className="text-[22px] font-bold leading-tight">{title}</h3>
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between text-[13px] font-medium">
-          <span>Progress</span>
-          <span>{progress}%</span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-white/30">
-          <div
-            className="h-full rounded-full bg-white transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <div className="mt-5 flex items-center justify-between">
-          <div className="flex -space-x-2">
-            {[1, 2, 3].map((i) => (
-              <img
-                key={i}
-                src={`https://i.pravatar.cc/150?img=${i + 10}`}
-                alt="Avatar"
-                className="h-7 w-7 rounded-full border-2 border-white object-cover"
-              />
-            ))}
-          </div>
-          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-gray-800">
-            {daysLeft}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// NOUVEAU : Carte d'activité (Graphique)
-function ActivityCard({ isDark }: { isDark: boolean }) {
-  return (
-    <div
-      className={`rounded-[24px] p-6 shadow-sm ${
-        isDark ? "bg-[#141416]" : "bg-white"
-      }`}
-    >
-      <h3 className={`mb-6 text-lg font-semibold ${isDark ? "text-white" : "text-gray-800"}`}>
-        Activity
-      </h3>
-
-      <div className="relative h-40 w-full">
-        {/* Lignes pointillées verticales */}
-        <div className="absolute inset-0 flex justify-between">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="flex h-full flex-col items-center justify-end">
-              <div className={`h-full w-px border-l border-dashed ${isDark ? "border-neutral-700" : "border-gray-200"}`} />
-            </div>
-          ))}
-        </div>
-
-        {/* Graphique SVG */}
-        <svg
-          className="absolute bottom-6 left-0 h-32 w-full overflow-visible"
-          preserveAspectRatio="none"
-          viewBox="0 0 700 120"
-        >
+      <p className={`mt-4 text-2xl font-bold ${isDark ? "text-white" : "text-neutral-900"}`}>{value}</p>
+      <p className={`text-xs ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>11 May 2021 - 18 May 2021</p>
+      
+      {/* Graphique SVG simplifié */}
+      <div className="mt-6 h-32 w-full">
+        <svg viewBox="0 0 400 100" className="h-full w-full overflow-visible" preserveAspectRatio="none">
           <defs>
-            <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
+            <linearGradient id={`grad-${title}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"} />
+              <stop offset="100%" stopColor="transparent" />
             </linearGradient>
           </defs>
-          <path
-            d="M0,80 C50,80 100,40 150,50 C200,60 250,90 300,80 C350,70 400,30 450,50 C500,70 550,110 600,90 C650,70 700,60 700,60 L700,120 L0,120 Z"
-            fill="url(#activityGradient)"
-          />
-          <path
-            d="M0,80 C50,80 100,40 150,50 C200,60 250,90 300,80 C350,70 400,30 450,50 C500,70 550,110 600,90 C650,70 700,60 700,60"
-            fill="none"
-            stroke="#8b5cf6"
-            strokeWidth="3"
-          />
+          <path d={`${path} L 400 100 L 0 100 Z`} fill={`url(#grad-${title})`} />
+          <path d={path} fill="none" stroke={isDark ? "#ffffff" : "#171717"} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-
-        {/* Infobulle "4 Tasks" */}
-        <div className="absolute left-[60%] top-0 flex -translate-x-1/2 flex-col items-center">
-          <div className={`rounded-full px-3 py-1 text-xs font-bold shadow-md ${isDark ? "bg-[#2a2a2d] text-white" : "bg-white text-gray-800"}`}>
-            4 <span className="text-[10px] font-normal opacity-70">Tasks</span>
-          </div>
-          <div className={`mt-1 h-16 w-px border-l border-dashed ${isDark ? "border-neutral-600" : "border-gray-400"}`} />
-          <div className="h-2 w-2 rounded-full bg-violet-500" />
-        </div>
-
-        {/* Étiquettes de l'axe X */}
-        <div className={`absolute bottom-0 left-0 flex w-full justify-between px-2 text-[10px] font-medium ${isDark ? "text-neutral-500" : "text-gray-400"}`}>
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <span key={day}>{day}</span>
-          ))}
-        </div>
+      </div>
+      {/* Axe X */}
+      <div className={`mt-2 flex justify-between text-[10px] font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>
+        <span>11 May</span><span>12 May</span><span>13 May</span><span>14 May</span><span>15 May</span><span>16 May</span><span>17 May</span>
       </div>
     </div>
   );
 }
 
-// NOUVEAU : Petite carte de statistique
-function StatCard({ value, label, isDark }: { value: string; label: string; isDark: boolean }) {
+function TaskCard({ 
+  title, 
+  icon, 
+  completion, 
+  isCompleted, 
+  data, 
+  isDark 
+}: { 
+  title: string; 
+  icon: React.ReactNode; 
+  completion: number; 
+  isCompleted?: boolean; 
+  data: any[]; 
+  isDark: boolean 
+}) {
   return (
-    <div className={`flex flex-col items-center justify-center rounded-[24px] p-4 shadow-sm ${isDark ? "bg-[#141416]" : "bg-white"}`}>
-      <div className="mb-2 flex items-end gap-1">
-        <div className="h-6 w-1.5 rounded-full bg-emerald-400" />
-        <div className="h-4 w-1.5 rounded-full bg-emerald-300" />
-        <div className="h-8 w-1.5 rounded-full bg-emerald-500" />
-      </div>
-      <span className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>{value}</span>
-      <span className={`text-[11px] font-medium ${isDark ? "text-neutral-400" : "text-gray-400"}`}>{label}</span>
-    </div>
-  );
-}
-
-// NOUVEAU : Liste des membres
-function MemberList({ isDark }: { isDark: boolean }) {
-  const members = [
-    { name: "Emma Shin", img: "https://i.pravatar.cc/150?img=1" },
-    { name: "Jimbabe", img: "https://i.pravatar.cc/150?img=2" },
-    { name: "Natalia syan", img: "https://i.pravatar.cc/150?img=5" },
-    { name: "Sunjin", img: "https://i.pravatar.cc/150?img=8" },
-  ];
-
-  return (
-    <div className={`flex flex-col rounded-[24px] p-5 shadow-sm ${isDark ? "bg-[#141416]" : "bg-white"}`}>
-      <h3 className={`mb-4 text-sm font-semibold ${isDark ? "text-white" : "text-gray-800"}`}>List Member</h3>
-      <div className="flex flex-col gap-3">
-        {members.map((member) => (
-          <div key={member.name} className="flex items-center gap-3">
-            <img
-              src={member.img}
-              alt={member.name}
-              className="h-9 w-9 rounded-full object-cover"
-            />
-            <span className={`text-[13px] font-medium ${isDark ? "text-neutral-300" : "text-gray-600"}`}>
-              {member.name}
-            </span>
+    <div className={`rounded-2xl border p-5 shadow-sm ${isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white"}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-full border ${isDark ? "border-white/10 text-neutral-300" : "border-neutral-200 text-neutral-600"}`}>
+            {icon}
           </div>
-        ))}
+          <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-neutral-900"}`}>{title}</h3>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
+            {isCompleted ? "Completed" : "Completing:"}
+          </span>
+          {!isCompleted && <span className={`font-bold ${isDark ? "text-white" : "text-neutral-900"}`}>{completion}%</span>}
+          <button className={`ml-2 rounded-full p-1 ${isDark ? "hover:bg-white/10" : "hover:bg-neutral-100"}`}>
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      {/* Barre de progression */}
+      {!isCompleted && (
+        <div className={`mt-3 h-1.5 w-full overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-neutral-100"}`}>
+          <div className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`} style={{ width: `${completion}%` }} />
+        </div>
+      )}
+
+      {/* Tableau */}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className={`border-b ${isDark ? "border-white/10" : "border-neutral-100"}`}>
+              <th className={`pb-2 font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>Company name</th>
+              <th className={`pb-2 font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>Follows</th>
+              <th className={`pb-2 font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>Number sales</th>
+              <th className={`pb-2 font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>Earned</th>
+              <th className={`pb-2 font-medium ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>Start date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i} className={`border-b last:border-0 ${isDark ? "border-white/5" : "border-neutral-50"}`}>
+                <td className={`py-3 font-medium ${isDark ? "text-white" : "text-neutral-900"}`}>{row.company}</td>
+                <td className={`py-3 ${isDark ? "text-neutral-400" : "text-neutral-600"}`}>{row.follows}</td>
+                <td className={`py-3 ${isDark ? "text-neutral-400" : "text-neutral-600"}`}>{row.sales}</td>
+                <td className={`py-3 ${isDark ? "text-neutral-400" : "text-neutral-600"}`}>{row.earned}</td>
+                <td className={`py-3 ${isDark ? "text-neutral-400" : "text-neutral-600"}`}>{row.startDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Home (Page Principale)
-   ────────────────────────────────────────────────────────────── */
+// --- FIN DES NOUVEAUX COMPOSANTS ---
 
 export default function Home() {
   const { theme } = useTheme();
@@ -348,26 +217,16 @@ export default function Home() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   const connectedChannels = useConnectedChannels();
-
-  const homeConnectedChannels = useMemo(
-    () =>
-      connectedChannels.filter(
-        (channel) => getNetworkId(channel) !== "youtube"
-      ),
-    [connectedChannels]
-  );
-
+  
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
   );
 
   useEffect(() => {
     let mounted = true;
-
     const loadUser = async () => {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUser(userData);
@@ -376,20 +235,12 @@ export default function Home() {
         console.error("Error loading user on Home:", error);
       }
     };
-
     loadUser();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-
-  const initials =
-    `${(user?.first_name || "")[0] || ""}${
-      (user?.last_name || "")[0] || ""
-    }`.toUpperCase() || "U";
+  const initials = `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
@@ -407,29 +258,38 @@ export default function Home() {
     }
   };
 
-  // Données statiques pour les cartes de projet (inspirées de l'image)
-  const projects = [
+  // Données mockées pour les tâches (issues de l'image)
+  const tasksData = [
     {
-      date: "12 Jun 2020",
-      title: "Web Design E-commerce",
-      progress: 90,
-      daysLeft: "2 Days Left",
-      gradient: "bg-gradient-to-br from-[#6b4cfa] to-[#8b5cf6]",
+      id: 1,
+      title: "Auto Following",
+      icon: <UserTaskIcon />,
+      completion: 76,
+      isCompleted: false,
+      data: [
+        { company: "My campaign 01", follows: "123", sales: "12", earned: "$ 2367", startDate: "13/04" }
+      ]
     },
     {
-      date: "12 Jun 2020",
-      title: "Apps Design E-commerce",
-      progress: 90,
-      daysLeft: "2 Days Left",
-      gradient: "bg-gradient-to-br from-[#d946ef] to-[#f0abfc]",
+      id: 2,
+      title: "Boost comments",
+      icon: <ChatIcon />,
+      completion: 28,
+      isCompleted: false,
+      data: [
+        { company: "My campaign 03", follows: "245", sales: "64", earned: "$ 1885", startDate: "18/03" }
+      ]
     },
     {
-      date: "12 Jun 2020",
-      title: "Branding E-commerce",
-      progress: 90,
-      daysLeft: "2 Days Left",
-      gradient: "bg-gradient-to-br from-[#10b981] to-[#34d399]",
-    },
+      id: 3,
+      title: "Auto Following",
+      icon: <UserTaskIcon />,
+      completion: 100,
+      isCompleted: true,
+      data: [
+        { company: "My campaign 02", follows: "481", sales: "13", earned: "$ 9815", startDate: "09/02" }
+      ]
+    }
   ];
 
   return (
@@ -441,94 +301,82 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="h-full overflow-y-auto" style={{ paddingLeft: SIDEBAR_OFFSET }}>
-        <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
+      <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
+        <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)] overflow-y-auto">
           
-          {/* Header : Titre + Salutation + Horloge + Recherche */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className={`font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em] ${isDark ? "text-white" : "text-neutral-900"}`}>
-                  Dashboard
-                </h1>
-                <p className={`mt-1 text-sm ${isDark ? "text-neutral-400" : "text-gray-500"}`}>
-                  Bonjour{fullName ? `, ${fullName}` : ""}
-                </p>
+          {/* En-tête : Profil + Statistiques + Bouton */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div className={`flex items-center gap-3 rounded-full border p-2 pr-4 ${isDark ? "border-white/10 bg-[#141416]" : "border-black/[0.06] bg-white"}`}>
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt="Profile" className="h-10 w-10 rounded-full object-cover" />
+              ) : (
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${isDark ? "bg-white/10 text-white" : "bg-neutral-900 text-white"}`}>
+                  {initials}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-neutral-900"}`}>{fullName || "Danny Poser"}</span>
+                <span className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>@ui.fucker</span>
               </div>
-              <GreetingAvatar
-                avatarUrl={user?.avatar_url}
-                initials={initials}
-                isDark={isDark}
-              />
+              <ChevronDownIcon className={`h-4 w-4 ml-2 ${isDark ? "text-neutral-400" : "text-neutral-500"}`} />
             </div>
 
-            <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center">
-              <div className="relative w-full max-w-xs">
-                <svg
-                  className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${isDark ? "text-neutral-500" : "text-gray-400"}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className={`w-full rounded-full py-2 pl-10 pr-4 text-sm outline-none transition ${
-                    isDark
-                      ? "bg-[#1a1a1c] text-white placeholder-neutral-500 focus:bg-[#222225]"
-                      : "bg-white text-gray-900 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-violet-500"
-                  }`}
-                />
-              </div>
-              <ClockDisplay isDark={isDark} />
+            <div className="flex flex-wrap items-center gap-3">
+              <StatCard icon={<StarIcon className="h-5 w-5" />} title="Reviews" value="485" change="+ 2%" isDark={isDark} />
+              <StatCard icon={<UsersIcon className="h-5 w-5" />} title="Total Followers" value="27K" change="- 2%" isDark={isDark} />
+              <StatCard icon={<HeartIcon className="h-5 w-5" />} title="Total Likes" value="12445" change="+ 16%" isDark={isDark} />
+              
+              <button className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition ${isDark ? "bg-white text-neutral-900 hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"}`}>
+                <PlusIcon className="h-4 w-4" />
+                Create New Task
+              </button>
             </div>
           </div>
 
-          {/* Grille principale du Dashboard */}
-          <div className="flex flex-col gap-6">
+          {/* Grille principale */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             
-            {/* Ligne 1 : Cartes de projet */}
-            <div className="relative">
-              {/* Bouton flottant "+" */}
-              <button className={`absolute -left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full shadow-md transition hover:scale-105 ${isDark ? "bg-[#2a2a2d] text-white" : "bg-white text-gray-800"}`}>
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
+            {/* Colonne Gauche : Graphiques */}
+            <div className="flex flex-col gap-6 lg:col-span-5">
+              <ChartCard title="Sales" value="6 items" isDark={isDark} />
+              <ChartCard title="Revenue" value="£100.5" isDark={isDark} />
+            </div>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((project) => (
-                  <ProjectCard key={project.title} {...project} isDark={isDark} />
+            {/* Colonne Droite : Tâches */}
+            <div className="flex flex-col gap-6 lg:col-span-7">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-neutral-900"}`}>Running Tasks</h2>
+                  <svg viewBox="0 0 24 24" className={`h-4 w-4 ${isDark ? "text-neutral-500" : "text-neutral-400"}`} fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4M12 8h.01" />
+                  </svg>
+                </div>
+                <button className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ${isDark ? "bg-white/5 text-neutral-400 hover:bg-white/10" : "bg-white text-neutral-600 border border-black/[0.06] hover:bg-neutral-50"}`}>
+                  Last 7 days <ChevronDownIcon className="h-3 w-3" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {tasksData.map((task) => (
+                  <TaskCard 
+                    key={task.id}
+                    title={task.title}
+                    icon={task.icon}
+                    completion={task.completion}
+                    isCompleted={task.isCompleted}
+                    data={task.data}
+                    isDark={isDark}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Ligne 2 : Activité + Stats + Membres */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-              {/* Activité (prend 2 colonnes) */}
-              <div className="lg:col-span-2">
-                <ActivityCard isDark={isDark} />
-              </div>
-
-              {/* Stats + Membres (prend 2 colonnes) */}
-              <div className="flex flex-col gap-6 lg:col-span-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <StatCard value="10+" label="Project" isDark={isDark} />
-                  <StatCard value="40+" label="Client" isDark={isDark} />
-                </div>
-                <MemberList isDark={isDark} />
-              </div>
-            </div>
-
           </div>
+
         </div>
       </div>
 
-      {/* Barre d'actions rapides */}
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
