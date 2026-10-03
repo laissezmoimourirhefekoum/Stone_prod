@@ -1,46 +1,84 @@
 ﻿
 import { useEffect, useMemo, useState } from "react";
+import { navigate } from "../hooks/useHashRoute";
+import { useTheme } from "../hooks/useTheme";
+import {
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
+
+import DashboardSidebar from "../components/DashboardSidebar";
+import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+import HelpChatButton from "../components/Helpchatbutton";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
+
+import {
+  getCurrentUser,
+  type UserProfile,
+} from "../services/supabase";
+
 import {
   Activity,
   ArrowUpRight,
   CalendarDays,
   Check,
+  Clock3,
   FileText,
-  Flame,
   Heart,
   MessageCircle,
   Plus,
   Users,
 } from "lucide-react";
 
-import { navigate } from "../hooks/useHashRoute";
-import { useTheme } from "../hooks/useTheme";
-import { useConnectedChannels, ConnectedChannel } from "../hooks/useConnectedChannels";
-
-import DashboardSidebar from "../components/DashboardSidebar";
-import NewPostModal, {
-  NewPostPayload,
-} from "../components/Newpostmodal";
-import HelpChatButton from "../components/Helpchatbutton";
-import BottomBar, {
-  BottomBarTab,
-} from "../components/Bottombar";
-import Folder from "../components/Folder";
-
 import {
-  getCurrentUser,
-  UserProfile,
-} from "../services/user";
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+} from "../components/IntegrationIcons";
 
-import {
-  IntegrationIcons,
-  SocialNetworkKey,
-} from "../components/integrationIcons";
+/* ============================================================
+   LAYOUT
+============================================================ */
 
 const SIDEBAR_OFFSET = 104;
 
+/* ============================================================
+   USER CACHE
+============================================================ */
+
 const userProfileCache = {
   profile: null as UserProfile | null,
+};
+
+/* ============================================================
+   NETWORKS
+============================================================ */
+
+type SocialNetworkKey =
+  | "x"
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "youtube"
+  | "pinterest";
+
+const NETWORK_ICONS: Record<
+  SocialNetworkKey,
+  (props: { className?: string }) => JSX.Element
+> = {
+  x: XIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  linkedin: LinkedInIcon,
+  tiktok: TikTokIcon,
+  youtube: YouTubeIcon,
+  pinterest: PinterestIcon,
 };
 
 function getNetworkId(
@@ -68,80 +106,710 @@ function getNetworkId(
   return null;
 }
 
-function getFirstName(profile: UserProfile | null) {
-  if (!profile) return "there";
+/* ============================================================
+   AVATAR
+============================================================ */
 
-  if (profile.first_name?.trim()) {
-    return profile.first_name.trim();
+function GreetingAvatar({
+  avatarUrl,
+  initials,
+  isDark,
+}: {
+  avatarUrl?: string | null;
+  initials: string;
+  isDark: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Profile"
+        onError={() => setFailed(true)}
+        className="h-9 w-9 rounded-full object-cover"
+      />
+    );
   }
 
-  const fullName = `${profile.first_name ?? ""} ${
-    profile.last_name ?? ""
-  }`.trim();
-
-  if (fullName) {
-    return fullName.split(" ")[0];
-  }
-
-  return "there";
+  return (
+    <div
+      className={[
+        "flex h-9 w-9 items-center justify-center rounded-full",
+        "text-[12px] font-semibold",
+        isDark
+          ? "bg-white text-black"
+          : "bg-neutral-900 text-white",
+      ].join(" ")}
+    >
+      {initials}
+    </div>
+  );
 }
 
-export default function Home() {
-  const { isDark } = useTheme();
+/* ============================================================
+   CLOCK
+============================================================ */
 
-  const [profile, setProfile] =
+function ClockDisplay({
+  isDark,
+}: {
+  isDark: boolean;
+}) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => setNow(new Date()),
+      15000
+    );
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const time = now.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const date = now.toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Clock3
+        className={[
+          "h-4 w-4",
+          isDark
+            ? "text-neutral-500"
+            : "text-neutral-400",
+        ].join(" ")}
+      />
+
+      <div className="text-right">
+        <p
+          className={[
+            "text-[13px] font-semibold tabular-nums",
+            isDark ? "text-white" : "text-neutral-900",
+          ].join(" ")}
+        >
+          {time}
+        </p>
+
+        <p
+          className={[
+            "text-[10px] font-medium capitalize",
+            isDark
+              ? "text-neutral-600"
+              : "text-neutral-400",
+          ].join(" ")}
+        >
+          {date}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   STAT
+============================================================ */
+
+function Stat({
+  isDark,
+  icon,
+  label,
+  value,
+  change,
+}: {
+  isDark: boolean;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  change: string;
+}) {
+  const positive = change.startsWith("+");
+
+  return (
+    <div
+      className={[
+        "flex min-w-0 items-center gap-3",
+        "border-r last:border-r-0",
+        "pr-5 last:pr-0",
+        isDark
+          ? "border-white/[0.07]"
+          : "border-black/[0.07]",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          isDark
+            ? "bg-white/[0.06] text-white"
+            : "bg-neutral-100 text-neutral-700",
+        ].join(" ")}
+      >
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p
+          className={[
+            "truncate text-[10px] font-medium",
+            isDark
+              ? "text-neutral-500"
+              : "text-neutral-400",
+          ].join(" ")}
+        >
+          {label}
+        </p>
+
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span
+            className={[
+              "text-[17px] font-bold tracking-tight",
+              isDark
+                ? "text-white"
+                : "text-neutral-900",
+            ].join(" ")}
+          >
+            {value}
+          </span>
+
+          <span
+            className={[
+              "text-[9px] font-semibold",
+              positive
+                ? "text-emerald-500"
+                : "text-rose-500",
+            ].join(" ")}
+          >
+            {change}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   STREAK
+============================================================ */
+
+const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
+
+function Streak({
+  isDark,
+}: {
+  isDark: boolean;
+}) {
+  const streak = 0;
+  const today = new Date();
+
+  const days = Array.from(
+    { length: 7 },
+    (_, index) => {
+      const date = new Date(today);
+
+      date.setDate(
+        today.getDate() + index
+      );
+
+      return {
+        day: WEEKDAYS[date.getDay()],
+        date: date.getDate(),
+      };
+    }
+  );
+
+  return (
+    <div
+      className={[
+        "flex min-h-[154px] flex-col justify-between rounded-2xl border p-4",
+        isDark
+          ? "border-white/[0.07] bg-[#141416]"
+          : "border-black/[0.06] bg-white",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p
+            className={[
+              "text-[10px] font-medium uppercase tracking-[0.08em]",
+              isDark
+                ? "text-neutral-600"
+                : "text-neutral-400",
+            ].join(" ")}
+          >
+            Streak
+          </p>
+
+          <div className="mt-1 flex items-baseline gap-1">
+            <span
+              className={[
+                "text-[28px] font-bold tracking-[-0.04em]",
+                isDark
+                  ? "text-white"
+                  : "text-neutral-900",
+              ].join(" ")}
+            >
+              {streak}
+            </span>
+
+            <span
+              className={[
+                "text-[11px] font-medium",
+                isDark
+                  ? "text-neutral-600"
+                  : "text-neutral-400",
+              ].join(" ")}
+            >
+              days
+            </span>
+          </div>
+        </div>
+
+        <Activity
+          className={[
+            "h-4 w-4",
+            isDark
+              ? "text-neutral-600"
+              : "text-neutral-400",
+          ].join(" ")}
+        />
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day, index) => {
+          const active = index < streak;
+
+          return (
+            <div
+              key={`${day.day}-${index}`}
+              className="flex flex-col items-center gap-1"
+            >
+              <span
+                className={[
+                  "text-[8px] font-semibold",
+                  isDark
+                    ? "text-neutral-600"
+                    : "text-neutral-400",
+                ].join(" ")}
+              >
+                {day.day}
+              </span>
+
+              <div
+                className={[
+                  "flex h-7 w-7 items-center justify-center rounded-lg",
+                  active
+                    ? isDark
+                      ? "bg-white text-black"
+                      : "bg-neutral-900 text-white"
+                    : isDark
+                      ? "bg-white/[0.04]"
+                      : "bg-neutral-50",
+                ].join(" ")}
+              >
+                {active ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <span
+                    className={[
+                      "text-[9px] font-medium",
+                      isDark
+                        ? "text-neutral-700"
+                        : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    {day.date}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   CHANNELS
+============================================================ */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  overlap,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  overlap: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label =
+    channel.handle ||
+    channel.name ||
+    "Channel";
+
+  const initial =
+    label.replace(/^@/, "")
+      .charAt(0)
+      .toUpperCase() || "?";
+
+  const networkId = getNetworkId(channel);
+
+  const NetworkIcon = networkId
+    ? NETWORK_ICONS[networkId]
+    : null;
+
+  return (
+    <div
+      className="relative h-9 w-9 shrink-0"
+      style={{
+        marginLeft: overlap ? -8 : 0,
+      }}
+      title={label}
+    >
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={[
+            "h-full w-full rounded-full object-cover ring-2",
+            isDark
+              ? "ring-[#141416]"
+              : "ring-white",
+          ].join(" ")}
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full",
+            "text-[11px] font-semibold ring-2",
+            isDark
+              ? "bg-[#29292c] text-white ring-[#141416]"
+              : "bg-neutral-900 text-white ring-white",
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
+            "justify-center rounded-full bg-white text-black ring-1",
+            isDark
+              ? "ring-[#141416]"
+              : "ring-white",
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Channels({
+  isDark,
+  channels,
+}: {
+  isDark: boolean;
+  channels: ConnectedChannel[];
+}) {
+  return (
+    <div
+      className={[
+        "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
+        isDark
+          ? "border-white/[0.07] bg-[#141416]"
+          : "border-black/[0.06] bg-white",
+      ].join(" ")}
+    >
+      {channels.length === 0 ? (
+        <>
+          <div className="flex items-center gap-3">
+            <div
+              className={[
+                "flex h-9 w-9 items-center justify-center rounded-xl",
+                isDark
+                  ? "bg-white/[0.06]"
+                  : "bg-neutral-100",
+              ].join(" ")}
+            >
+              <Plus
+                className={[
+                  "h-4 w-4",
+                  isDark
+                    ? "text-white"
+                    : "text-neutral-700",
+                ].join(" ")}
+              />
+            </div>
+
+            <div>
+              <p
+                className={[
+                  "text-[11px] font-semibold",
+                  isDark
+                    ? "text-white"
+                    : "text-neutral-900",
+                ].join(" ")}
+              >
+                Connect your first channel
+              </p>
+
+              <p
+                className={[
+                  "mt-0.5 text-[10px]",
+                  isDark
+                    ? "text-neutral-600"
+                    : "text-neutral-400",
+                ].join(" ")}
+              >
+                Start publishing to social networks.
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center pl-1">
+            {channels
+              .slice(0, 6)
+              .map((channel, index) => (
+                <ChannelAvatar
+                  key={channel.key}
+                  channel={channel}
+                  isDark={isDark}
+                  overlap={index > 0}
+                />
+              ))}
+          </div>
+
+          <div>
+            <p
+              className={[
+                "text-[11px] font-semibold",
+                isDark
+                  ? "text-white"
+                  : "text-neutral-900",
+              ].join(" ")}
+            >
+              {channels.length}{" "}
+              {channels.length === 1
+                ? "channel"
+                : "channels"}{" "}
+              connected
+            </p>
+
+            <p
+              className={[
+                "text-[10px]",
+                isDark
+                  ? "text-neutral-600"
+                  : "text-neutral-400",
+              ].join(" ")}
+            >
+              Ready to publish
+            </p>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => navigate("channels")}
+        className={[
+          "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
+          "text-[10px] font-semibold transition",
+          isDark
+            ? "text-white hover:bg-white/[0.06]"
+            : "text-neutral-900 hover:bg-neutral-100",
+        ].join(" ")}
+      >
+        {channels.length === 0 ? (
+          <>
+            Connect
+            <ArrowUpRight className="h-3 w-3" />
+          </>
+        ) : (
+          <>
+            Manage
+            <ArrowUpRight className="h-3 w-3" />
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   QUICK ACTIONS
+============================================================ */
+
+function QuickActions({
+  isDark,
+  onNewPost,
+  onFiles,
+}: {
+  isDark: boolean;
+  onNewPost: () => void;
+  onFiles: () => void;
+}) {
+  const actions = [
+    {
+      icon: Plus,
+      label: "New post",
+      action: onNewPost,
+    },
+    {
+      icon: CalendarDays,
+      label: "Schedule",
+      action: () => navigate("calendar"),
+    },
+    {
+      icon: FileText,
+      label: "Files",
+      action: onFiles,
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-2">
+      {actions.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.action}
+            className={[
+              "flex h-9 items-center gap-2 rounded-xl border px-3",
+              "text-[10px] font-semibold transition",
+              isDark
+                ? "border-white/[0.07] bg-[#141416] text-neutral-300 hover:bg-[#19191c] hover:text-white"
+                : "border-black/[0.06] bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900",
+            ].join(" ")}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ============================================================
+   HOME
+============================================================ */
+
+export default function Home() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  const [query, setQuery] = useState("");
+  const [isNewPostOpen, setIsNewPostOpen] =
+    useState(false);
+  const [isFolderOpen, setIsFolderOpen] =
+    useState(false);
+
+  const [user, setUser] =
     useState<UserProfile | null>(
       userProfileCache.profile
     );
 
-  const [isNewPostOpen, setIsNewPostOpen] =
-    useState(false);
+  const connectedChannels =
+    useConnectedChannels();
 
-  const [isFolderOpen, setIsFolderOpen] =
-    useState(false);
+  const homeConnectedChannels = useMemo(
+    () =>
+      connectedChannels.filter(
+        (channel) =>
+          getNetworkId(channel) !== "youtube"
+      ),
+    [connectedChannels]
+  );
 
-  const {
-    channels = [],
-    loading: channelsLoading,
-  } = useConnectedChannels();
+  /* ----------------------------------------------------------
+     USER
+  ---------------------------------------------------------- */
 
   useEffect(() => {
     let mounted = true;
 
-    if (!userProfileCache.profile) {
-      getCurrentUser()
-        .then((user) => {
-          if (!mounted) return;
+    async function loadUser() {
+      try {
+        const userData =
+          await getCurrentUser();
 
-          userProfileCache.profile = user;
-          setProfile(user);
-        })
-        .catch(() => {});
+        if (mounted && userData) {
+          userProfileCache.profile =
+            userData;
+
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error(
+          "Error loading user on Home:",
+          error
+        );
+      }
     }
+
+    loadUser();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  const firstName = useMemo(
-    () => getFirstName(profile),
-    [profile]
-  );
+  const fullName =
+    `${user?.first_name || ""} ${
+      user?.last_name || ""
+    }`.trim();
 
-  const visibleChannels = useMemo(() => {
-    return channels.filter(
-      (channel) =>
-        getNetworkId(channel) !== "youtube"
-    );
-  }, [channels]);
+  const initials =
+    `${(user?.first_name || "")[0] || ""}${
+      (user?.last_name || "")[0] || ""
+    }`.toUpperCase() || "U";
 
-  const handleNewPost = (
+  /* ----------------------------------------------------------
+     CREATE POST
+  ---------------------------------------------------------- */
+
+  const handleCreatePost = async (
     payload: NewPostPayload
   ) => {
-    console.log("New post:", payload);
-    setIsNewPostOpen(false);
+    console.log(
+      "Nouveau post à envoyer :",
+      payload
+    );
   };
+
+  /* ----------------------------------------------------------
+     BOTTOM BAR
+  ---------------------------------------------------------- */
 
   const handleBottomBarChange = (
     id: BottomBarTab
@@ -153,7 +821,9 @@ export default function Home() {
         break;
 
       case "files":
-        setIsFolderOpen((open) => !open);
+        setIsFolderOpen(
+          (open) => !open
+        );
         break;
 
       default:
@@ -161,17 +831,27 @@ export default function Home() {
     }
   };
 
+  /* ==========================================================
+     RENDER
+  ========================================================== */
+
   return (
     <main
       className={[
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
         isDark
-          ? "bg-[#09090a] text-white"
-          : "bg-[#f5f3ef] text-[#111111]",
+          ? "bg-[#09090a]"
+          : "bg-[#f5f3ef]",
       ].join(" ")}
     >
-      <DashboardSidebar />
+      <DashboardSidebar theme={theme} />
+
+      {/* ======================================================
+          CONTENT
+          Aucun overflow-y-auto.
+          Aucun scrollbar visible à droite.
+      ====================================================== */}
 
       <div
         className="h-full overflow-hidden"
@@ -179,317 +859,189 @@ export default function Home() {
           paddingLeft: SIDEBAR_OFFSET,
         }}
       >
-        <div
-          className="
-            mx-auto flex h-full w-full max-w-[1280px]
-            flex-col
-            px-[clamp(18px,3vw,40px)]
-            pb-[92px]
-            pt-[clamp(18px,3vw,30px)]
-          "
-        >
-          {/* HEADER */}
+        <div className="mx-auto flex h-full w-full max-w-[1280px] flex-col px-[clamp(18px,3vw,40px)] pb-[92px] pt-[clamp(18px,3vw,30px)]">
+
+          {/* ==================================================
+              HEADER
+          ================================================== */}
+
           <header className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">
-              <div
-                className={[
-                  "flex h-10 w-10 items-center justify-center",
-                  "rounded-full overflow-hidden",
-                  isDark
-                    ? "bg-white/10"
-                    : "bg-black/5",
-                ].join(" ")}
-              >
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="text-sm font-semibold">
-                    {firstName.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
+              <GreetingAvatar
+                avatarUrl={user?.avatar_url}
+                initials={initials}
+                isDark={isDark}
+              />
 
               <div>
                 <p
                   className={[
-                    "text-[12px] font-medium",
+                    "text-[10px] font-medium",
                     isDark
-                      ? "text-white/40"
-                      : "text-black/40",
+                      ? "text-neutral-600"
+                      : "text-neutral-400",
                   ].join(" ")}
                 >
                   Good to see you
                 </p>
 
-                <h1 className="text-[17px] font-semibold tracking-[-0.02em]">
-                  {firstName}
+                <h1
+                  className={[
+                    "mt-0.5 text-[22px] font-semibold tracking-[-0.035em]",
+                    isDark
+                      ? "text-white"
+                      : "text-neutral-900",
+                  ].join(" ")}
+                >
+                  {fullName || "Welcome"}
                 </h1>
               </div>
             </div>
 
-            {/* Aucun bouton New Post ici */}
-            <div
-              className={[
-                "flex items-center gap-2 rounded-full px-3 py-2",
-                isDark
-                  ? "bg-white/[0.04] text-white/45"
-                  : "bg-black/[0.035] text-black/45",
-              ].join(" ")}
-            >
-              <Activity size={15} strokeWidth={1.8} />
-              <span className="text-[12px] font-medium">
-                Overview
-              </span>
-            </div>
-          </header>
-
-          {/* MAIN CONTENT */}
-          <div className="mt-7 flex min-h-0 flex-1 flex-col">
-            {/* OVERVIEW */}
-            <section className="grid shrink-0 grid-cols-1 gap-3 lg:grid-cols-[0.85fr_1.15fr]">
-              {/* STREAK */}
-              <div
-                className={[
-                  "group relative overflow-hidden rounded-[22px]",
-                  "border p-5 transition-all duration-200",
-                  "hover:-translate-y-[1px]",
-                  isDark
-                    ? "border-white/[0.07] bg-[#101011] hover:border-white/[0.12]"
-                    : "border-black/[0.06] bg-white hover:border-black/[0.1]",
-                ].join(" ")}
-              >
-                <div className="relative z-10 flex h-full min-h-[178px] flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p
-                        className={[
-                          "text-[12px] font-medium",
-                          isDark
-                            ? "text-white/40"
-                            : "text-black/40",
-                        ].join(" ")}
-                      >
-                        Current streak
-                      </p>
-
-                      <div className="mt-2 flex items-end gap-2">
-                        <span className="text-[42px] font-semibold leading-none tracking-[-0.05em]">
-                          7
-                        </span>
-
-                        <span
-                          className={[
-                            "mb-1 text-[13px]",
-                            isDark
-                              ? "text-white/40"
-                              : "text-black/40",
-                          ].join(" ")}
-                        >
-                          days
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* FLAME */}
-                    <div
-                      className={[
-                        "flex h-12 w-12 items-center justify-center",
-                        "rounded-2xl",
-                        "transition-transform duration-300",
-                        "group-hover:scale-105",
-                        isDark
-                          ? "bg-orange-400/10 text-orange-400"
-                          : "bg-orange-500/10 text-orange-500",
-                      ].join(" ")}
-                    >
-                      <Flame
-                        size={25}
-                        strokeWidth={1.8}
-                        fill="currentColor"
-                        fillOpacity={0.12}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span
-                        className={[
-                          "text-[11px]",
-                          isDark
-                            ? "text-white/35"
-                            : "text-black/35",
-                        ].join(" ")}
-                      >
-                        Keep it going
-                      </span>
-
-                      <span
-                        className={[
-                          "text-[11px] font-medium",
-                          isDark
-                            ? "text-white/50"
-                            : "text-black/50",
-                        ].join(" ")}
-                      >
-                        7 / 14
-                      </span>
-                    </div>
-
-                    <div
-                      className={[
-                        "h-1.5 overflow-hidden rounded-full",
-                        isDark
-                          ? "bg-white/[0.07]"
-                          : "bg-black/[0.06]",
-                      ].join(" ")}
-                    >
-                      <div
-                        className="
-                          h-full w-1/2 rounded-full
-                          bg-current
-                          opacity-80
-                        "
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* subtle background flame */}
-                <Flame
-                  className={[
-                    "pointer-events-none absolute -bottom-8 -right-5",
-                    "h-32 w-32 rotate-12 opacity-[0.025]",
-                    isDark
-                      ? "text-white"
-                      : "text-black",
-                  ].join(" ")}
-                  fill="currentColor"
-                />
-              </div>
-
-              {/* STATS */}
-              <div
-                className={[
-                  "rounded-[22px] border p-5",
-                  isDark
-                    ? "border-white/[0.07] bg-[#101011]"
-                    : "border-black/[0.06] bg-white",
-                ].join(" ")}
-              >
-                <div className="grid h-full min-h-[178px] grid-cols-3 divide-x">
-                  <Stat
-                    icon={<Users size={16} />}
-                    label="Followers"
-                    value="12.4K"
-                    isDark={isDark}
-                  />
-
-                  <Stat
-                    icon={<Heart size={16} />}
-                    label="Likes"
-                    value="8.7K"
-                    isDark={isDark}
-                  />
-
-                  <Stat
-                    icon={<MessageCircle size={16} />}
-                    label="Comments"
-                    value="342"
-                    isDark={isDark}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* QUICK ACTIONS */}
-            <section className="mt-4 grid shrink-0 grid-cols-3 gap-3">
-              <QuickAction
-                icon={<Plus size={17} />}
-                title="New post"
-                description="Create content"
+            <div className="flex items-center gap-4">
+              <ClockDisplay
                 isDark={isDark}
+              />
+
+              <button
+                type="button"
                 onClick={() =>
                   setIsNewPostOpen(true)
                 }
-              />
+                className={[
+                  "flex h-9 items-center gap-1.5 rounded-xl px-3.5",
+                  "text-[10px] font-semibold transition",
+                  isDark
+                    ? "bg-white text-black hover:bg-neutral-200"
+                    : "bg-neutral-900 text-white hover:bg-neutral-800",
+                ].join(" ")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New post
+              </button>
+            </div>
+          </header>
 
-              <QuickAction
-                icon={<CalendarDays size={17} />}
-                title="Schedule"
-                description="Plan ahead"
-                isDark={isDark}
-                onClick={() =>
-                  navigate("calendar")
-                }
-              />
+          {/* ==================================================
+              MAIN
+          ================================================== */}
 
-              <QuickAction
-                icon={<FileText size={17} />}
-                title="Files"
-                description="Your library"
-                isDark={isDark}
-                onClick={() =>
-                  setIsFolderOpen(true)
-                }
-              />
+          <div className="mt-7 flex min-h-0 flex-1 flex-col">
+
+            {/* =================================================
+                OVERVIEW
+            ================================================= */}
+
+            <section className="shrink-0">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p
+                    className={[
+                      "text-[11px] font-semibold",
+                      isDark
+                        ? "text-neutral-500"
+                        : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Overview
+                  </p>
+
+                  <p
+                    className={[
+                      "mt-0.5 text-[10px]",
+                      isDark
+                        ? "text-neutral-700"
+                        : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Your activity at a glance
+                  </p>
+                </div>
+
+                <QuickActions
+                  isDark={isDark}
+                  onNewPost={() =>
+                    setIsNewPostOpen(true)
+                  }
+                  onFiles={() =>
+                    setIsFolderOpen(true)
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_2fr]">
+                <Streak isDark={isDark} />
+
+                <div
+                  className={[
+                    "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                    "sm:grid-cols-3",
+                    isDark
+                      ? "border-white/[0.07] bg-[#141416]"
+                      : "border-black/[0.06] bg-white",
+                  ].join(" ")}
+                >
+                  <Stat
+                    isDark={isDark}
+                    label="Followers"
+                    value="27K"
+                    change="-2%"
+                    icon={
+                      <Users className="h-4 w-4" />
+                    }
+                  />
+
+                  <Stat
+                    isDark={isDark}
+                    label="Likes"
+                    value="12.4K"
+                    change="+16%"
+                    icon={
+                      <Heart className="h-4 w-4" />
+                    }
+                  />
+
+                  <Stat
+                    isDark={isDark}
+                    label="Comments"
+                    value="342"
+                    change="+5%"
+                    icon={
+                      <MessageCircle className="h-4 w-4" />
+                    }
+                  />
+                </div>
+              </div>
             </section>
 
-            {/* CHANNELS */}
-            <section
-              className={[
-                "mt-4 shrink-0 rounded-[22px] border px-5 py-4",
-                isDark
-                  ? "border-white/[0.07] bg-[#101011]"
-                  : "border-black/[0.06] bg-white",
-              ].join(" ")}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <h2 className="text-[13px] font-semibold">
-                      Connected channels
-                    </h2>
+            {/* =================================================
+                CHANNELS
+            ================================================= */}
 
-                    <p
-                      className={[
-                        "mt-0.5 text-[11px]",
-                        isDark
-                          ? "text-white/35"
-                          : "text-black/35",
-                      ].join(" ")}
-                    >
-                      {visibleChannels.length}{" "}
-                      connected
-                    </p>
-                  </div>
+            <section className="mt-5 shrink-0">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p
+                    className={[
+                      "text-[11px] font-semibold",
+                      isDark
+                        ? "text-neutral-500"
+                        : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Channels
+                  </p>
 
-                  <div className="flex -space-x-2">
-                    {channelsLoading ? (
-                      <>
-                        <ChannelSkeleton
-                          isDark={isDark}
-                        />
-                        <ChannelSkeleton
-                          isDark={isDark}
-                        />
-                      </>
-                    ) : (
-                      visibleChannels
-                        .slice(0, 6)
-                        .map((channel) => (
-                          <ChannelAvatar
-                            key={channel.key}
-                            channel={channel}
-                            isDark={isDark}
-                          />
-                        ))
-                    )}
-                  </div>
+                  <p
+                    className={[
+                      "mt-0.5 text-[10px]",
+                      isDark
+                        ? "text-neutral-700"
+                        : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Your connected accounts
+                  </p>
                 </div>
 
                 <button
@@ -498,394 +1050,222 @@ export default function Home() {
                     navigate("channels")
                   }
                   className={[
-                    "flex items-center gap-1.5 rounded-full",
-                    "px-3 py-1.5 text-[11px] font-medium",
-                    "transition-colors",
+                    "text-[10px] font-semibold",
                     isDark
-                      ? "text-white/45 hover:bg-white/[0.06] hover:text-white"
-                      : "text-black/45 hover:bg-black/[0.05] hover:text-black",
+                      ? "text-neutral-500 hover:text-white"
+                      : "text-neutral-400 hover:text-neutral-900",
                   ].join(" ")}
                 >
                   Manage
-                  <ArrowUpRight size={13} />
                 </button>
               </div>
+
+              <Channels
+                isDark={isDark}
+                channels={
+                  homeConnectedChannels
+                }
+              />
             </section>
 
-            {/* BOTTOM ACTIONS */}
-            <section className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-2">
-              {/* PLAN YOUR NEXT POST */}
-              <button
-                type="button"
-                onClick={() =>
-                  navigate("calendar")
-                }
+            {/* =================================================
+                BOTTOM INFO
+            ================================================= */}
+
+            <div className="mt-auto hidden grid-cols-2 gap-3 pt-5 xl:grid">
+
+              <div
                 className={[
-                  "group relative flex min-h-[150px] w-full",
-                  "flex-col justify-between overflow-hidden",
-                  "rounded-[22px] border p-5 text-left",
-                  "transition-all duration-200",
-                  "hover:-translate-y-[1px]",
-                  "active:translate-y-0",
-                  "focus:outline-none focus-visible:ring-2",
+                  "flex items-center justify-between rounded-2xl border px-4 py-3",
                   isDark
-                    ? "border-white/[0.07] bg-[#101011] hover:border-white/[0.14] focus-visible:ring-white/20"
-                    : "border-black/[0.06] bg-white hover:border-black/[0.12] focus-visible:ring-black/15",
+                    ? "border-white/[0.07] bg-[#141416]"
+                    : "border-black/[0.06] bg-white",
                 ].join(" ")}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-current/5">
-                      <CalendarDays
-                        size={17}
-                        strokeWidth={1.8}
-                      />
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className={[
+                      "flex h-8 w-8 items-center justify-center rounded-xl",
+                      isDark
+                        ? "bg-white/[0.05]"
+                        : "bg-neutral-100",
+                    ].join(" ")}
+                  >
+                    <CalendarDays
+                      className={[
+                        "h-3.5 w-3.5",
+                        isDark
+                          ? "text-neutral-400"
+                          : "text-neutral-500",
+                      ].join(" ")}
+                    />
+                  </div>
 
-                    <h3 className="text-[14px] font-semibold">
+                  <div>
+                    <p
+                      className={[
+                        "text-[10px] font-semibold",
+                        isDark
+                          ? "text-white"
+                          : "text-neutral-900",
+                      ].join(" ")}
+                    >
                       Plan your next post
-                    </h3>
+                    </p>
 
                     <p
                       className={[
-                        "mt-1 text-[11px]",
+                        "text-[9px]",
                         isDark
-                          ? "text-white/35"
-                          : "text-black/35",
+                          ? "text-neutral-600"
+                          : "text-neutral-400",
                       ].join(" ")}
                     >
                       Keep your content consistent
                     </p>
                   </div>
-
-                  <ArrowUpRight
-                    size={16}
-                    className={[
-                      "transition-transform duration-200",
-                      "group-hover:-translate-y-0.5",
-                      "group-hover:translate-x-0.5",
-                      isDark
-                        ? "text-white/25"
-                        : "text-black/25",
-                    ].join(" ")}
-                  />
                 </div>
 
-                <div
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("calendar")
+                  }
                   className={[
-                    "flex items-center gap-1.5 text-[11px] font-medium",
+                    "text-[10px] font-semibold",
                     isDark
-                      ? "text-white/50"
-                      : "text-black/50",
+                      ? "text-white"
+                      : "text-neutral-900",
                   ].join(" ")}
                 >
                   Open
-                  <ArrowUpRight size={13} />
-                </div>
-              </button>
+                </button>
+              </div>
 
-              {/* CONTENT LIBRARY */}
-              <button
-                type="button"
-                onClick={() =>
-                  setIsFolderOpen(true)
-                }
+              <div
                 className={[
-                  "group relative flex min-h-[150px] w-full",
-                  "flex-col justify-between overflow-hidden",
-                  "rounded-[22px] border p-5 text-left",
-                  "transition-all duration-200",
-                  "hover:-translate-y-[1px]",
-                  "active:translate-y-0",
-                  "focus:outline-none focus-visible:ring-2",
+                  "flex items-center justify-between rounded-2xl border px-4 py-3",
                   isDark
-                    ? "border-white/[0.07] bg-[#101011] hover:border-white/[0.14] focus-visible:ring-white/20"
-                    : "border-black/[0.06] bg-white hover:border-black/[0.12] focus-visible:ring-black/15",
+                    ? "border-white/[0.07] bg-[#141416]"
+                    : "border-black/[0.06] bg-white",
                 ].join(" ")}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-current/5">
-                      <FileText
-                        size={17}
-                        strokeWidth={1.8}
-                      />
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className={[
+                      "flex h-8 w-8 items-center justify-center rounded-xl",
+                      isDark
+                        ? "bg-white/[0.05]"
+                        : "bg-neutral-100",
+                    ].join(" ")}
+                  >
+                    <FileText
+                      className={[
+                        "h-3.5 w-3.5",
+                        isDark
+                          ? "text-neutral-400"
+                          : "text-neutral-500",
+                      ].join(" ")}
+                    />
+                  </div>
 
-                    <h3 className="text-[14px] font-semibold">
+                  <div>
+                    <p
+                      className={[
+                        "text-[10px] font-semibold",
+                        isDark
+                          ? "text-white"
+                          : "text-neutral-900",
+                      ].join(" ")}
+                    >
                       Content library
-                    </h3>
+                    </p>
 
                     <p
                       className={[
-                        "mt-1 text-[11px]",
+                        "text-[9px]",
                         isDark
-                          ? "text-white/35"
-                          : "text-black/35",
+                          ? "text-neutral-600"
+                          : "text-neutral-400",
                       ].join(" ")}
                     >
                       Manage your saved content
                     </p>
                   </div>
-
-                  <ArrowUpRight
-                    size={16}
-                    className={[
-                      "transition-transform duration-200",
-                      "group-hover:-translate-y-0.5",
-                      "group-hover:translate-x-0.5",
-                      isDark
-                        ? "text-white/25"
-                        : "text-black/25",
-                    ].join(" ")}
-                  />
                 </div>
 
-                <div
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsFolderOpen(true)
+                  }
                   className={[
-                    "flex items-center gap-1.5 text-[11px] font-medium",
+                    "text-[10px] font-semibold",
                     isDark
-                      ? "text-white/50"
-                      : "text-black/50",
+                      ? "text-white"
+                      : "text-neutral-900",
                   ].join(" ")}
                 >
                   Open
-                  <ArrowUpRight size={13} />
-                </div>
-              </button>
-            </section>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* FOLDER */}
+      {/* ======================================================
+          FOLDER
+      ====================================================== */}
+
       <Folder
         isOpen={isFolderOpen}
-        onClose={() => setIsFolderOpen(false)}
+        onClose={() =>
+          setIsFolderOpen(false)
+        }
         isDark={isDark}
         offsetLeft={SIDEBAR_OFFSET}
       />
 
-      {/* BOTTOM BAR */}
+      {/* ======================================================
+          BOTTOM BAR
+      ====================================================== */}
+
       <BottomBar
         isDark={isDark}
         offsetLeft={SIDEBAR_OFFSET}
-        active="home"
-        onChange={handleBottomBarChange}
-        query=""
-        onQueryChange={() => {}}
+        active={
+          isFolderOpen ? "files" : null
+        }
+        onChange={
+          handleBottomBarChange
+        }
+        query={query}
+        onQueryChange={setQuery}
       />
 
-      {/* HELP */}
-      <HelpChatButton isDark={isDark} />
+      {/* ======================================================
+          NEW POST
+      ====================================================== */}
 
-      {/* NEW POST */}
       <NewPostModal
         isOpen={isNewPostOpen}
-        onClose={() => setIsNewPostOpen(false)}
+        onClose={() =>
+          setIsNewPostOpen(false)
+        }
         isDark={isDark}
-        onSubmit={handleNewPost}
+        onSubmit={
+          handleCreatePost
+        }
+      />
+
+      {/* ======================================================
+          HELP
+      ====================================================== */}
+
+      <HelpChatButton
+        isDark={isDark}
       />
     </main>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* COMPONENTS                                                                 */
-/* -------------------------------------------------------------------------- */
-
-function Stat({
-  icon,
-  label,
-  value,
-  isDark,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "flex flex-col justify-center px-5 first:pl-0 last:pr-0",
-        "border-white/[0.06]",
-        isDark
-          ? "divide-white/[0.06]"
-          : "border-black/[0.06]",
-      ].join(" ")}
-    >
-      <div
-        className={[
-          "mb-4 flex items-center gap-2",
-          isDark
-            ? "text-white/35"
-            : "text-black/35",
-        ].join(" ")}
-      >
-        {icon}
-
-        <span className="text-[11px] font-medium">
-          {label}
-        </span>
-      </div>
-
-      <span className="text-[25px] font-semibold tracking-[-0.04em]">
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function QuickAction({
-  icon,
-  title,
-  description,
-  isDark,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  isDark: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "group flex items-center gap-3 rounded-[18px]",
-        "border px-4 py-3 text-left",
-        "transition-all duration-200",
-        "hover:-translate-y-[1px]",
-        "active:translate-y-0",
-        "focus:outline-none",
-        "focus-visible:ring-2",
-        isDark
-          ? "border-white/[0.07] bg-[#101011] hover:border-white/[0.13] focus-visible:ring-white/20"
-          : "border-black/[0.06] bg-white hover:border-black/[0.11] focus-visible:ring-black/15",
-      ].join(" ")}
-    >
-      <div
-        className={[
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-          isDark
-            ? "bg-white/[0.05] text-white/60"
-            : "bg-black/[0.04] text-black/60",
-        ].join(" ")}
-      >
-        {icon}
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-[12px] font-semibold">
-          {title}
-        </p>
-
-        <p
-          className={[
-            "mt-0.5 truncate text-[10px]",
-            isDark
-              ? "text-white/30"
-              : "text-black/30",
-          ].join(" ")}
-        >
-          {description}
-        </p>
-      </div>
-
-      <ArrowUpRight
-        size={14}
-        className={[
-          "ml-auto shrink-0 transition-all duration-200",
-          "group-hover:-translate-y-0.5",
-          "group-hover:translate-x-0.5",
-          isDark
-            ? "text-white/20"
-            : "text-black/20",
-        ].join(" ")}
-      />
-    </button>
-  );
-}
-
-function ChannelAvatar({
-  channel,
-  isDark,
-}: {
-  channel: ConnectedChannel;
-  isDark: boolean;
-}) {
-  const network = getNetworkId(channel);
-
-  const icon =
-    network &&
-    IntegrationIcons[
-      network as keyof typeof IntegrationIcons
-    ];
-
-  return (
-    <div
-      className={[
-        "relative flex h-9 w-9 items-center justify-center",
-        "overflow-hidden rounded-full border",
-        isDark
-          ? "border-[#101011] bg-[#181819]"
-          : "border-white bg-[#f2f1ee]",
-      ].join(" ")}
-      title={
-        channel.handle ||
-        channel.name ||
-        network ||
-        "Channel"
-      }
-    >
-      {channel.avatarUrl ? (
-        <img
-          src={channel.avatarUrl}
-          alt=""
-          className="h-full w-full object-cover"
-        />
-      ) : icon ? (
-        <span className="scale-[0.65]">
-          {icon}
-        </span>
-      ) : (
-        <span className="text-[10px] font-semibold">
-          {(channel.name || "?")
-            .charAt(0)
-            .toUpperCase()}
-        </span>
-      )}
-
-      <span
-        className={[
-          "absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full",
-          "border",
-          isDark
-            ? "border-[#101011] bg-emerald-400"
-            : "border-white bg-emerald-500",
-        ].join(" ")}
-      />
-    </div>
-  );
-}
-
-function ChannelSkeleton({
-  isDark,
-}: {
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "h-9 w-9 rounded-full border",
-        "animate-pulse",
-        isDark
-          ? "border-[#101011] bg-white/10"
-          : "border-white bg-black/5",
-      ].join(" ")}
-    />
   );
 }
