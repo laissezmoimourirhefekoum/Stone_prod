@@ -44,7 +44,7 @@ import {
   REAL_OAUTH,
   type ChannelKey,
   type ConnectionState,
-} from "../pages/Channels";
+} from "../pages/channels";
 import {
   getTikTokStatus,
   startTikTokLogin,
