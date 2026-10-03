@@ -429,8 +429,9 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
   /* Garde de routes :
      - déconnecté + page privée  → signin (en mémorisant le callback TikTok / Pinterest / YouTube)
      - connecté + route en attente (post_login_route) → on y retourne
-     - connecté + signin/signup  → home
-     La landing, pricing, faq, tos et privacy restent accessibles dans les deux cas. */
+     - connecté + signin/signup/landing → home (un utilisateur connecté ne doit
+       pas pouvoir revenir sur les pages d'authentification ni sur la landing page)
+     - pricing, faq, tos et privacy restent accessibles dans les deux cas. */
   useEffect(() => {
     if (loading) return;
 
@@ -466,11 +467,11 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
         }
       }
 
-      if (isAuth) {
+      if (isAuth || isLanding) {
         navigate("home", { replace: true });
       }
     }
-  }, [user, loading, isProtected, isAuth, route]);
+  }, [user, loading, isProtected, isAuth, isLanding, route]);
 
   // Pendant la vérification de session : écran neutre sur les pages
   // qui dépendent de l'état connecté (évite les flashs et les appels API sans session).
@@ -478,9 +479,9 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return <div className="min-h-screen w-full bg-white dark:bg-[#050505]" />;
   }
 
-  // Évite d'afficher une page privée / auth une frame avant la redirection
+  // Évite d'afficher une page privée / auth / landing une frame avant la redirection
   if (!user && isProtected) return null;
-  if (user && isAuth) return null;
+  if (user && (isAuth || isLanding)) return null;
 
   if (isAuth) {
     return (
@@ -624,7 +625,8 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     );
   }
 
-  /* Landing (route === "") : accessible connecté ou non */
+  /* Landing (route === "") : accessible uniquement si l'utilisateur n'est pas connecté.
+     (Si connecté, la garde ci-dessus a déjà redirigé vers /home.) */
   return (
     <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
       <Navbar theme={theme} onToggleTheme={toggle} />

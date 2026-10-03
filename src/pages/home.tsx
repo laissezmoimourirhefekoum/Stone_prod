@@ -800,7 +800,7 @@ function BlogPostCard({
 
 function FromTheBlogSection({ isDark }: { isDark: boolean }) {
   return (
-    <div className="flex flex-col">
+    <div className="mt-auto flex flex-col pt-12 lg:pt-20">
       <p
         className={[
           "shrink-0 text-[13px] font-medium",
@@ -886,7 +886,7 @@ export default function Home() {
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
+          <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
             <header className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h1
