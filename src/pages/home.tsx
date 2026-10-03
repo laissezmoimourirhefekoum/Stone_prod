@@ -174,18 +174,21 @@ function FlameIcon({
   );
 }
 
-function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
+function ShareIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={className}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.4"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="m5 12.5 4.5 4.5L19 7" />
+      <circle cx="18" cy="5" r="2.6" />
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="19" r="2.6" />
+      <path d="m8.3 10.8 7.4-4.4M8.3 13.2l7.4 4.4" />
     </svg>
   );
 }
@@ -514,65 +517,158 @@ function ConnectedChannelsCard({
    Petites cartes : série, intégrations
 ============================================================================ */
 
-const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
+// Semaine calendaire, du lundi au dimanche.
+const WEEKDAYS_FR_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
 
 function StreakCard({ isDark }: { isDark: boolean }) {
   const streakCount = 0;
-  const challengeName = "0 day of post";
 
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
-  });
+  // Index du jour courant dans la semaine (lundi = 0 ... dimanche = 6).
+  const todayIndex = (new Date().getDay() + 6) % 7;
+
+  // Carte inversée : sombre en thème clair, claire en thème sombre.
+  const t = isDark
+    ? {
+        card: "border-black/10 bg-white",
+        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.4)]",
+        text: "text-neutral-900",
+        muted: "text-neutral-500",
+        panel: "bg-black/[0.06]",
+        ring: "border-neutral-900/25",
+        solid: "bg-neutral-900",
+        onSolid: "text-white",
+        onSolidHex: "#ffffff",
+        shareBtn: "border-neutral-900/20 text-neutral-900 hover:bg-black/5",
+        flameHex: "#171717",
+      }
+    : {
+        card: "border-white/10 bg-neutral-900",
+        shadow: "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
+        text: "text-white",
+        muted: "text-neutral-400",
+        panel: "bg-white/10",
+        ring: "border-white/30",
+        solid: "bg-white",
+        onSolid: "text-neutral-900",
+        onSolidHex: "#171717",
+        shareBtn: "border-white/25 text-white hover:bg-white/10",
+        flameHex: "#ffffff",
+      };
+
+  const title = `${streakCount === 1 ? "Day" : "Days"} Streak!!`;
+  const message =
+    streakCount > 0
+      ? "Every day counts! keep the momentum going!"
+      : "Post today to start your streak!";
+
+  const handleShare = async () => {
+    const text =
+      streakCount > 0
+        ? `I'm on a ${streakCount}-day posting streak!`
+        : "I'm starting a posting streak!";
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Posting streak", text });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch {
+      // Partage annulé ou indisponible : rien à faire.
+    }
+  };
 
   return (
-    <DashboardCard isDark={isDark}>
-      <CardTitle
-        isDark={isDark}
-        title={`${streakCount} days streak`}
-        subtitle={challengeName}
-        trailing={
+    <div
+      className={[
+        "flex h-full min-h-[190px] flex-col justify-between gap-4 rounded-[22px] border p-3.5",
+        t.card,
+        t.shadow,
+      ].join(" ")}
+    >
+      {/* Panneau : grand chiffre + message */}
+      <div
+        className={[
+          "relative flex items-center gap-4 rounded-2xl px-4 py-5",
+          t.panel,
+        ].join(" ")}
+      >
+        <div className="relative shrink-0">
+          <span
+            className={[
+              "font-display text-[56px] font-bold leading-none tracking-[-0.04em]",
+              t.text,
+            ].join(" ")}
+          >
+            {streakCount}
+          </span>
           <FlameIcon
-            className="h-7 w-7 shrink-0"
-            color={isDark ? "#3a3a3d" : "#d9d9d9"}
+            className="absolute -bottom-1 -right-3 h-6 w-6"
+            color={t.flameHex}
           />
-        }
-      />
+        </div>
 
-      <div className="mt-auto flex items-start justify-between gap-1 pt-5">
-        {days.map((dayLabel, index) => {
-          const isChecked = index < streakCount;
+        <div className="min-w-0 pr-8">
+          <p className={["text-[17px] font-bold leading-tight", t.text].join(" ")}>
+            {title}
+          </p>
+          <p className={["mt-1 text-[12.5px] leading-snug", t.muted].join(" ")}>
+            {message}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Share your streak"
+          title="Share"
+          className={[
+            "absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg border transition",
+            t.shareBtn,
+          ].join(" ")}
+        >
+          <ShareIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Semaine : le jour courant est mis en avant */}
+      <div className="flex items-start justify-between gap-1 px-1">
+        {WEEKDAYS_FR_SHORT.map((dayLabel, index) => {
+          const isToday = index === todayIndex;
+          const isDone =
+            streakCount > 0 &&
+            index <= todayIndex &&
+            index > todayIndex - streakCount;
+
           return (
             <div
               key={`${dayLabel}-${index}`}
-              className="flex flex-1 flex-col items-center gap-1.5"
+              className="flex flex-1 flex-col items-center gap-2"
             >
               <span
                 className={[
-                  "text-[10px] font-semibold uppercase leading-none",
-                  isDark ? "text-neutral-400" : "text-neutral-500",
+                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold leading-none",
+                  isToday ? `${t.solid} ${t.onSolid}` : t.muted,
                 ].join(" ")}
               >
                 {dayLabel}
               </span>
 
-              {isChecked ? (
+              {isDone ? (
                 <div
                   className={[
-                    "flex aspect-square w-full max-w-[24px] items-center justify-center rounded-full",
-                    isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                    "flex aspect-square w-full max-w-[34px] items-center justify-center rounded-full",
+                    t.solid,
                   ].join(" ")}
                 >
-                  <CheckIcon className="h-3 w-3" />
+                  <FlameIcon className="h-4 w-4" color={t.onSolidHex} />
                 </div>
               ) : (
                 <div
                   aria-hidden="true"
                   className={[
-                    "aspect-square w-full max-w-[24px] rounded-full",
-                    isDark ? "bg-white/10" : "bg-neutral-100",
+                    "aspect-square w-full max-w-[34px] rounded-full border-2",
+                    t.ring,
                   ].join(" ")}
                 />
               )}
@@ -580,7 +676,7 @@ function StreakCard({ isDark }: { isDark: boolean }) {
           );
         })}
       </div>
-    </DashboardCard>
+    </div>
   );
 }
 
@@ -833,7 +929,7 @@ export default function Home() {
             </div>
 
             {/* Grille : une grande carte + deux petites sur la même ligne */}
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr]">
               <div className="sm:col-span-2 lg:col-span-1">
                 <ConnectedChannelsCard
                   isDark={isDark}
