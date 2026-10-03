@@ -584,171 +584,70 @@ function ConnectFirstChannelWidget({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Grille de droite : deux cartes (Performance retirée)
+   Nouveaux Widgets : Statistiques (Followers, Likes, Comments)
    ────────────────────────────────────────────────────────────── */
 
-function DashboardCard({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
+function UsersIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <div
-      className={[
-        "flex h-full flex-col rounded-[22px] border p-4",
-        isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
   );
 }
 
-function CardHeading({
+function HeartIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </svg>
+  );
+}
+
+function CommentIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function StatCard({
   isDark,
   title,
-  action,
+  value,
+  change,
+  icon,
 }: {
   isDark: boolean;
   title: string;
-  action?: React.ReactNode;
+  value: string;
+  change: string;
+  icon: React.ReactNode;
 }) {
+  const isPositive = change.startsWith("+");
+  const changeColor = isPositive ? "text-emerald-500" : "text-rose-500";
+  
+  const cardBg = isDark ? "bg-[#141416] border-white/10" : "bg-white border-black/[0.06]";
+  const textColor = isDark ? "text-white" : "text-neutral-900";
+  const subtextColor = isDark ? "text-neutral-400" : "text-neutral-500";
+  const iconBg = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
+
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p
-        className={[
-          "text-[14px] font-semibold",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {title}
-      </p>
-      {action}
+    <div className={`flex items-center gap-3.5 rounded-[22px] border p-4 shadow-[0_16px_44px_rgba(0,0,0,0.08)] ${cardBg}`}>
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] ${iconBg}`}>
+        {icon}
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className={`text-[13px] font-medium ${subtextColor}`}>{title}</span>
+        <div className="flex items-baseline gap-2">
+          <span className={`text-[22px] font-bold leading-none tracking-tight ${textColor}`}>{value}</span>
+          <span className={`text-[13px] font-semibold ${changeColor}`}>{change}</span>
+        </div>
+      </div>
     </div>
-  );
-}
-
-function IntegrationsCard({ isDark }: { isDark: boolean }) {
-  return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Vos intégrations" />
-
-      <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-1 text-center">
-        <div
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-full",
-            isDark ? "bg-white/5" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-4 w-4",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8 8h8v8H8z" />
-            <path d="M4 12h4M16 12h4M12 4v4M12 16v4" />
-          </svg>
-        </div>
-        <p
-          className={[
-            "text-[12.5px] font-medium",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          Aucune intégration
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => navigate("integrations")}
-        className={[
-          "mt-3 w-full rounded-full py-1.5 text-[12.5px] font-semibold transition",
-          isDark
-            ? "bg-white/10 text-white hover:bg-white/15"
-            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
-        ].join(" ")}
-      >
-        Gérer
-      </button>
-    </DashboardCard>
-  );
-}
-
-/**
- * Empty state : cercle avec "+", titre court, bouton.
- * Textes volontairement très courts.
- */
-function UpcomingPostsCard({
-  isDark,
-  onPlan,
-}: {
-  isDark: boolean;
-  onPlan: () => void;
-}) {
-  return (
-    <DashboardCard isDark={isDark}>
-      <CardHeading isDark={isDark} title="Publications à venir" />
-
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <div
-          className={[
-            "flex h-14 w-14 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.06]" : "bg-neutral-100",
-          ].join(" ")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className={[
-              "h-6 w-6",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </div>
-
-        <p
-          className={[
-            "text-[15px] font-bold leading-tight",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          Aucune publication
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={onPlan}
-        className={[
-          "mx-auto mt-4 rounded-[10px] px-5 py-2 text-[13px] font-bold transition",
-          isDark
-            ? "bg-white/[0.08] text-white hover:bg-white/[0.12]"
-            : "bg-neutral-900 text-white hover:bg-neutral-800",
-        ].join(" ")}
-      >
-        Planifier
-      </button>
-    </DashboardCard>
   );
 }
 
@@ -1018,16 +917,36 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Ligne du haut : 3 colonnes de largeur égale.
-                Streak, Intégrations et Publications à venir se partagent
-                la largeur totale à parts égales. */}
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StreakStepsWidget isDark={isDark} />
-              <IntegrationsCard isDark={isDark} />
-              <UpcomingPostsCard
-                isDark={isDark}
-                onPlan={() => setIsNewPostOpen(true)}
-              />
+            {/* Ligne du haut : Streak (1 col) + Stats (3 cols) sur grand écran.
+                Sur mobile, tout s'empile. */}
+            <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-4">
+              <div className="lg:col-span-1">
+                <StreakStepsWidget isDark={isDark} />
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-3">
+                <StatCard
+                  isDark={isDark}
+                  title="Total Followers"
+                  value="27K"
+                  change="- 2%"
+                  icon={<UsersIcon className="h-6 w-6" />}
+                />
+                <StatCard
+                  isDark={isDark}
+                  title="Total Likes"
+                  value="12445"
+                  change="+ 16%"
+                  icon={<HeartIcon className="h-6 w-6" />}
+                />
+                <StatCard
+                  isDark={isDark}
+                  title="Total Comments"
+                  value="342"
+                  change="+ 5%"
+                  icon={<CommentIcon className="h-6 w-6" />}
+                />
+              </div>
             </div>
 
             <ConnectFirstChannelWidget
