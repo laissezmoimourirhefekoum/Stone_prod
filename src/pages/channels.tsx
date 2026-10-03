@@ -15,7 +15,13 @@ import {
   getPinterestStatus,
   startPinterestLogin,
   disconnectPinterest,
+  connectPinterestWithToken,
 } from "../services/pinterest";
+import {
+  getYouTubeStatus,
+  startYouTubeLogin,
+  disconnectYouTube,
+} from "../services/youtube";
 import {
   CACHE_MAX_AGE_MS,
   clearCache,
@@ -83,7 +89,7 @@ type ThemeTokens = {
   menuItem: string;
 };
 
-// Réponse commune des endpoints /status (TikTok et Pinterest).
+// Réponse commune des endpoints /status (TikTok, Pinterest, YouTube).
 type StatusResponse = {
   connected: boolean;
   account:
@@ -161,7 +167,7 @@ const initialConnections: ConnectionState = {
 };
 
 // Réseaux branchés sur un vrai OAuth (les autres sont encore des placeholders).
-const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest"];
+const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest", "youtube"];
 
 /* ============================================================================
    Icônes locales
@@ -263,11 +269,11 @@ function formatOAuthError(provider: string, error: unknown): string {
 
 function mockHandleFor(key: ChannelKey): string {
   // Valeurs fictives utilisées uniquement par les placeholders
-  // (TikTok et Pinterest utilisent maintenant le vrai profil).
+  // (TikTok, Pinterest et YouTube utilisent maintenant le vrai profil).
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
     tiktok: "",
-    youtube: "Ronan Studio",
+    youtube: "",
     facebook: "Ronan Studio Page",
     pinterest: "",
     threads: "@ronan.studio",
@@ -661,18 +667,20 @@ export default function Channels({
   const { user } = useUser();
   const userId = user?.id ?? null;
 
-  // État initial lu depuis le cache : les profils TikTok et Pinterest
+  // État initial lu depuis le cache : les profils TikTok, Pinterest et YouTube
   // s'affichent tout de suite quand on revient sur la page, sans clignotement.
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
 
     const tiktok = readCache(userId, "tiktok");
     const pinterest = readCache(userId, "pinterest");
+    const youtube = readCache(userId, "youtube");
 
     return {
       ...initialConnections,
       ...(tiktok ? { tiktok: tiktok.connection } : {}),
       ...(pinterest ? { pinterest: pinterest.connection } : {}),
+      ...(youtube ? { youtube: youtube.connection } : {}),
     };
   });
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
@@ -682,6 +690,7 @@ export default function Channels({
   // Empêche un double clic de lancer deux OAuth en parallèle.
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
+  const youtubeBusy = useRef(false);
 
   const connectedChannels = useMemo(
     () => CHANNELS.filter((channel) => connections[channel.key].connected),
@@ -695,8 +704,8 @@ export default function Channels({
   useEffect(() => {
     if (!userId) return;
 
-    /* 1) Retour d'un réseau : /#/channels?tiktok=connected, ?pinterest=connected
-          ou ?tiktok_error=... / ?pinterest_error=...
+    /* 1) Retour d'un réseau : /#/channels?tiktok=connected, ?pinterest=connected,
+          ?youtube=connected ou ?<réseau>_error=...
           Avec le routage par hash, la query est DANS le hash, pas dans
           window.location.search. */
     const hash = window.location.hash;
@@ -708,10 +717,12 @@ export default function Channels({
 
     const tiktokError = params.get("tiktok_error");
     const pinterestError = params.get("pinterest_error");
+    const youtubeError = params.get("youtube_error");
 
     const returned: Record<CacheProvider, boolean> = {
       tiktok: params.has("tiktok") || Boolean(tiktokError),
       pinterest: params.has("pinterest") || Boolean(pinterestError),
+      youtube: params.has("youtube") || Boolean(youtubeError),
     };
 
     if (tiktokError) {
@@ -720,15 +731,24 @@ export default function Channels({
     if (pinterestError) {
       setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
     }
+    if (youtubeError) {
+      setErrorMessage(`Unable to connect to YouTube. ${youtubeError}`);
+    }
 
     // Nouvelle connexion : on force un rechargement du profil.
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
+    if (returned.youtube) clearCache(userId, "youtube");
 
-    if (returned.tiktok || returned.pinterest) {
-      ["tiktok", "tiktok_error", "pinterest", "pinterest_error"].forEach((k) =>
-        params.delete(k)
-      );
+    if (returned.tiktok || returned.pinterest || returned.youtube) {
+      [
+        "tiktok",
+        "tiktok_error",
+        "pinterest",
+        "pinterest_error",
+        "youtube",
+        "youtube_error",
+      ].forEach((k) => params.delete(k));
       const query = params.toString();
 
       // On nettoie l'URL pour ne pas réafficher le message au rafraîchissement.
@@ -785,6 +805,7 @@ export default function Channels({
 
     sync("tiktok", returned.tiktok, getTikTokStatus);
     sync("pinterest", returned.pinterest, getPinterestStatus);
+    sync("youtube", returned.youtube, getYouTubeStatus);
 
     return () => {
       cancelled = true;
@@ -895,6 +916,25 @@ export default function Channels({
           ...current,
           pinterest: { connected: false },
         }));
+      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+        // Mode dev : pas de redirect URI tant que l'app n'est pas approuvée.
+        const token = window.prompt(
+          "Pinterest access token (généré dans le portail développeur) :"
+        );
+
+        if (!token?.trim()) return; // le finally réinitialise l'état
+
+        const account = await connectPinterestWithToken(token.trim());
+
+        const connection: Connection = {
+          connected: true,
+          handle: account?.display_name ?? undefined,
+          avatarUrl: account?.avatar_url ?? undefined,
+        };
+
+        if (userId) writeCache(userId, connection, "pinterest");
+
+        setConnections((current) => ({ ...current, pinterest: connection }));
       } else {
         console.log("[Stone] Starting Pinterest OAuth");
 
@@ -913,11 +953,49 @@ export default function Channels({
     }
   };
 
+  /* ── YouTube : vrai OAuth Google ── */
+
+  const handleYouTubeToggle = async () => {
+    if (youtubeBusy.current) return;
+    youtubeBusy.current = true;
+
+    setPendingKey("youtube");
+
+    let redirecting = false;
+
+    try {
+      if (connections.youtube.connected) {
+        console.log("[Stone] Disconnecting YouTube");
+        await disconnectYouTube();
+
+        if (userId) clearCache(userId, "youtube");
+
+        setConnections((current) => ({
+          ...current,
+          youtube: { connected: false },
+        }));
+      } else {
+        console.log("[Stone] Starting YouTube OAuth");
+
+        // POST /api/youtube/auth/url puis window.location.assign(url).
+        await startYouTubeLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] YouTube OAuth error:", error);
+      setErrorMessage(formatOAuthError("YouTube", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        youtubeBusy.current = false;
+      }
+    }
+  };
+
   /* ── Autres réseaux : PLACEHOLDER uniquement (pas de vrai OAuth) ── */
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
     // TODO: implement Instagram OAuth
-    // TODO: implement YouTube OAuth
     // TODO: implement Facebook OAuth
     // TODO: implement Threads OAuth
     setPendingKey(key);
@@ -953,6 +1031,12 @@ export default function Channels({
     if (key === "pinterest") {
       console.log("[Stone] Pinterest button clicked");
       void handlePinterestToggle();
+      return;
+    }
+
+    if (key === "youtube") {
+      console.log("[Stone] YouTube button clicked");
+      void handleYouTubeToggle();
       return;
     }
 

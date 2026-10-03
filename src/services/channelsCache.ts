@@ -12,7 +12,7 @@ export type Connection = {
   avatarUrl?: string;
 };
 
-export type CacheProvider = "tiktok" | "pinterest";
+export type CacheProvider = "tiktok" | "pinterest" | "youtube";
 
 export type CachedProfile = { connection: Connection; savedAt: number };
 
@@ -25,6 +25,7 @@ export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
 const CACHE_PREFIXES: Record<CacheProvider, string> = {
   tiktok: "stone_tiktok_profile_",
   pinterest: "stone_pinterest_profile_",
+  youtube: "stone_youtube_profile_",
 };
 
 const memoryCache = new Map<string, CachedProfile>();

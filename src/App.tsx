@@ -21,35 +21,45 @@ import Privacy from "./pages/Privacy";
 import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
+import YouTubeCallback from "./pages/YouTubeCallback";
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { saveOAuthSession } from "./services/supabase";
 
 /* ──────────────────────────────────────────────────────────────
-   INTERCEPTION DU RETOUR TIKTOK / PINTEREST
+   INTERCEPTION DU RETOUR TIKTOK / PINTEREST / YOUTUBE
    Exécuté AVANT le montage de React ET avant le handler OAuth
    Supabase ci-dessous.
 
    Cas normal : /tiktok/callback?code=...&state=...
                 /pinterest/callback?code=...&state=...
+                /youtube/callback?code=...&state=...
    Cas rattrapé (redirect_uri mal configuré) :
                 /#/tiktok/#/callback?code=...&state=...
                 /#/pinterest/#/callback?code=...&state=...
+                /#/youtube/#/callback?code=...&state=...
    On range les paramètres dans sessionStorage, puis on bascule
-   sur la route hash : /#/tiktok-callback ou /#/pinterest-callback
+   sur la route hash : /#/tiktok-callback, /#/pinterest-callback
+   ou /#/youtube-callback
    ────────────────────────────────────────────────────────────── */
 
-// Doivent rester identiques à ceux de TikTokCallback.tsx / PinterestCallback.tsx
+// Doivent rester identiques à ceux de TikTokCallback.tsx, PinterestCallback.tsx
+// et YouTubeCallback.tsx
 const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
 const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
+const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
 
 /** Routes de retour OAuth : on les mémorise si l'utilisateur doit d'abord se connecter. */
-const OAUTH_CALLBACK_ROUTES = new Set(["tiktok-callback", "pinterest-callback"]);
+const OAUTH_CALLBACK_ROUTES = new Set([
+  "tiktok-callback",
+  "pinterest-callback",
+  "youtube-callback",
+]);
 
 function interceptOAuthCallback(
-  provider: "tiktok" | "pinterest",
+  provider: "tiktok" | "pinterest" | "youtube",
   storageKey: string
 ) {
   if (typeof window === "undefined") return;
@@ -89,6 +99,7 @@ function interceptOAuthCallback(
 
 interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
 
 /* ──────────────────────────────────────────────────────────────
    INTERCEPTION DU RETOUR OAUTH (Google, etc.)
@@ -342,6 +353,7 @@ const PROTECTED_ROUTES = new Set([
   "channels",
   "tiktok-callback",
   "pinterest-callback",
+  "youtube-callback",
 ]);
 
 /** Routes qui affichent la page Templates (3 onglets). */
@@ -415,7 +427,7 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
   useGentleWheelScroll(isLanding || isPricing);
 
   /* Garde de routes :
-     - déconnecté + page privée  → signin (en mémorisant le callback TikTok / Pinterest)
+     - déconnecté + page privée  → signin (en mémorisant le callback TikTok / Pinterest / YouTube)
      - connecté + route en attente (post_login_route) → on y retourne
      - connecté + signin/signup  → home
      La landing, pricing, faq, tos et privacy restent accessibles dans les deux cas. */
@@ -524,6 +536,15 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <PinterestCallback />
+      </div>
+    );
+  }
+
+  /* Retour OAuth YouTube / Google (échange du code contre les tokens) */
+  if (route === "youtube-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <YouTubeCallback />
       </div>
     );
   }
