@@ -95,92 +95,78 @@ function computeTotals(channels: ConnectedChannel[]) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Brutalist primitives                                                      */
+/*  Tokens                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** Conteneur dur : bordure nette + ombre offset. */
-function Block({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "relative border-2",
-        isDark
-          ? "border-white bg-black text-white shadow-[6px_6px_0_0_#ffffff]"
-          : "border-black bg-white text-black shadow-[6px_6px_0_0_#000000]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
+function useSurface(isDark: boolean) {
+  return {
+    border: isDark ? "border-white/[0.08]" : "border-black/[0.06]",
+    divide: isDark ? "divide-white/[0.08]" : "divide-black/[0.06]",
+    muted: isDark ? "text-neutral-500" : "text-neutral-500",
+    mutedStrong: isDark ? "text-neutral-400" : "text-neutral-500",
+    fg: isDark ? "text-white" : "text-neutral-900",
+    subtleBg: isDark ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.02]",
+  };
 }
 
-/** Bloc inversé (fond = couleur du texte, texte = fond). */
-function InvertedBlock({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "relative border-2",
-        isDark
-          ? "border-white bg-white text-black shadow-[6px_6px_0_0_#ffffff]"
-          : "border-black bg-black text-white shadow-[6px_6px_0_0_#000000]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Eyebrow({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={[
-        "font-mono text-[10.5px] font-bold uppercase tracking-[0.22em]",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </span>
-  );
-}
+/* -------------------------------------------------------------------------- */
+/*  Icons                                                                     */
+/* -------------------------------------------------------------------------- */
 
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="2.6" strokeLinecap="square">
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
 
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
+function ArrowRightIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none"
-      stroke="currentColor" strokeWidth="2.4" strokeLinecap="square">
-      <path d="M5 12h14M13 6l6 6-6 6" />
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function StatGlyph({
+  kind,
+  className = "h-3.5 w-3.5",
+}: {
+  kind: "followers" | "likes" | "comments";
+  className?: string;
+}) {
+  const common = {
+    viewBox: "0 0 24 24",
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.6,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (kind === "followers") {
+    return (
+      <svg {...common}>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 19.5c.7-3 3-4.8 5.5-4.8s4.8 1.8 5.5 4.8" />
+        <path d="M16.5 5.5a2.7 2.7 0 0 1 0 5M18.5 15c1.5.7 2.5 2.2 2.8 4.5" />
+      </svg>
+    );
+  }
+  if (kind === "likes") {
+    return (
+      <svg {...common}>
+        <path d="M12 19.5S4.5 15.3 4.5 9.8A3.8 3.8 0 0 1 12 7.2a3.8 3.8 0 0 1 7.5 2.6c0 5.5-7.5 9.7-7.5 9.7Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M20.5 12a7.8 7.8 0 0 1-11.3 7L4.5 20l1-4.3A7.8 7.8 0 1 1 20.5 12Z" />
     </svg>
   );
 }
@@ -205,8 +191,8 @@ function Avatar({
   return (
     <div
       className={[
-        "relative h-11 w-11 shrink-0 border-2",
-        isDark ? "border-white" : "border-black",
+        "relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1",
+        isDark ? "ring-white/10" : "ring-black/[0.06]",
       ].join(" ")}
     >
       {show ? (
@@ -215,10 +201,15 @@ function Avatar({
           src={avatarUrl!}
           alt=""
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover grayscale"
+          className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center font-mono text-[13px] font-bold">
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center text-[12px] font-medium",
+            isDark ? "bg-white/[0.06] text-white" : "bg-black/[0.04] text-neutral-900",
+          ].join(" ")}
+        >
           {initials}
         </div>
       )}
@@ -226,7 +217,7 @@ function Avatar({
   );
 }
 
-function ClockBlock({ isDark }: { isDark: boolean }) {
+function TimeDisplay({ isDark }: { isDark: boolean }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 15000);
@@ -237,264 +228,115 @@ function ClockBlock({ isDark }: { isDark: boolean }) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const date = now
-    .toLocaleDateString("fr-FR", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
-    .toUpperCase();
+  const date = now.toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+  return (
+    <span
+      className={[
+        "hidden items-center gap-1.5 text-[12.5px] font-medium tabular-nums sm:flex",
+        isDark ? "text-neutral-500" : "text-neutral-500",
+      ].join(" ")}
+    >
+      <span>{time}</span>
+      <span className="opacity-40">·</span>
+      <span className="capitalize">{date}</span>
+    </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Stats : bandeau horizontal épuré                                          */
+/* -------------------------------------------------------------------------- */
+
+function StatsOverview({
+  isDark,
+  totals,
+  networkCount,
+}: {
+  isDark: boolean;
+  totals: { followers: number; likes: number; comments: number };
+  networkCount: number;
+}) {
+  const s = useSurface(isDark);
+
+  const items = [
+    { kind: "followers" as const, label: "Abonnés", value: totals.followers },
+    { kind: "likes" as const, label: "Likes", value: totals.likes },
+    { kind: "comments" as const, label: "Commentaires", value: totals.comments },
+  ];
 
   return (
     <div
       className={[
-        "flex items-stretch border-2",
-        isDark ? "border-white" : "border-black",
+        "grid grid-cols-1 divide-y overflow-hidden rounded-2xl border sm:grid-cols-3 sm:divide-x sm:divide-y-0",
+        s.border,
+        s.divide,
+        isDark ? "bg-white/[0.015]" : "bg-white",
       ].join(" ")}
     >
-      <div
-        className={[
-          "flex items-center px-3",
-          isDark ? "bg-white text-black" : "bg-black text-white",
-        ].join(" ")}
-      >
-        <span className="font-mono text-[10.5px] font-bold tracking-[0.22em]">
-          LIVE
-        </span>
-      </div>
-      <div
-        className={[
-          "flex items-baseline gap-3 px-3 py-2 font-mono text-[12px]",
-          isDark ? "text-white" : "text-black",
-        ].join(" ")}
-      >
-        <span className="text-[15px] font-bold tabular-nums tracking-[0.04em]">
-          {time}
-        </span>
-        <span
-          className={[
-            "font-mono text-[10.5px] font-bold tracking-[0.14em]",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          {date}
-        </span>
-      </div>
+      {items.map((item) => (
+        <div key={item.kind} className="flex flex-col gap-3 px-6 py-7">
+          <div
+            className={[
+              "flex items-center gap-2 text-[12.5px] font-medium",
+              s.muted,
+            ].join(" ")}
+          >
+            <StatGlyph kind={item.kind} className="h-3.5 w-3.5" />
+            {item.label}
+          </div>
+          <p
+            className={[
+              "font-display text-[clamp(32px,3.4vw,44px)] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+              s.fg,
+            ].join(" ")}
+          >
+            {numberFormatter.format(item.value)}
+          </p>
+          <p className={["text-[12px] font-medium", s.muted].join(" ")}>
+            {item.kind === "followers"
+              ? networkCount > 0
+                ? `sur ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
+                : "aucun réseau connecté"
+              : item.kind === "likes"
+                ? "toutes publications"
+                : "reçus au total"}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Hero                                                                      */
+/*  Réseaux : liste épurée                                                    */
 /* -------------------------------------------------------------------------- */
 
-function HeroBlock({
-  isDark,
-  followers,
-  networkCount,
-}: {
-  isDark: boolean;
-  followers: number;
-  networkCount: number;
-}) {
-  return (
-    <InvertedBlock isDark={isDark} className="flex h-full flex-col">
-      {/* Bandeau supérieur : label + count */}
-      <div className="flex items-center justify-between border-b-2 border-current px-5 py-3">
-        <Eyebrow>01 / Abonnés cumulés</Eyebrow>
-        <span className="font-mono text-[11px] font-bold tabular-nums tracking-[0.14em]">
-          {networkCount.toString().padStart(2, "0")} RÉSEAUX
-        </span>
-      </div>
-
-      {/* Chiffre géant */}
-      <div className="flex flex-1 flex-col justify-center px-5 py-8">
-        <p className="font-display text-[clamp(72px,13vw,180px)] font-black leading-[0.78] tracking-[-0.06em] tabular-nums">
-          {numberFormatter.format(followers)}
-        </p>
-      </div>
-
-      {/* Bandeau inférieur */}
-      <div className="border-t-2 border-current px-5 py-3">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] opacity-70">
-          → Publiez pour faire monter la barre
-        </p>
-      </div>
-    </InvertedBlock>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Tuile chiffre simple                                                      */
-/* -------------------------------------------------------------------------- */
-
-function NumberBlock({
-  isDark,
-  index,
-  label,
-  value,
-}: {
-  isDark: boolean;
-  index: string;
-  label: string;
-  value: number;
-}) {
-  return (
-    <Block isDark={isDark} className="flex flex-col">
-      <div
-        className={[
-          "flex items-center justify-between border-b-2 px-4 py-2.5",
-          isDark ? "border-white" : "border-black",
-        ].join(" ")}
-      >
-        <Eyebrow>{index} / {label}</Eyebrow>
-      </div>
-      <div className="flex items-baseline px-4 py-5">
-        <p className="font-display text-[clamp(34px,4vw,56px)] font-black leading-none tracking-[-0.045em] tabular-nums">
-          {numberFormatter.format(value)}
-        </p>
-      </div>
-    </Block>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Streak                                                                    */
-/* -------------------------------------------------------------------------- */
-
-const WEEKDAYS_FR_SHORT = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
-
-function StreakBlock({ isDark }: { isDark: boolean }) {
-  const streakCount = 0;
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
-  });
-
-  return (
-    <Block isDark={isDark} className="flex flex-col">
-      <div
-        className={[
-          "flex items-center justify-between border-b-2 px-4 py-2.5",
-          isDark ? "border-white" : "border-black",
-        ].join(" ")}
-      >
-        <Eyebrow>04 / Série</Eyebrow>
-        <span
-          className={[
-            "font-mono text-[10.5px] font-bold tracking-[0.2em]",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          {streakCount > 0 ? "ACTIF" : "INACTIF"}
-        </span>
-      </div>
-
-      <div className="flex items-baseline gap-2 px-4 pt-5">
-        <p className="font-display text-[clamp(34px,4vw,56px)] font-black leading-none tracking-[-0.045em] tabular-nums">
-          {streakCount}
-        </p>
-        <span
-          className={[
-            "font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
-            isDark ? "text-neutral-400" : "text-neutral-500",
-          ].join(" ")}
-        >
-          {streakCount > 1 ? "JOURS" : "JOUR"}
-        </span>
-      </div>
-
-      <div
-        className={[
-          "mt-5 grid grid-cols-7 border-t-2",
-          isDark ? "border-white" : "border-black",
-        ].join(" ")}
-      >
-        {days.map((label, i) => {
-          const done = i < streakCount;
-          return (
-            <div
-              key={i}
-              className={[
-                "flex flex-col items-center gap-2 py-3",
-                i > 0
-                  ? isDark
-                    ? "border-l-2 border-white"
-                    : "border-l-2 border-black"
-                  : "",
-              ].join(" ")}
-            >
-              <span
-                className={[
-                  "font-mono text-[9px] font-bold tracking-[0.14em]",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
-                ].join(" ")}
-              >
-                {label}
-              </span>
-              <span
-                className={[
-                  "h-3 w-3 border-2",
-                  isDark ? "border-white" : "border-black",
-                  done ? (isDark ? "bg-white" : "bg-black") : "bg-transparent",
-                ].join(" ")}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </Block>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Réseaux                                                                   */
-/* -------------------------------------------------------------------------- */
-
-function ChannelRow({
-  isDark,
+function ChannelAvatar({
   channel,
-  index,
+  isDark,
+  Icon,
 }: {
-  isDark: boolean;
   channel: ConnectedChannel;
-  index: number;
+  isDark: boolean;
+  Icon?: (props: { className?: string }) => JSX.Element;
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [channel.avatarUrl]);
 
-  const networkId = getNetworkId(channel);
-  const Icon = networkId ? NETWORK_ICONS[networkId] : undefined;
   const label = (channel.handle || channel.name || "—").replace(/^@/, "");
-  const followers = readStat(channel, [
-    "followers", "followersCount", "followers_count",
-    "subscribers", "subscribersCount",
-  ]);
   const show = Boolean(channel.avatarUrl) && !failed;
 
   return (
-    <div
-      className={[
-        "flex items-center gap-4 border-t-2 px-4 py-3.5",
-        isDark ? "border-white" : "border-black",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "w-8 shrink-0 font-mono text-[11px] font-bold tabular-nums",
-          isDark ? "text-neutral-500" : "text-neutral-400",
-        ].join(" ")}
-      >
-        {(index + 1).toString().padStart(2, "0")}
-      </span>
-
+    <div className="relative h-9 w-9 shrink-0">
       <div
         className={[
-          "relative h-9 w-9 shrink-0 overflow-hidden border-2",
-          isDark ? "border-white" : "border-black",
+          "h-full w-full overflow-hidden rounded-full",
+          isDark ? "bg-white/[0.06]" : "bg-black/[0.04]",
         ].join(" ")}
       >
         {show ? (
@@ -503,72 +345,64 @@ function ChannelRow({
             alt=""
             referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
-            className="h-full w-full object-cover grayscale"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center font-mono text-[12px] font-bold">
+          <div
+            className={[
+              "flex h-full w-full items-center justify-center text-[12px] font-medium",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
             {label.charAt(0).toUpperCase() || "?"}
           </div>
         )}
       </div>
-
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      {Icon && (
         <span
           className={[
-            "truncate font-mono text-[13px] font-bold",
-            isDark ? "text-white" : "text-black",
+            "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full ring-2",
+            isDark
+              ? "bg-[#0a0a0a] text-white ring-[#0a0a0a]"
+              : "bg-white text-neutral-900 ring-white",
           ].join(" ")}
         >
-          @{label}
+          <Icon className="h-2.5 w-2.5" />
         </span>
-        {Icon && (
-          <span
-            className={[
-              "flex h-5 w-5 shrink-0 items-center justify-center border-2",
-              isDark ? "border-white text-white" : "border-black text-black",
-            ].join(" ")}
-          >
-            <Icon className="h-2.5 w-2.5" />
-          </span>
-        )}
-      </div>
-
-      <span
-        className={[
-          "shrink-0 font-mono text-[12px] font-bold tabular-nums",
-          isDark ? "text-white" : "text-black",
-        ].join(" ")}
-      >
-        {numberFormatter.format(followers)}
-      </span>
+      )}
     </div>
   );
 }
 
-function ChannelsBlock({
+function ChannelsSection({
   isDark,
   channels,
 }: {
   isDark: boolean;
   channels: ConnectedChannel[];
 }) {
+  const s = useSurface(isDark);
+
   return (
-    <Block isDark={isDark} className="flex flex-col">
-      <div
-        className={[
-          "flex items-center justify-between border-b-2 px-4 py-3",
-          isDark ? "border-white" : "border-black",
-        ].join(" ")}
-      >
-        <Eyebrow>05 / Réseaux connectés</Eyebrow>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <h2 className={["text-[14px] font-semibold", s.fg].join(" ")}>
+            Réseaux connectés
+          </h2>
+          {channels.length > 0 && (
+            <span className={["text-[12.5px] font-medium", s.muted].join(" ")}>
+              {channels.length}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => navigate("channels")}
           className={[
-            "flex items-center gap-2 border-2 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition",
-            isDark
-              ? "border-white bg-white text-black hover:bg-black hover:text-white"
-              : "border-black bg-black text-white hover:bg-white hover:text-black",
+            "flex items-center gap-1 text-[12.5px] font-medium transition",
+            s.muted,
+            isDark ? "hover:text-white" : "hover:text-neutral-900",
           ].join(" ")}
         >
           <PlusIcon className="h-3 w-3" />
@@ -581,99 +415,124 @@ function ChannelsBlock({
           type="button"
           onClick={() => navigate("channels")}
           className={[
-            "flex flex-col items-start gap-1.5 px-5 py-8 text-left transition",
-            isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+            "flex w-full flex-col items-start gap-1 rounded-2xl border border-dashed px-5 py-6 text-left transition",
+            s.border,
+            s.subtleBg,
           ].join(" ")}
         >
-          <span className="font-display text-[18px] font-bold tracking-[-0.02em]">
+          <span className={["text-[13.5px] font-medium", s.fg].join(" ")}>
             Aucun réseau connecté
           </span>
-          <span
-            className={[
-              "font-mono text-[11.5px] font-bold uppercase tracking-[0.14em]",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            → Cliquez pour relier un canal
+          <span className={["text-[12.5px]", s.muted].join(" ")}>
+            Reliez un canal pour commencer à publier.
           </span>
         </button>
       ) : (
-        <div className="flex flex-col">
-          {/* En-tête tabulaire */}
-          <div
-            className={[
-              "flex items-center gap-4 border-b-2 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em]",
-              isDark
-                ? "border-white text-neutral-500"
-                : "border-black text-neutral-500",
-            ].join(" ")}
-          >
-            <span className="w-8">#</span>
-            <span className="w-9">—</span>
-            <span className="flex-1">Canal</span>
-            <span>Abonnés</span>
-          </div>
-          <div className="flex flex-col">
-            {channels.map((channel, i) => (
-              <ChannelRow
-                key={channel.key}
-                isDark={isDark}
-                channel={channel}
-                index={i}
-              />
-            ))}
-          </div>
+        <div
+          className={[
+            "overflow-hidden rounded-2xl border",
+            s.border,
+            isDark ? "bg-white/[0.015]" : "bg-white",
+          ].join(" ")}
+        >
+          <ul className={["divide-y", s.divide].join(" ")}>
+            {channels.map((channel) => {
+              const networkId = getNetworkId(channel);
+              const Icon = networkId ? NETWORK_ICONS[networkId] : undefined;
+              const followers = readStat(channel, [
+                "followers", "followersCount", "followers_count",
+                "subscribers", "subscribersCount",
+              ]);
+              const label = (channel.handle || channel.name || "—").replace(
+                /^@/,
+                ""
+              );
+              return (
+                <li
+                  key={channel.key}
+                  className={[
+                    "flex items-center gap-3 px-4 py-3 transition",
+                    s.subtleBg,
+                  ].join(" ")}
+                >
+                  <ChannelAvatar
+                    channel={channel}
+                    isDark={isDark}
+                    Icon={Icon}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={[
+                        "truncate text-[13.5px] font-medium",
+                        s.fg,
+                      ].join(" ")}
+                    >
+                      @{label}
+                    </p>
+                  </div>
+                  <p
+                    className={[
+                      "shrink-0 text-[12.5px] font-medium tabular-nums",
+                      s.muted,
+                    ].join(" ")}
+                  >
+                    {numberFormatter.format(followers)}{" "}
+                    <span className="opacity-70">abonnés</span>
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
-    </Block>
+    </section>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Compose                                                                   */
+/*  Compose : ligne simple                                                    */
 /* -------------------------------------------------------------------------- */
 
-function ComposeBlock({
+function ComposeRow({
   isDark,
   onPlan,
 }: {
   isDark: boolean;
   onPlan: () => void;
 }) {
+  const s = useSurface(isDark);
+
   return (
-    <InvertedBlock isDark={isDark} className="flex flex-col">
-      <div className="flex items-center justify-between border-b-2 border-current px-5 py-3">
-        <Eyebrow>06 / Action</Eyebrow>
-        <span className="font-mono text-[11px] font-bold tracking-[0.14em]">
-          ⌘ + N
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-5 px-5 py-7 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h3 className="font-display text-[clamp(26px,3.4vw,44px)] font-black leading-[0.95] tracking-[-0.04em]">
-            Prêt à<br />publier ?
-          </h3>
-          <p className="mt-3 max-w-[380px] font-mono text-[11.5px] font-bold uppercase tracking-[0.12em] opacity-65">
-            Rédigez ou planifiez en quelques secondes.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onPlan}
-          className={[
-            "flex shrink-0 items-center gap-3 border-2 px-5 py-3 font-mono text-[12px] font-bold uppercase tracking-[0.16em] transition",
-            isDark
-              ? "border-black bg-black text-white hover:bg-transparent hover:text-black"
-              : "border-white bg-white text-black hover:bg-transparent hover:text-white",
-          ].join(" ")}
-        >
-          <PlusIcon className="h-4 w-4" />
+    <div
+      className={[
+        "flex flex-col items-start justify-between gap-4 rounded-2xl border px-6 py-5 sm:flex-row sm:items-center",
+        s.border,
+        isDark ? "bg-white/[0.015]" : "bg-white",
+      ].join(" ")}
+    >
+      <div className="min-w-0">
+        <p className={["text-[14px] font-semibold", s.fg].join(" ")}>
           Nouvelle publication
-        </button>
+        </p>
+        <p className={["mt-0.5 text-[12.5px]", s.muted].join(" ")}>
+          Rédigez ou planifiez sur tous vos canaux en quelques secondes.
+        </p>
       </div>
-    </InvertedBlock>
+
+      <button
+        type="button"
+        onClick={onPlan}
+        className={[
+          "flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-medium transition",
+          isDark
+            ? "bg-white text-neutral-900 hover:bg-neutral-200"
+            : "bg-neutral-900 text-white hover:bg-neutral-800",
+        ].join(" ")}
+      >
+        <PlusIcon className="h-3.5 w-3.5" />
+        Composer
+      </button>
+    </div>
   );
 }
 
@@ -692,21 +551,21 @@ const blogPostDefinitions: BlogPostDefinition[] = [
   {
     title:
       "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide",
-    date: "24.07.2026",
+    date: "Jul 24, 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-strategy/800/560",
     href: "#",
   },
   {
     title:
       "17 Best AI Tools for Social Media Content Creation (Tested for 2026)",
-    date: "03.08.2026",
+    date: "Aug 3, 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/800/560",
     href: "#",
   },
   {
     title:
       "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro",
-    date: "06.07.2026",
+    date: "Jul 6, 2026",
     imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/800/560",
     href: "#",
   },
@@ -715,55 +574,50 @@ const blogPostDefinitions: BlogPostDefinition[] = [
 function BlogCard({
   isDark,
   post,
-  index,
 }: {
   isDark: boolean;
   post: BlogPostDefinition;
-  index: number;
 }) {
+  const s = useSurface(isDark);
+
   return (
     <a
       href={post.href}
       className={[
-        "group flex flex-col border-2 transition",
+        "group flex flex-col overflow-hidden rounded-2xl border transition",
+        s.border,
         isDark
-          ? "border-white bg-black hover:bg-white hover:text-black"
-          : "border-black bg-white hover:bg-black hover:text-white",
+          ? "bg-white/[0.015] hover:bg-white/[0.03]"
+          : "bg-white hover:bg-black/[0.015]",
       ].join(" ")}
     >
-      <div
-        className={[
-          "flex items-center justify-between border-b-2 px-3 py-2",
-          isDark ? "border-white group-hover:border-black" : "border-black group-hover:border-white",
-        ].join(" ")}
-      >
-        <span className="font-mono text-[10px] font-bold tracking-[0.2em]">
-          {(index + 1).toString().padStart(2, "0")} / BLOG
-        </span>
-        <span className="font-mono text-[10px] font-bold tracking-[0.14em] opacity-60">
-          {post.date}
-        </span>
-      </div>
-
-      <div className="h-[140px] w-full shrink-0 overflow-hidden">
+      <div className="aspect-[16/10] w-full overflow-hidden">
         <img
           src={post.imageUrl}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover grayscale contrast-125 transition duration-500 group-hover:scale-[1.02]"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
       </div>
 
-      <div
-        className={[
-          "flex flex-1 flex-col gap-3 border-t-2 p-3.5",
-          isDark ? "border-white group-hover:border-black" : "border-black group-hover:border-white",
-        ].join(" ")}
-      >
-        <p className="line-clamp-3 font-display text-[15px] font-bold leading-[1.15] tracking-[-0.02em]">
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <p className={["text-[12px] font-medium", s.muted].join(" ")}>
+          {post.date}
+        </p>
+        <p
+          className={[
+            "line-clamp-2 text-[14px] font-medium leading-snug tracking-[-0.005em]",
+            s.fg,
+          ].join(" ")}
+        >
           {post.title}
         </p>
-        <span className="mt-auto inline-flex items-center gap-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.16em]">
+        <span
+          className={[
+            "mt-auto inline-flex items-center gap-1.5 pt-2 text-[12px] font-medium",
+            s.muted,
+          ].join(" ")}
+        >
           Lire
           <ArrowRightIcon className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </span>
@@ -772,33 +626,33 @@ function BlogCard({
   );
 }
 
-function BlogBlock({ isDark }: { isDark: boolean }) {
+function BlogSection({ isDark }: { isDark: boolean }) {
+  const s = useSurface(isDark);
+
   return (
-    <Block isDark={isDark} className="flex flex-col">
-      <div
-        className={[
-          "flex items-center justify-between border-b-2 px-4 py-3",
-          isDark ? "border-white" : "border-black",
-        ].join(" ")}
-      >
-        <Eyebrow>07 / From the blog</Eyebrow>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className={["text-[14px] font-semibold", s.fg].join(" ")}>
+          From the blog
+        </h2>
         <a
           href="#"
           className={[
-            "font-mono text-[11px] font-bold uppercase tracking-[0.14em] underline-offset-4 hover:underline",
-            isDark ? "text-white" : "text-black",
+            "text-[12.5px] font-medium transition",
+            s.muted,
+            isDark ? "hover:text-white" : "hover:text-neutral-900",
           ].join(" ")}
         >
-          Voir tout →
+          Voir tout
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-        {blogPostDefinitions.map((post, i) => (
-          <BlogCard key={post.title} isDark={isDark} post={post} index={i} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {blogPostDefinitions.map((post) => (
+          <BlogCard key={post.title} isDark={isDark} post={post} />
         ))}
       </div>
-    </Block>
+    </section>
   );
 }
 
@@ -866,81 +720,60 @@ export default function Home() {
     <main
       className={[
         "relative h-screen w-full overflow-hidden transition-colors duration-300",
-        isDark ? "bg-black" : "bg-[#eaeaea]",
+        isDark ? "bg-[#0a0a0a]" : "bg-[#fafafa]",
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex min-h-full w-full max-w-[1360px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(16px,2.4vw,28px)]">
+          <div className="mx-auto flex min-h-full w-full max-w-[1120px] flex-col gap-8 px-[clamp(20px,3vw,40px)] pb-[112px] pt-[clamp(20px,3vw,36px)]">
             {/* Header */}
-            <header className="flex flex-wrap items-end justify-between gap-4">
+            <header className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <p
+                  className={[
+                    "text-[13px] font-medium",
+                    isDark ? "text-neutral-500" : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  Bonjour
+                </p>
+                <h1
+                  title={fullName}
+                  className={[
+                    "mt-1 truncate font-display text-[clamp(24px,2.8vw,34px)] font-semibold leading-[1.1] tracking-[-0.025em]",
+                    isDark ? "text-white" : "text-neutral-900",
+                  ].join(" ")}
+                >
+                  {firstName || "Bienvenue"}.
+                </h1>
+              </div>
+
               <div className="flex items-center gap-4">
+                <TimeDisplay isDark={isDark} />
                 <Avatar
                   avatarUrl={user?.avatar_url}
                   initials={initials}
                   isDark={isDark}
                 />
-                <div className="min-w-0">
-                  <Eyebrow
-                    className={
-                      isDark ? "text-neutral-500" : "text-neutral-500"
-                    }
-                  >
-                    Tableau de bord / {new Date().getFullYear()}
-                  </Eyebrow>
-                  <h1
-                    title={fullName}
-                    className={[
-                      "mt-1 font-display text-[clamp(24px,2.8vw,38px)] font-black leading-[0.95] tracking-[-0.045em]",
-                      isDark ? "text-white" : "text-black",
-                    ].join(" ")}
-                  >
-                    {firstName ? `Bonjour, ${firstName}.` : "Bonjour."}
-                  </h1>
-                </div>
               </div>
-              <ClockBlock isDark={isDark} />
             </header>
 
-            {/* Rangée bento : hero + colonne de chiffres */}
-            <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-              <div className="lg:col-span-7">
-                <HeroBlock
-                  isDark={isDark}
-                  followers={totals.followers}
-                  networkCount={connectedChannels.length}
-                />
-              </div>
+            <StatsOverview
+              isDark={isDark}
+              totals={totals}
+              networkCount={connectedChannels.length}
+            />
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:col-span-5">
-                <NumberBlock
-                  isDark={isDark}
-                  index="02"
-                  label="Likes"
-                  value={totals.likes}
-                />
-                <NumberBlock
-                  isDark={isDark}
-                  index="03"
-                  label="Commentaires"
-                  value={totals.comments}
-                />
-                <div className="sm:col-span-2">
-                  <StreakBlock isDark={isDark} />
-                </div>
-              </div>
-            </section>
+            <ChannelsSection isDark={isDark} channels={connectedChannels} />
 
-            <ChannelsBlock isDark={isDark} channels={connectedChannels} />
-
-            <ComposeBlock
+            <ComposeRow
               isDark={isDark}
               onPlan={() => setIsNewPostOpen(true)}
             />
 
-            <BlogBlock isDark={isDark} />
+            <BlogSection isDark={isDark} />
           </div>
         </div>
       </div>
