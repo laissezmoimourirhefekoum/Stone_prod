@@ -98,16 +98,12 @@ function computeTotals(channels: ConnectedChannel[]) {
 /*  Design tokens — neumorphisme                                              */
 /* -------------------------------------------------------------------------- */
 
-/** Palette unifiée : fond = surface pour un vrai effet neumorphique. */
 function useNeu(isDark: boolean) {
-  // Fond et surface partagent la même teinte en neumorphisme.
   const base = isDark ? "#1c1c1e" : "#ececec";
-  const baseRaised = isDark ? "#1e1e20" : "#f1f1f1";
   const text = isDark ? "#f5f5f7" : "#1a1a1a";
-  const muted = isDark ? "#8a8a8e" : "#8a8a8e";
+  const muted = "#8a8a8e";
   const faint = isDark ? "#6a6a6e" : "#a0a0a4";
 
-  // Ombres douces opposées (haut-gauche clair / bas-droite sombre)
   const raised = isDark
     ? "8px 8px 20px rgba(0,0,0,0.55), -8px -8px 20px rgba(255,255,255,0.03)"
     : "10px 10px 24px rgba(0,0,0,0.08), -10px -10px 24px rgba(255,255,255,0.95)";
@@ -124,40 +120,7 @@ function useNeu(isDark: boolean) {
     ? "inset 2px 2px 6px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(255,255,255,0.03)"
     : "inset 2px 2px 6px rgba(0,0,0,0.06), inset -2px -2px 6px rgba(255,255,255,0.9)";
 
-  return { base, baseRaised, text, muted, faint, raised, raisedSm, inset, insetSm };
-}
-
-/** Surface neumorphique « relief ». */
-function Neu({
-  isDark,
-  variant = "raised",
-  radius = "rounded-[32px]",
-  className = "",
-  style,
-  children,
-  as: Tag = "div",
-  ...rest
-}: {
-  isDark: boolean;
-  variant?: "raised" | "inset";
-  radius?: string;
-  className?: string;
-  style?: React.CSSProperties;
-  children?: ReactNode;
-  as?: any;
-} & Record<string, any>) {
-  const n = useNeu(isDark);
-  const shadow = variant === "inset" ? n.inset : n.raised;
-
-  return (
-    <Tag
-      className={[radius, className].join(" ")}
-      style={{ background: n.base, boxShadow: shadow, ...style }}
-      {...rest}
-    >
-      {children}
-    </Tag>
-  );
+  return { base, text, muted, faint, raised, raisedSm, inset, insetSm };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -222,47 +185,8 @@ function GlyphStreak({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Header                                                                    */
+/*  Header : profil complet à droite                                          */
 /* -------------------------------------------------------------------------- */
-
-function Avatar({
-  avatarUrl,
-  initials,
-  isDark,
-}: {
-  avatarUrl?: string | null;
-  initials: string;
-  isDark: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [avatarUrl]);
-  const show = Boolean(avatarUrl) && !failed;
-  const n = useNeu(isDark);
-
-  return (
-    <div
-      className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full"
-      style={{ boxShadow: n.raisedSm }}
-    >
-      {show ? (
-        <img
-          key={avatarUrl}
-          src={avatarUrl!}
-          alt=""
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div
-          className="flex h-full w-full items-center justify-center text-[12.5px] font-semibold"
-          style={{ background: n.base, color: n.text }}
-        >
-          {initials}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function TimePill({ isDark }: { isDark: boolean }) {
   const [now, setNow] = useState(() => new Date());
@@ -284,7 +208,7 @@ function TimePill({ isDark }: { isDark: boolean }) {
 
   return (
     <div
-      className="hidden items-center gap-2 rounded-full px-4 py-2 sm:flex"
+      className="flex items-center gap-2 rounded-full px-4 py-2"
       style={{ background: n.base, boxShadow: n.insetSm }}
     >
       <span
@@ -304,8 +228,72 @@ function TimePill({ isDark }: { isDark: boolean }) {
   );
 }
 
+function ProfileBlock({
+  isDark,
+  avatarUrl,
+  initials,
+  firstName,
+  fullName,
+}: {
+  isDark: boolean;
+  avatarUrl?: string | null;
+  initials: string;
+  firstName: string;
+  fullName: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [avatarUrl]);
+  const show = Boolean(avatarUrl) && !failed;
+  const n = useNeu(isDark);
+
+  return (
+    <div
+      className="flex items-center gap-4 rounded-full py-2 pl-5 pr-2"
+      style={{ background: n.base, boxShadow: n.raised }}
+    >
+      <div className="text-right">
+        <p
+          className="text-[11.5px] font-medium leading-none"
+          style={{ color: n.muted }}
+        >
+          Bonjour
+        </p>
+        <p
+          title={fullName}
+          className="mt-1.5 truncate font-display text-[15px] font-semibold leading-none tracking-[-0.015em]"
+          style={{ color: n.text }}
+        >
+          {firstName || "Bienvenue"}.
+        </p>
+      </div>
+
+      <div
+        className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full"
+        style={{ boxShadow: n.insetSm }}
+      >
+        {show ? (
+          <img
+            key={avatarUrl}
+            src={avatarUrl!}
+            alt=""
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center text-[12.5px] font-semibold"
+            style={{ background: n.base, color: n.text }}
+          >
+            {initials}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
-/*  Tuile stat individuelle (isolée)                                          */
+/*  Tuile stat individuelle                                                   */
 /* -------------------------------------------------------------------------- */
 
 function StatTile({
@@ -328,7 +316,6 @@ function StatTile({
       className="flex flex-col gap-4 rounded-[36px] p-6"
       style={{ background: n.base, boxShadow: n.raised }}
     >
-      {/* Pastille icône en creux */}
       <div
         className="flex h-10 w-10 items-center justify-center rounded-full"
         style={{ background: n.base, boxShadow: n.insetSm, color: n.text }}
@@ -337,10 +324,7 @@ function StatTile({
       </div>
 
       <div>
-        <p
-          className="text-[12px] font-medium"
-          style={{ color: n.muted }}
-        >
+        <p className="text-[12px] font-medium" style={{ color: n.muted }}>
           {label}
         </p>
         <p
@@ -432,11 +416,7 @@ function StreakTile({ isDark }: { isDark: boolean }) {
                 className="flex h-6 w-6 items-center justify-center rounded-full transition"
                 style={{
                   background: n.base,
-                  boxShadow: done
-                    ? n.raisedSm
-                    : isToday
-                      ? n.insetSm
-                      : n.insetSm,
+                  boxShadow: done ? n.raisedSm : n.insetSm,
                 }}
               >
                 {done && (
@@ -455,7 +435,7 @@ function StreakTile({ isDark }: { isDark: boolean }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Réseaux : liste en creux                                                  */
+/*  Réseaux                                                                   */
 /* -------------------------------------------------------------------------- */
 
 function ChannelAvatar({
@@ -526,10 +506,7 @@ function ChannelsSection({
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 px-2">
         <div className="flex items-baseline gap-2">
-          <h2
-            className="text-[14px] font-semibold"
-            style={{ color: n.text }}
-          >
+          <h2 className="text-[14px] font-semibold" style={{ color: n.text }}>
             Réseaux connectés
           </h2>
           {channels.length > 0 && (
@@ -545,11 +522,7 @@ function ChannelsSection({
           type="button"
           onClick={() => navigate("channels")}
           className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition active:scale-[0.97]"
-          style={{
-            background: n.base,
-            boxShadow: n.raisedSm,
-            color: n.text,
-          }}
+          style={{ background: n.base, boxShadow: n.raisedSm, color: n.text }}
         >
           <PlusIcon className="h-3 w-3" />
           Connecter
@@ -561,15 +534,9 @@ function ChannelsSection({
           type="button"
           onClick={() => navigate("channels")}
           className="flex flex-col items-start gap-1 rounded-[36px] px-6 py-7 text-left transition"
-          style={{
-            background: n.base,
-            boxShadow: n.inset,
-          }}
+          style={{ background: n.base, boxShadow: n.inset }}
         >
-          <span
-            className="text-[13.5px] font-semibold"
-            style={{ color: n.text }}
-          >
+          <span className="text-[13.5px] font-semibold" style={{ color: n.text }}>
             Aucun réseau connecté
           </span>
           <span className="text-[12.5px]" style={{ color: n.muted }}>
@@ -595,17 +562,10 @@ function ChannelsSection({
             return (
               <div
                 key={channel.key}
-                className="flex items-center gap-3 rounded-[26px] px-3 py-3 transition"
-                style={{
-                  background: n.base,
-                  boxShadow: n.raisedSm,
-                }}
+                className="flex items-center gap-3 rounded-[26px] px-3 py-3"
+                style={{ background: n.base, boxShadow: n.raisedSm }}
               >
-                <ChannelAvatar
-                  channel={channel}
-                  isDark={isDark}
-                  Icon={Icon}
-                />
+                <ChannelAvatar channel={channel} isDark={isDark} Icon={Icon} />
                 <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-[13.5px] font-semibold"
@@ -660,11 +620,7 @@ function ComposeTile({
         type="button"
         onClick={onPlan}
         className="flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-[12.5px] font-semibold transition active:scale-[0.97]"
-        style={{
-          background: n.base,
-          boxShadow: n.raisedSm,
-          color: n.text,
-        }}
+        style={{ background: n.base, boxShadow: n.raisedSm, color: n.text }}
       >
         <PlusIcon className="h-3.5 w-3.5" />
         Composer
@@ -736,10 +692,7 @@ function BlogCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-2 px-3 pb-3">
-        <p
-          className="text-[11.5px] font-medium"
-          style={{ color: n.muted }}
-        >
+        <p className="text-[11.5px] font-medium" style={{ color: n.muted }}>
           {post.date}
         </p>
         <p
@@ -860,35 +813,20 @@ export default function Home() {
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
         <div className="h-full overflow-y-auto">
           <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-8 px-[clamp(20px,3vw,40px)] pb-[112px] pt-[clamp(20px,3vw,36px)]">
-            {/* Header */}
-            <header className="flex items-end justify-between gap-4">
-              <div className="min-w-0">
-                <p
-                  className="text-[12.5px] font-medium"
-                  style={{ color: n.muted }}
-                >
-                  Bonjour
-                </p>
-                <h1
-                  title={fullName}
-                  className="mt-1 truncate font-display text-[clamp(24px,2.8vw,34px)] font-semibold leading-[1.1] tracking-[-0.025em]"
-                  style={{ color: n.text }}
-                >
-                  {firstName || "Bienvenue"}.
-                </h1>
-              </div>
+            {/* Header — heure à gauche, profil complet à droite */}
+            <header className="flex flex-wrap items-center justify-between gap-4">
+              <TimePill isDark={isDark} />
 
-              <div className="flex items-center gap-3">
-                <TimePill isDark={isDark} />
-                <Avatar
-                  avatarUrl={user?.avatar_url}
-                  initials={initials}
-                  isDark={isDark}
-                />
-              </div>
+              <ProfileBlock
+                isDark={isDark}
+                avatarUrl={user?.avatar_url}
+                initials={initials}
+                firstName={firstName}
+                fullName={fullName}
+              />
             </header>
 
-            {/* 4 tuiles stats séparées : Abonnés / Likes / Commentaires / Série */}
+            {/* 4 tuiles stats séparées */}
             <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile
                 isDark={isDark}
@@ -920,10 +858,7 @@ export default function Home() {
 
             <ChannelsSection isDark={isDark} channels={connectedChannels} />
 
-            <ComposeTile
-              isDark={isDark}
-              onPlan={() => setIsNewPostOpen(true)}
-            />
+            <ComposeTile isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
 
             <BlogSection isDark={isDark} />
           </div>
