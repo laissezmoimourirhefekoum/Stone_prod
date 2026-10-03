@@ -1,4 +1,5 @@
-﻿import React, {
+﻿// src/components/DashboardSidebar.tsx
+import React, {
   memo,
   useCallback,
   useEffect,
@@ -20,6 +21,7 @@ import {
   signOut,
   type UserProfile,
 } from "../services/supabase";
+import { useUser } from "../contexts/UserContext";
 import {
   XIcon,
   FacebookIcon,
@@ -33,6 +35,40 @@ import {
 import ConnectChannelModal, {
   type ConnectChannelModalProps,
 } from "./ConnectChannelModal";
+
+/* Config + services des réseaux : la sidebar est autonome, elle gère
+   elle-même l'état des connexions (comme la page Channels). */
+import {
+  CHANNELS,
+  PLAN,
+  REAL_OAUTH,
+  type ChannelKey,
+  type ConnectionState,
+} from "../pages/Channels";
+import {
+  getTikTokStatus,
+  startTikTokLogin,
+  disconnectTikTok,
+} from "../services/tiktok";
+import {
+  getPinterestStatus,
+  startPinterestLogin,
+  disconnectPinterest,
+  connectPinterestWithToken,
+} from "../services/pinterest";
+import {
+  getYouTubeStatus,
+  startYouTubeLogin,
+  disconnectYouTube,
+} from "../services/youtube";
+import {
+  CACHE_MAX_AGE_MS,
+  clearCache,
+  readCache,
+  writeCache,
+  type CacheProvider,
+  type Connection,
+} from "../services/channelsCache";
 
 /* ============================================================================
    Types
@@ -103,6 +139,19 @@ type ToggleOrigin = {
 
 type ToggleThemeFn = (origin?: ToggleOrigin) => void;
 
+/** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
+type StatusResponse = {
+  connected: boolean;
+  account:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null
+    | undefined;
+};
+
 /* ============================================================================
    Keyframes + global UI guards
 ============================================================================ */
@@ -140,10 +189,6 @@ const SIDEBAR_KEYFRAMES = `
   animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-/* Empêche la sélection de texte et le surlignage bleu sur tous les
-   contrôles interactifs de la sidebar (icônes, boutons, items de menu,
-   avatar, badges). Les éléments restent cliquables et interactifs :
-   on ne touche jamais à pointer-events. */
 #app-sidebar button,
 #app-sidebar [role="menuitem"],
 #app-sidebar [role="button"],
@@ -156,8 +201,6 @@ const SIDEBAR_KEYFRAMES = `
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Annule tout surlignage accidentel lors d'un drag qui démarrerait
-   sur un bouton / une icône. */
 #app-sidebar button::selection,
 #app-sidebar button *::selection,
 #app-sidebar svg::selection,
@@ -665,7 +708,6 @@ type SidebarChannelsProps = {
   onConnect: () => void;
 };
 
-/** Mémorise les réseaux dépliés entre deux changements de page. */
 const channelsMemory = { open: [] as string[] };
 
 const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
@@ -722,11 +764,12 @@ const PlusIcon = (p: IconProps) => (
   </Svg>
 );
 
-/* ============================================================================
-   Sous-éléments
-============================================================================ */
-
-const CHANNEL_LINKS: { label: string; route: string; icon: IconComponent; badge?: string }[] = [
+const CHANNEL_LINKS: {
+  label: string;
+  route: string;
+  icon: IconComponent;
+  badge?: string;
+}[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
   { label: "Community", route: "community", icon: CommunityIcon },
   { label: "Insights", route: "analytics", icon: InsightsIcon, badge: "New" },
@@ -782,10 +825,6 @@ function ChannelAvatar({
   );
 }
 
-/* ============================================================================
-   Section Channels
-============================================================================ */
-
 function SidebarChannels({
   channels,
   isCollapsed,
@@ -797,7 +836,6 @@ function SidebarChannels({
   onExpand,
   onConnect,
 }: SidebarChannelsProps) {
-  // Plusieurs réseaux peuvent être dépliés en même temps.
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
   useEffect(() => {
@@ -822,7 +860,6 @@ function SidebarChannels({
 
   return (
     <div>
-      {/* En-tête : Channels + réglages + ajouter */}
       <div
         aria-hidden={isCollapsed}
         className={[
@@ -832,7 +869,9 @@ function SidebarChannels({
           isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
         ].join(" ")}
       >
-        <span className={["select-none text-[12px] font-medium", t.muted].join(" ")}>
+        <span
+          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
+        >
           Channels
         </span>
 
@@ -850,7 +889,6 @@ function SidebarChannels({
         </span>
       </div>
 
-      {/* Réseaux connectés */}
       <div className="flex flex-col gap-1">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
@@ -882,8 +920,17 @@ function SidebarChannels({
                   t.navIdle,
                 ].join(" ")}
               >
-                <ChannelAvatar channel={channel} NetworkIcon={NetworkIcon} dotRing={t.dotRing} />
-                <span className={["min-w-0 flex-1 truncate text-left", labelClass].join(" ")}>
+                <ChannelAvatar
+                  channel={channel}
+                  NetworkIcon={NetworkIcon}
+                  dotRing={t.dotRing}
+                />
+                <span
+                  className={[
+                    "min-w-0 flex-1 truncate text-left",
+                    labelClass,
+                  ].join(" ")}
+                >
                   {label.replace(/^@/, "")}
                 </span>
                 <span className={["flex shrink-0", labelClass].join(" ")}>
@@ -924,13 +971,17 @@ function SidebarChannels({
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
                           onClick={() => onNavigate(link.route)}
-                          style={{ transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms" }}
+                          style={{
+                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
+                          }}
                           className={[
                             "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
                             "rounded-lg px-2 text-left text-[13px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-                            isOpen ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0",
+                            isOpen
+                              ? "translate-x-0 opacity-100"
+                              : "-translate-x-2 opacity-0",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
@@ -958,7 +1009,6 @@ function SidebarChannels({
         })}
       </div>
 
-      {/* Aucun réseau (sidebar ouverte) */}
       {channels.length === 0 && !isCollapsed && (
         <button
           type="button"
@@ -977,7 +1027,6 @@ function SidebarChannels({
         </button>
       )}
 
-      {/* Sidebar réduite : un seul bouton « ajouter » */}
       {isCollapsed && (
         <button
           type="button"
@@ -999,7 +1048,6 @@ function SidebarChannels({
   );
 }
 
-
 /* ============================================================================
    Sidebar memory
 ============================================================================ */
@@ -1010,17 +1058,10 @@ const sidebarMemory = {
   entered: false,
 };
 
-/**
- * Cache du profil utilisateur, partagé entre tous les montages de la
- * sidebar. Sans ça, chaque changement de page qui démonte/remonte le
- * composant repart de `userProfile = null`, ce qui fait clignoter
- * l'avatar/le nom et relance systématiquement getCurrentUser().
- */
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
 
-/** Remet à zéro tout l'état de module (à appeler à la déconnexion). */
 function resetSidebarModuleState() {
   userProfileCache.profile = null;
   sidebarMemory.collapsed = true;
@@ -1030,32 +1071,66 @@ function resetSidebarModuleState() {
 }
 
 /* ============================================================================
+   Channel-connections helpers (self-contained modal)
+============================================================================ */
+
+const initialConnections: ConnectionState = {
+  instagram: { connected: false },
+  tiktok: { connected: false },
+  youtube: { connected: false },
+  facebook: { connected: false },
+  pinterest: { connected: false },
+  threads: { connected: false },
+};
+
+function formatOAuthError(provider: string, error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
+    return "Unable to reach the server (network or CORS error). Check that the backend is running and that VITE_API_URL is correct.";
+  }
+
+  return raw
+    ? `Unable to connect to ${provider}. ${raw}`
+    : `Unable to connect to ${provider}.`;
+}
+
+function mockHandleFor(key: ChannelKey): string {
+  const handles: Record<ChannelKey, string> = {
+    instagram: "@ronan.studio",
+    tiktok: "",
+    youtube: "",
+    facebook: "Ronan Studio Page",
+    pinterest: "",
+    threads: "@ronan.studio",
+  };
+
+  return handles[key];
+}
+
+function toConnection(status: StatusResponse): Connection {
+  if (!status.connected) return { connected: false };
+
+  const account = status.account;
+
+  return {
+    connected: true,
+    handle: account?.display_name ?? undefined,
+    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
+  };
+}
+
+/* ============================================================================
    Sidebar
 ============================================================================ */
 
-export type ChannelConnectProps = Omit<
-  ConnectChannelModalProps,
-  "isDark" | "onClose"
->;
-
 type DashboardSidebarProps = {
-  /**
-   * Optionnel : si non fourni, la sidebar utilise directement le
-   * contexte partagé de useTheme().
-   */
   theme?: Theme;
-  /** Conservée pour compatibilité avec les pages existantes ; inutilisée. */
   onToggleTheme?: ToggleThemeFn;
-  /**
-   * Données/actions du modal « Connect a New Channel ». Si absent, le « + »
-   * redirige vers la page Channels.
-   */
-  channelConnect?: ChannelConnectProps;
 };
 
 export default function DashboardSidebar({
   theme: themeProp,
-  channelConnect,
 }: DashboardSidebarProps) {
   const themeContext = useTheme();
   const theme = themeProp ?? themeContext.theme;
@@ -1063,6 +1138,9 @@ export default function DashboardSidebar({
 
   const currentRoute = useHashRoute();
   const connectedChannels = useConnectedChannels();
+
+  const { user } = useUser();
+  const userId = user?.id ?? null;
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
   const [openGroup, setOpenGroup] = useState<string | null>(
@@ -1076,6 +1154,28 @@ export default function DashboardSidebar({
   );
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+
+  /* ── Channel connections (self-contained) ── */
+  const [connections, setConnections] = useState<ConnectionState>(() => {
+    if (!userId) return initialConnections;
+
+    const tiktok = readCache(userId, "tiktok");
+    const pinterest = readCache(userId, "pinterest");
+    const youtube = readCache(userId, "youtube");
+
+    return {
+      ...initialConnections,
+      ...(tiktok ? { tiktok: tiktok.connection } : {}),
+      ...(pinterest ? { pinterest: pinterest.connection } : {}),
+      ...(youtube ? { youtube: youtube.connection } : {}),
+    };
+  });
+  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  const tiktokBusy = useRef(false);
+  const pinterestBusy = useRef(false);
+  const youtubeBusy = useRef(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -1107,6 +1207,120 @@ export default function DashboardSidebar({
       mounted = false;
     };
   }, []);
+
+  /* --------------------------------------------------------------------------
+     Sync channel statuses (cache + backend), + parse OAuth return
+  -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const hash = window.location.hash;
+    const queryIndex = hash.indexOf("?");
+    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
+    const params = new URLSearchParams(
+      queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
+    );
+
+    const tiktokError = params.get("tiktok_error");
+    const pinterestError = params.get("pinterest_error");
+    const youtubeError = params.get("youtube_error");
+
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: params.has("tiktok") || Boolean(tiktokError),
+      pinterest: params.has("pinterest") || Boolean(pinterestError),
+      youtube: params.has("youtube") || Boolean(youtubeError),
+    };
+
+    if (tiktokError) {
+      setConnectError(`Unable to connect to TikTok. ${tiktokError}`);
+    }
+    if (pinterestError) {
+      setConnectError(`Unable to connect to Pinterest. ${pinterestError}`);
+    }
+    if (youtubeError) {
+      setConnectError(`Unable to connect to YouTube. ${youtubeError}`);
+    }
+
+    if (returned.tiktok) clearCache(userId, "tiktok");
+    if (returned.pinterest) clearCache(userId, "pinterest");
+    if (returned.youtube) clearCache(userId, "youtube");
+
+    // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
+    // (Les autres pages gèrent leur propre hash et ne doivent pas être
+    // polluées par un replaceState.)
+    if (
+      (returned.tiktok || returned.pinterest || returned.youtube) &&
+      basePath.includes("channels")
+    ) {
+      [
+        "tiktok",
+        "tiktok_error",
+        "pinterest",
+        "pinterest_error",
+        "youtube",
+        "youtube_error",
+      ].forEach((k) => params.delete(k));
+      const query = params.toString();
+
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${basePath}${
+          query ? `?${query}` : ""
+        }`
+      );
+    }
+
+    let cancelled = false;
+
+    const sync = (
+      provider: CacheProvider,
+      justReturned: boolean,
+      fetchStatus: () => Promise<StatusResponse>
+    ) => {
+      const cached = justReturned ? null : readCache(userId, provider);
+
+      if (cached) {
+        setConnections((current) => ({
+          ...current,
+          [provider]: cached.connection,
+        }));
+
+        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
+      }
+
+      void (async () => {
+        try {
+          const status = await fetchStatus();
+          if (cancelled) return;
+
+          const connection = toConnection(status);
+
+          if (connection.connected) {
+            writeCache(userId, connection, provider);
+          } else {
+            clearCache(userId, provider);
+          }
+
+          setConnections((current) => ({
+            ...current,
+            [provider]: connection,
+          }));
+        } catch (error) {
+          console.warn(`[Stone] Could not load ${provider} status:`, error);
+        }
+      })();
+    };
+
+    sync("tiktok", returned.tiktok, getTikTokStatus);
+    sync("pinterest", returned.pinterest, getPinterestStatus);
+    sync("youtube", returned.youtube, getYouTubeStatus);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   /* --------------------------------------------------------------------------
      Sidebar entrance
@@ -1276,15 +1490,15 @@ export default function DashboardSidebar({
     setOpenGroup((current) => (current === label ? null : label));
   }, []);
 
+  /**
+   * Ouvre toujours le modal « Connect a New Channel ».
+   * La sidebar ne redirige plus vers /channels.
+   */
   const openConnect = useCallback(() => {
     setMenuOpen(false);
-
-    if (channelConnect) {
-      setConnectOpen(true);
-    } else {
-      navigate("channels");
-    }
-  }, [channelConnect]);
+    setConnectError(null);
+    setConnectOpen(true);
+  }, []);
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
@@ -1294,11 +1508,164 @@ export default function DashboardSidebar({
   }, []);
 
   /* --------------------------------------------------------------------------
+     Channel connect handlers (self-contained)
+  -------------------------------------------------------------------------- */
+
+  const limitReached =
+    Object.values(connections).filter((c) => c.connected).length >=
+    PLAN.maxChannels;
+
+  const handleTikTokToggle = async () => {
+    if (tiktokBusy.current) return;
+    tiktokBusy.current = true;
+
+    setPendingKey("tiktok");
+    let redirecting = false;
+
+    try {
+      if (connections.tiktok.connected) {
+        await disconnectTikTok();
+        if (userId) clearCache(userId, "tiktok");
+        setConnections((current) => ({
+          ...current,
+          tiktok: { connected: false },
+        }));
+      } else {
+        await startTikTokLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] TikTok OAuth error:", error);
+      setConnectError(formatOAuthError("TikTok", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        tiktokBusy.current = false;
+      }
+    }
+  };
+
+  const handlePinterestToggle = async () => {
+    if (pinterestBusy.current) return;
+    pinterestBusy.current = true;
+
+    setPendingKey("pinterest");
+    let redirecting = false;
+
+    try {
+      if (connections.pinterest.connected) {
+        await disconnectPinterest();
+        if (userId) clearCache(userId, "pinterest");
+        setConnections((current) => ({
+          ...current,
+          pinterest: { connected: false },
+        }));
+      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+        const token = window.prompt(
+          "Pinterest access token (généré dans le portail développeur) :"
+        );
+
+        if (!token?.trim()) return;
+
+        const account = await connectPinterestWithToken(token.trim());
+
+        const connection: Connection = {
+          connected: true,
+          handle: account?.display_name ?? undefined,
+          avatarUrl: account?.avatar_url ?? undefined,
+        };
+
+        if (userId) writeCache(userId, connection, "pinterest");
+        setConnections((current) => ({ ...current, pinterest: connection }));
+      } else {
+        await startPinterestLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] Pinterest OAuth error:", error);
+      setConnectError(formatOAuthError("Pinterest", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        pinterestBusy.current = false;
+      }
+    }
+  };
+
+  const handleYouTubeToggle = async () => {
+    if (youtubeBusy.current) return;
+    youtubeBusy.current = true;
+
+    setPendingKey("youtube");
+    let redirecting = false;
+
+    try {
+      if (connections.youtube.connected) {
+        await disconnectYouTube();
+        if (userId) clearCache(userId, "youtube");
+        setConnections((current) => ({
+          ...current,
+          youtube: { connected: false },
+        }));
+      } else {
+        await startYouTubeLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] YouTube OAuth error:", error);
+      setConnectError(formatOAuthError("YouTube", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        youtubeBusy.current = false;
+      }
+    }
+  };
+
+  const handlePlaceholderToggle = (key: ChannelKey) => {
+    setPendingKey(key);
+
+    window.setTimeout(() => {
+      setConnections((current) => ({
+        ...current,
+        [key]: current[key].connected
+          ? { connected: false }
+          : { connected: true, handle: mockHandleFor(key) },
+      }));
+      setPendingKey(null);
+    }, 500);
+  };
+
+  const handleToggle = (key: ChannelKey) => {
+    setConnectError(null);
+
+    if (!connections[key].connected && limitReached) {
+      setConnectError(
+        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
+      );
+      return;
+    }
+
+    if (key === "tiktok") {
+      void handleTikTokToggle();
+      return;
+    }
+
+    if (key === "pinterest") {
+      void handlePinterestToggle();
+      return;
+    }
+
+    if (key === "youtube") {
+      void handleYouTubeToggle();
+      return;
+    }
+
+    handlePlaceholderToggle(key);
+  };
+
+  /* --------------------------------------------------------------------------
      Logout
-     Déconnexion → nettoyage des caches → retour à la landing page.
-     On fait un rechargement complet sur l'URL sans hash pour que
-     UserContext reparte de zéro (user = null) : sans ça, le useEffect de
-     App.tsx renverrait aussitôt vers "home" tant que user est non nul.
   -------------------------------------------------------------------------- */
 
   const handleLogout = useCallback(async () => {
@@ -1345,6 +1712,24 @@ export default function DashboardSidebar({
     : { ...defaultAccount, channels: connectedChannels.length };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
+
+  /* --------------------------------------------------------------------------
+     Modal props
+  -------------------------------------------------------------------------- */
+
+  const channelConnectProps: Omit<
+    ConnectChannelModalProps,
+    "isDark" | "onClose"
+  > = {
+    channels: CHANNELS,
+    connections,
+    pendingKey,
+    limitReached,
+    planName: PLAN.name,
+    realOAuthKeys: REAL_OAUTH,
+    errorMessage: connectError,
+    onToggle: handleToggle,
+  };
 
   /* ==========================================================================
      Render
@@ -1755,9 +2140,9 @@ export default function DashboardSidebar({
         </div>
       </aside>
 
-      {connectOpen && channelConnect && (
+      {connectOpen && (
         <ConnectChannelModal
-          {...channelConnect}
+          {...channelConnectProps}
           isDark={isDark}
           onClose={closeConnect}
         />
