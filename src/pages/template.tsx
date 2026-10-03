@@ -49,7 +49,7 @@ const sampleData: Record<string, string> = {
 /* Aucun template par défaut */
 const initialTemplates: Template[] = [];
 
-/* Featured templates (section teintée verte) */
+/* Featured templates */
 type FeaturedTemplate = {
   id: string;
   emoji: string;
@@ -411,11 +411,11 @@ export default function TemplatesPage() {
             title: "text-white",
             muted: "text-[#99a2a2]",
 
-            /* Featured section : fond sombre + halo vert */
+            /* Featured section : fond sombre + dégradé noir & blanc */
             featuredBg:
               "border border-white/10 bg-[#111112] " +
-              "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(16,185,129,0.12),rgba(0,0,0,0)_55%)]",
-            featuredLabel: "text-emerald-400/80",
+              "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,0.10),rgba(0,0,0,0)_55%)]",
+            featuredLabel: "text-white/60",
             featuredTitle: "text-white",
             featuredDesc: "text-white/55",
             cardFeatured:
@@ -447,7 +447,7 @@ export default function TemplatesPage() {
             divider: "border-white/10",
             iconBtn: "hover:bg-white/10 text-[#d7d7d2]",
 
-            /* Empty state (comme l'image) */
+            /* Empty state */
             emptyCircle: "bg-white/[0.06] text-white/60",
             emptyTitle: "text-white",
             emptyDesc: "text-[#99a2a2]",
@@ -458,10 +458,11 @@ export default function TemplatesPage() {
             title: "text-[#151515]",
             muted: "text-[#71706d]",
 
+            /* Featured section : fond clair + dégradé noir & blanc */
             featuredBg:
-              "border border-black/[0.06] bg-[#eef3ec] " +
-              "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(16,185,129,0.10),rgba(255,255,255,0)_55%)]",
-            featuredLabel: "text-emerald-600/90",
+              "border border-black/[0.06] bg-[#f1f1ef] " +
+              "bg-[radial-gradient(120%_100%_at_0%_0%,rgba(0,0,0,0.06),rgba(255,255,255,0)_55%)]",
+            featuredLabel: "text-black/55",
             featuredTitle: "text-[#151515]",
             featuredDesc: "text-[#52514e]",
             cardFeatured:
@@ -491,7 +492,7 @@ export default function TemplatesPage() {
             divider: "border-black/[0.07]",
             iconBtn: "hover:bg-black/[0.05] text-[#3f3f3d]",
 
-            /* Empty state (comme l'image) */
+            /* Empty state */
             emptyCircle: "bg-black/[0.05] text-black/45",
             emptyTitle: "text-[#151515]",
             emptyDesc: "text-[#71706d]",
@@ -903,18 +904,18 @@ export default function TemplatesPage() {
               /* Recherche sans résultat */
               <div
                 className={[
-                  "mt-16 flex flex-col items-center gap-3 text-center text-[13px]",
+                  "mt-10 flex flex-col items-center gap-2 text-center text-[13px]",
                   t.muted,
                 ].join(" ")}
               >
-                <SearchIcon className="h-6 w-6 opacity-50" />
+                <SearchIcon className="h-5 w-5 opacity-50" />
                 <p>{`Aucun template trouvé pour « ${query} ».`}</p>
                 <button
                   type="button"
                   onClick={() => setQuery("")}
                   className={[
-                    "mt-1 inline-flex h-9 items-center gap-2 rounded-xl border px-3.5",
-                    "text-[12.5px] font-semibold",
+                    "mt-1 inline-flex h-8 items-center gap-2 rounded-lg border px-3",
+                    "text-[12px] font-semibold",
                     "transition-[background-color,transform] duration-150",
                     "active:scale-[0.98]",
                     t.buttonGhost,
@@ -925,22 +926,22 @@ export default function TemplatesPage() {
               </div>
             ) : (
               /* ============================================================
-                 EMPTY STATE (style image, adapté template)
+                 EMPTY STATE — version compacte
               ============================================================ */
-              <div className="mt-16 flex flex-col items-center justify-center py-14 text-center">
-                {/* Cercle gris clair avec + */}
+              <div className="mt-8 flex flex-col items-center justify-center py-8 text-center">
+                {/* Cercle gris clair avec + (plus petit) */}
                 <div
                   className={[
-                    "flex h-[120px] w-[120px] items-center justify-center rounded-full",
+                    "flex h-[72px] w-[72px] items-center justify-center rounded-full",
                     t.emptyCircle,
                   ].join(" ")}
                 >
-                  <PlusIcon className="h-9 w-9" />
+                  <PlusIcon className="h-6 w-6" />
                 </div>
 
                 <h3
                   className={[
-                    "mt-8 text-[26px] font-bold tracking-[-0.01em]",
+                    "mt-5 text-[18px] font-bold tracking-[-0.01em]",
                     t.emptyTitle,
                   ].join(" ")}
                 >
@@ -949,7 +950,7 @@ export default function TemplatesPage() {
 
                 <p
                   className={[
-                    "mt-3 max-w-[440px] text-[15px] leading-relaxed",
+                    "mt-1.5 max-w-[360px] text-[13px] leading-relaxed",
                     t.emptyDesc,
                   ].join(" ")}
                 >
@@ -961,7 +962,7 @@ export default function TemplatesPage() {
                   type="button"
                   onClick={openNew}
                   className={[
-                    "mt-8 rounded-2xl px-8 py-3.5 text-[14px] font-semibold",
+                    "mt-5 rounded-xl px-5 py-2.5 text-[13px] font-semibold",
                     "transition-[background-color,transform] duration-150",
                     "active:scale-[0.98]",
                     t.emptyButton,
