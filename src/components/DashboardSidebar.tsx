@@ -12,10 +12,24 @@ import type { ReactNode } from "react";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import {
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
+import {
   getCurrentUser,
   signOut,
   type UserProfile,
 } from "../services/supabase";
+import {
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "./IntegrationIcons";
 
 /* ============================================================================
    Types
@@ -232,24 +246,6 @@ function TemplatesIcon(props: IconProps) {
   );
 }
 
-/**
- * Icône "Integrations" : grille 2×2 de nœuds creux.
- * Le nœud en haut à gauche est relié à celui de droite et à celui du bas ;
- * le nœud en bas à droite reste isolé (intégration non connectée).
- */
-function IntegrationsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="6.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="6.5" r="2.5" />
-      <circle cx="6.5" cy="17.5" r="2.5" />
-      <circle cx="17.5" cy="17.5" r="2.5" />
-      <path d="M9 6.5h6" />
-      <path d="M6.5 9v6" />
-    </Svg>
-  );
-}
-
 function SettingsIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -389,7 +385,6 @@ const navSections: NavSection[] = [
           { label: "Replies", route: "replies" },
         ],
       },
-      { label: "Integrations", icon: IntegrationsIcon, route: "integrations" },
     ],
   },
 ];
@@ -413,7 +408,7 @@ const menuGroups: MenuItem[][] = [
   ],
   [
     { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
-    { label: "Apps & Integrations", icon: AppsIcon },
+    { label: "Apps & Integrations", icon: AppsIcon, route: "integrations" },
     { label: "Beta Features", icon: BetaIcon },
   ],
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
@@ -642,6 +637,417 @@ function NavItemViewImpl({
 const NavItemView = memo(NavItemViewImpl);
 
 /* ============================================================================
+   Section Channels (réseaux connectés)
+============================================================================ */
+
+type NetworkKey =
+  | "x"
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "youtube"
+  | "pinterest"
+  | "threads";
+
+type SidebarChannelsProps = {
+  channels: ConnectedChannel[];
+  isCollapsed: boolean;
+  openGroup: string | null;
+  currentRoute: string;
+  labelClass: string;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+  onToggleGroup: (label: string) => void;
+  onExpandAndOpen: (label: string) => void;
+};
+
+const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
+  x: XIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  linkedin: LinkedInIcon,
+  tiktok: TikTokIcon,
+  youtube: YouTubeIcon,
+  pinterest: PinterestIcon,
+  threads: ThreadsIcon as IconComponent,
+};
+
+/** Couleurs des pastilles « Connect more channels ». */
+const NETWORK_TILES: Record<NetworkKey, string> = {
+  instagram: "bg-[#e1006e] text-white",
+  threads: "bg-white text-black",
+  linkedin: "bg-[#2f6db5] text-white",
+  tiktok: "bg-black text-white ring-1 ring-white/15",
+  x: "bg-black text-white ring-1 ring-white/15",
+  youtube: "bg-[#ff0033] text-white",
+  facebook: "bg-[#1877f2] text-white",
+  pinterest: "bg-[#e60023] text-white",
+};
+
+const SUGGESTION_ORDER: NetworkKey[] = [
+  "instagram",
+  "threads",
+  "linkedin",
+  "tiktok",
+  "youtube",
+  "x",
+  "facebook",
+  "pinterest",
+];
+
+function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
+  const c = channel as unknown as Record<string, unknown>;
+  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
+    .toLowerCase()
+    .trim();
+
+  if (raw.includes("tiktok")) return "tiktok";
+  if (raw.includes("insta")) return "instagram";
+  if (raw.includes("youtube") || raw === "yt") return "youtube";
+  if (raw.includes("facebook") || raw === "fb") return "facebook";
+  if (raw.includes("linkedin")) return "linkedin";
+  if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
+  if (raw === "x" || raw.includes("twitter")) return "x";
+  return null;
+}
+
+const PublishIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
+  </Svg>
+);
+
+const CommunityIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
+    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
+  </Svg>
+);
+
+const InsightsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+  </Svg>
+);
+
+const GearIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
+  </Svg>
+);
+
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
+/* ============================================================================
+   Sous-éléments
+============================================================================ */
+
+const CHANNEL_LINKS: { label: string; route: string; icon: IconComponent; badge?: string }[] = [
+  { label: "Publish", route: "schedule", icon: PublishIcon },
+  { label: "Community", route: "community", icon: CommunityIcon },
+  { label: "Insights", route: "analytics", icon: InsightsIcon, badge: "New" },
+];
+
+function ChannelAvatar({
+  channel,
+  NetworkIcon,
+  dotRing,
+}: {
+  channel: ConnectedChannel;
+  NetworkIcon?: IconComponent;
+  dotRing: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+
+  return (
+    <span className="relative h-8 w-8 shrink-0">
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt=""
+          draggable={false}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full select-none rounded-full object-cover"
+        />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[12px] font-semibold text-white">
+          {initial}
+        </span>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center",
+            "rounded-[5px] bg-white text-black ring-2",
+            dotRing,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/* ============================================================================
+   Section Channels
+============================================================================ */
+
+function SidebarChannels({
+  channels,
+  isCollapsed,
+  openGroup,
+  currentRoute,
+  labelClass,
+  focus,
+  t,
+  onNavigate,
+  onToggleGroup,
+  onExpandAndOpen,
+}: SidebarChannelsProps) {
+  const connected = new Set(
+    channels.map(getNetworkId).filter((id): id is NetworkKey => id !== null)
+  );
+  const suggestions = SUGGESTION_ORDER.filter((id) => !connected.has(id)).slice(0, 3);
+
+  const headerButton = [
+    "flex h-6 w-6 items-center justify-center rounded-md",
+    "transition-colors duration-150 motion-reduce:transition-none",
+    t.menuIcon,
+    focus,
+    t.row,
+  ].join(" ");
+
+  return (
+    <div>
+      {/* En-tête : Channels + réglages + ajouter */}
+      <div
+        aria-hidden={isCollapsed}
+        className={[
+          "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
+          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
+        ].join(" ")}
+      >
+        <span className={["select-none text-[12px] font-medium", t.muted].join(" ")}>
+          Channels
+        </span>
+
+        <span className="flex items-center gap-0.5">
+          <button
+            type="button"
+            tabIndex={isCollapsed ? -1 : 0}
+            aria-label="Channel settings"
+            title="Channel settings"
+            onClick={() => onNavigate("settings")}
+            className={headerButton}
+          >
+            <GearIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            tabIndex={isCollapsed ? -1 : 0}
+            aria-label="Connect a channel"
+            title="Connect a channel"
+            onClick={() => onNavigate("channels")}
+            className={headerButton}
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </span>
+      </div>
+
+      {/* Réseaux connectés */}
+      <div className="flex flex-col gap-1">
+        {channels.map((channel) => {
+          const id = getNetworkId(channel);
+          const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
+          const label = channel.handle || channel.name;
+          const groupKey = `channel:${channel.key}`;
+          const isOpen = openGroup === groupKey && !isCollapsed;
+
+          return (
+            <div key={channel.key}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                title={isCollapsed ? label : undefined}
+                onClick={() =>
+                  isCollapsed ? onExpandAndOpen(groupKey) : onToggleGroup(groupKey)
+                }
+                className={[
+                  "group flex h-11 w-full select-none items-center gap-3 overflow-hidden",
+                  "rounded-xl px-1.5 text-[14px] font-medium",
+                  "transition-[background-color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none",
+                  focus,
+                  t.navIdle,
+                ].join(" ")}
+              >
+                <ChannelAvatar channel={channel} NetworkIcon={NetworkIcon} dotRing={t.dotRing} />
+                <span className={["min-w-0 flex-1 truncate text-left", labelClass].join(" ")}>
+                  {label.replace(/^@/, "")}
+                </span>
+              </button>
+
+              <div
+                className={[
+                  "grid transition-[grid-template-rows] duration-300",
+                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                ].join(" ")}
+              >
+                <div className="overflow-hidden">
+                  <div
+                    className={[
+                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      t.rail,
+                    ].join(" ")}
+                  >
+                    {CHANNEL_LINKS.map((link, i) => {
+                      const Icon = link.icon;
+                      const active = link.route === currentRoute;
+                      return (
+                        <button
+                          key={link.route}
+                          type="button"
+                          tabIndex={isOpen ? 0 : -1}
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => onNavigate(link.route)}
+                          style={{ transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms" }}
+                          className={[
+                            "flex h-10 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[13px] font-medium",
+                            "transition-[background-color,color,opacity,transform] duration-300",
+                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+                            isOpen ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0",
+                            focus,
+                            active ? t.subActive : t.sub,
+                          ].join(" ")}
+                        >
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="flex-1">{link.label}</span>
+                          {link.badge && (
+                            <span
+                              className={[
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                t.badge,
+                              ].join(" ")}
+                            >
+                              {link.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Connect more channels (sidebar ouverte) */}
+      <div
+        aria-hidden={isCollapsed}
+        className={[
+          "overflow-hidden px-1 transition-[max-height,margin,opacity] duration-300",
+          "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+          isCollapsed ? "mt-0 max-h-0 opacity-0" : "mt-4 max-h-32 opacity-100 delay-100",
+        ].join(" ")}
+      >
+        <p className={["mb-2 select-none whitespace-nowrap px-2 text-[12px] font-medium", t.muted].join(" ")}>
+          {channels.length > 0 ? "Connect more channels" : "Connect a channel"}
+        </p>
+
+        <div className="flex items-center gap-2 px-2 pb-1">
+          {suggestions.map((id) => {
+            const Icon = NETWORK_ICONS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                tabIndex={isCollapsed ? -1 : 0}
+                aria-label={`Connect ${id}`}
+                title={`Connect ${id}`}
+                onClick={() => onNavigate("channels")}
+                className={[
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                  "transition-transform duration-200 hover:scale-105 active:scale-95",
+                  "motion-reduce:transition-none motion-reduce:hover:scale-100",
+                  focus,
+                  NETWORK_TILES[id],
+                ].join(" ")}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            tabIndex={isCollapsed ? -1 : 0}
+            aria-label="More channels"
+            title="More channels"
+            onClick={() => onNavigate("channels")}
+            className={[
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+              "transition-colors duration-150 motion-reduce:transition-none",
+              t.rail,
+              t.menuIcon,
+              focus,
+              t.row,
+            ].join(" ")}
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar réduite : un seul bouton « ajouter » */}
+      {isCollapsed && (
+        <button
+          type="button"
+          aria-label="Connect a channel"
+          title="Connect a channel"
+          onClick={() => onNavigate("channels")}
+          className={[
+            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
+            "motion-reduce:transition-none",
+            focus,
+            t.navIdle,
+          ].join(" ")}
+        >
+          <PlusIcon className="h-5 w-5 shrink-0" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+/* ============================================================================
    Sidebar memory
 ============================================================================ */
 
@@ -691,6 +1097,7 @@ export default function DashboardSidebar({
   const isDark = theme === "dark";
 
   const currentRoute = useHashRoute();
+  const connectedChannels = useConnectedChannels();
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
   const [openGroup, setOpenGroup] = useState<string | null>(
@@ -954,10 +1361,10 @@ export default function DashboardSidebar({
         email: userProfile.email,
         organization: "My Organization",
         plan: "Free plan",
-        channels: 0,
+        channels: connectedChannels.length,
         avatarUrl: userProfile.avatar_url || undefined,
       }
-    : defaultAccount;
+    : { ...defaultAccount, channels: connectedChannels.length };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
 
@@ -1118,6 +1525,23 @@ export default function DashboardSidebar({
               </div>
             </div>
           ))}
+
+          {/* Channels */}
+          <div className="mt-3">
+            <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
+            <SidebarChannels
+              channels={connectedChannels}
+              isCollapsed={isCollapsed}
+              openGroup={openGroup}
+              currentRoute={currentRoute}
+              labelClass={labelClass}
+              focus={focus}
+              t={t}
+              onNavigate={handleNavigate}
+              onToggleGroup={handleToggleGroup}
+              onExpandAndOpen={handleExpandAndOpen}
+            />
+          </div>
         </nav>
 
         {/* Account */}
