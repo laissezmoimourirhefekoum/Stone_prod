@@ -420,16 +420,26 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   };
 
   // Un canal connecté par pastille (les canaux dont le réseau n'est pas reconnu sont ignorés).
-  const channelTiles = connectedChannels
-    .map((channel) => {
-      const networkId = getNetworkId(channel);
-      const network = SOCIAL_NETWORKS.find((n) => n.id === networkId);
-      return network ? { channel, network } : null;
-    })
-    .filter(
-      (tile): tile is { channel: ConnectedChannel; network: (typeof SOCIAL_NETWORKS)[number] } =>
-        tile !== null
-    );
+  // Trié selon l'ordre de SOCIAL_NETWORKS : YouTube se place juste après TikTok.
+  const channelTiles = useMemo(() => {
+    return connectedChannels
+      .map((channel) => {
+        const networkId = getNetworkId(channel);
+        const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
+        if (order === -1) return null;
+        return { channel, network: SOCIAL_NETWORKS[order], order };
+      })
+      .filter(
+        (
+          tile
+        ): tile is {
+          channel: ConnectedChannel;
+          network: (typeof SOCIAL_NETWORKS)[number];
+          order: number;
+        } => tile !== null
+      )
+      .sort((a, b) => a.order - b.order);
+  }, [connectedChannels]);
 
   // Le brouillon est sauvegardé, puis on va connecter un réseau.
   const handleConnectChannel = () => {

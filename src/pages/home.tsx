@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -364,6 +364,7 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
    - au moins un réseau   : uniquement les photos de profil à gauche
                             et le bouton "Connecter" tout à droite.
                             Chaque photo affiche le badge de son réseau.
+   Note : YouTube est volontairement exclu de ce widget côté Home.
    ────────────────────────────────────────────────────────────── */
 
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
@@ -905,6 +906,16 @@ export default function Home() {
   // Réseaux connectés (lus depuis le cache partagé avec la page Channels).
   const connectedChannels = useConnectedChannels();
 
+  // Sur l'accueil, YouTube est volontairement retiré du widget
+  // « réseaux connectés ».
+  const homeConnectedChannels = useMemo(
+    () =>
+      connectedChannels.filter(
+        (channel) => getNetworkId(channel) !== "youtube"
+      ),
+    [connectedChannels]
+  );
+
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
   );
@@ -1021,7 +1032,7 @@ export default function Home() {
 
             <ConnectFirstChannelWidget
               isDark={isDark}
-              channels={connectedChannels}
+              channels={homeConnectedChannels}
             />
 
             <FromTheBlogSection isDark={isDark} />
