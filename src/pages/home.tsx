@@ -22,11 +22,43 @@ import {
   ThreadsIcon,
 } from "../components/IntegrationIcons";
 
+/* -------------------------------------------------------------------------- */
+/*  Thème « atelier d'impression » : papier bleuté, encre indigo,             */
+/*  ombres décalées. Un seul bloc coloré fort : le bouton de création.        */
+/* -------------------------------------------------------------------------- */
+
 const SIDEBAR_OFFSET = 104;
 
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
+const PALETTE = {
+  light: {
+    "--paper": "#eceeff",
+    "--surface": "#ffffff",
+    "--ink": "#15133d",
+    "--muted": "#5b5a82",
+    "--blue": "#3a47f5",
+    "--on-blue": "#ffffff",
+    "--pink": "#ff8dc0",
+    "--sun": "#ffd84a",
+  },
+  dark: {
+    "--paper": "#12112b",
+    "--surface": "#1c1a42",
+    "--ink": "#f2f1ff",
+    "--muted": "#a5a3d1",
+    "--blue": "#7c87ff",
+    "--on-blue": "#12112b",
+    "--pink": "#ff8dc0",
+    "--sun": "#ffd84a",
+  },
+} as const;
+
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--paper)]";
+
+const panel =
+  "rounded-2xl border-2 border-[var(--ink)] bg-[var(--surface)] text-[var(--ink)]";
+
+const userProfileCache = { profile: null as UserProfile | null };
 
 type SocialNetworkKey =
   | "x"
@@ -69,11 +101,18 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   return null;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Statistiques (abonnés / likes / commentaires)                             */
-/* -------------------------------------------------------------------------- */
+/* ------------------------------- Statistiques ------------------------------ */
 
-function readStat(channel: ConnectedChannel, keys: string[]): number {
+const FOLLOWER_KEYS = [
+  "followers",
+  "followersCount",
+  "followers_count",
+  "subscribers",
+  "subscribersCount",
+];
+
+// null = donnée absente (affichée « — » plutôt qu'un faux 0)
+function readStat(channel: ConnectedChannel, keys: string[]): number | null {
   const c = channel as unknown as Record<string, unknown>;
   for (const key of keys) {
     const v = c[key];
@@ -81,7 +120,7 @@ function readStat(channel: ConnectedChannel, keys: string[]): number {
     const n = Number(v);
     if (Number.isFinite(n)) return n;
   }
-  return 0;
+  return null;
 }
 
 const numberFormatter = new Intl.NumberFormat("fr-FR", {
@@ -89,443 +128,225 @@ const numberFormatter = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
 });
 
+const formatStat = (n: number | null) =>
+  n === null ? "—" : numberFormatter.format(n);
+
 function computeTotals(channels: ConnectedChannel[]) {
   return channels.reduce(
     (acc, ch) => ({
-      followers:
-        acc.followers +
-        readStat(ch, [
-          "followers",
-          "followersCount",
-          "followers_count",
-          "subscribers",
-          "subscribersCount",
-        ]),
-      likes:
-        acc.likes + readStat(ch, ["likes", "likesCount", "likes_count"]),
+      followers: acc.followers + (readStat(ch, FOLLOWER_KEYS) ?? 0),
+      likes: acc.likes + (readStat(ch, ["likes", "likesCount", "likes_count"]) ?? 0),
       comments:
         acc.comments +
-        readStat(ch, ["comments", "commentsCount", "comments_count"]),
+        (readStat(ch, ["comments", "commentsCount", "comments_count"]) ?? 0),
     }),
     { followers: 0, likes: 0, comments: 0 }
   );
 }
 
+function useIsDesktop() {
+  const query = "(min-width: 768px)";
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return matches;
+}
+
+const getGreeting = (d = new Date()) =>
+  d.getHours() >= 18 || d.getHours() < 5 ? "Bonsoir" : "Bonjour";
+
+/* --------------------------------- En-tête --------------------------------- */
+
 function GreetingAvatar({
   avatarUrl,
   initials,
-  isDark,
 }: {
   avatarUrl?: string | null;
   initials: string;
-  isDark: boolean;
 }) {
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [avatarUrl]);
 
-  useEffect(() => {
-    setLoadFailed(false);
-  }, [avatarUrl]);
-
-  const showImage = Boolean(avatarUrl) && !loadFailed;
-
-  return showImage ? (
+  return avatarUrl && !failed ? (
     <img
       key={avatarUrl}
-      src={avatarUrl!}
-      alt="Profile"
-      style={{ width: 40, height: 40 }}
-      className="aspect-square shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10"
-      onError={() => setLoadFailed(true)}
+      src={avatarUrl}
+      alt="Votre profil"
+      onError={() => setFailed(true)}
+      className="h-11 w-11 shrink-0 rounded-xl border-2 border-[var(--ink)] object-cover"
     />
   ) : (
-    <div
-      style={{ width: 40, height: 40 }}
-      className={[
-        "flex aspect-square shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-        isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-      ].join(" ")}
-    >
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--ink)] bg-[var(--pink)] text-[14px] font-bold text-[#15133d]">
       {initials}
     </div>
   );
 }
 
-function ClockDisplay({ isDark }: { isDark: boolean }) {
+function ClockDisplay() {
   const [now, setNow] = useState(() => new Date());
-
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(id);
   }, []);
 
-  const time = now.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const date = now.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
   return (
-    <div className="flex flex-col items-end">
-      <span
-        className={[
-          "font-display text-[clamp(20px,2.2vw,26px)] font-semibold leading-none tracking-[-0.01em] tabular-nums",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {time}
-      </span>
-      <span
-        className={[
-          "mt-0.5 text-[12px] font-medium capitalize",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        {date}
-      </span>
-    </div>
-  );
-}
-
-
-/* -------------------------------------------------------------------------- */
-/*  Primitives                                                                */
-/* -------------------------------------------------------------------------- */
-
-function Card({
-  isDark,
-  className = "",
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={[
-        "flex flex-col rounded-[22px] border p-5",
-        isDark
-          ? "border-white/10 bg-[#141416] shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "border-black/[0.06] bg-white shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-        className,
-      ].join(" ")}
+    <time
+      dateTime={now.toISOString()}
+      className="flex flex-col items-end text-[var(--ink)]"
     >
-      {children}
-    </div>
+      <span className="font-display text-[26px] font-bold leading-none tabular-nums">
+        {now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+      </span>
+      <span className="mt-1 text-[12px] font-medium capitalize text-[var(--muted)]">
+        {now.toLocaleDateString("fr-FR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}
+      </span>
+    </time>
   );
 }
 
-function CardTitle({
-  isDark,
-  title,
-  hint,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  hint?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <p
-          className={[
-            "text-[15px] font-semibold leading-tight",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          {title}
-        </p>
-        {hint && (
-          <p
-            className={[
-              "mt-0.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            {hint}
-          </p>
-        )}
-      </div>
-      {action}
-    </div>
-  );
-}
+/* ------------------------------ Chiffres clés ------------------------------ */
 
-function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function pillButton(isDark: boolean) {
-  return [
-    "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition",
-    isDark
-      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-      : "bg-neutral-900 text-white hover:bg-neutral-800",
-  ].join(" ");
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Vue d'ensemble : abonnés / likes / commentaires                           */
-/* -------------------------------------------------------------------------- */
-
-type StatKind = "followers" | "likes" | "comments";
-
-function StatIcon({ kind, className }: { kind: StatKind; className?: string }) {
-  const common = {
-    viewBox: "0 0 24 24",
-    className,
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
-  if (kind === "followers") {
-    return (
-      <svg {...common}>
-        <circle cx="9" cy="8" r="3.2" />
-        <path d="M3 20c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" />
-        <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.7.7 2.7 2.2 3 4.7" />
-      </svg>
-    );
-  }
-  if (kind === "likes") {
-    return (
-      <svg {...common}>
-        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
-    </svg>
-  );
-}
-
-function OverviewCard({
-  isDark,
+function StatsStrip({
   totals,
   networkCount,
 }: {
-  isDark: boolean;
   totals: { followers: number; likes: number; comments: number };
   networkCount: number;
 }) {
-  const items: { kind: StatKind; label: string; value: number }[] = [
-    { kind: "followers", label: "Abonnés", value: totals.followers },
-    { kind: "likes", label: "Likes", value: totals.likes },
-    { kind: "comments", label: "Commentaires", value: totals.comments },
+  const items = [
+    { label: "Abonnés", value: totals.followers, dot: "bg-[var(--blue)]" },
+    { label: "Likes", value: totals.likes, dot: "bg-[var(--pink)]" },
+    { label: "Commentaires", value: totals.comments, dot: "bg-[var(--sun)]" },
   ];
 
   return (
-    <Card isDark={isDark} className="h-full">
-      <CardTitle
-        isDark={isDark}
-        title="Vue d'ensemble"
-        hint={
-          networkCount > 0
-            ? `Cumul de vos ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
-            : "Connectez un réseau pour voir vos chiffres"
-        }
-      />
+    <section aria-label="Vue d'ensemble" className={`${panel} p-5`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[15px] font-bold">Vue d'ensemble</h2>
+        <p className="text-[12.5px] font-medium text-[var(--muted)]">
+          {networkCount > 0
+            ? `Total de ${networkCount} réseau${networkCount > 1 ? "x" : ""}`
+            : "Connectez un réseau pour voir vos chiffres"}
+        </p>
+      </div>
 
-      <div
-        className={[
-          "grid flex-1 grid-cols-1 sm:grid-cols-3",
-          "divide-y sm:divide-x sm:divide-y-0",
-          isDark ? "divide-white/10" : "divide-black/[0.06]",
-        ].join(" ")}
-      >
+      <dl className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         {items.map((item) => (
-          <div
-            key={item.kind}
-            className="flex flex-col justify-center gap-3 py-4 first:pt-0 last:pb-0 sm:px-5 sm:py-0 sm:first:pl-0 sm:last:pr-0"
-          >
-            <div
-              className={[
-                "flex items-center gap-2 text-[12.5px] font-medium",
-                isDark ? "text-neutral-400" : "text-neutral-500",
-              ].join(" ")}
-            >
-              <StatIcon kind={item.kind} className="h-4 w-4" />
+          <div key={item.label}>
+            <dt className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--muted)]">
+              <span className={`h-2.5 w-2.5 rounded-sm border border-[var(--ink)] ${item.dot}`} />
               {item.label}
-            </div>
-            <p
-              className={[
-                "font-display text-[clamp(32px,3.6vw,48px)] font-semibold leading-none tracking-[-0.03em] tabular-nums",
-                isDark ? "text-white" : "text-neutral-900",
-              ].join(" ")}
-            >
-              {numberFormatter.format(item.value)}
-            </p>
+            </dt>
+            <dd className="mt-1 font-display text-[clamp(34px,4vw,52px)] font-bold leading-none tracking-[-0.03em] tabular-nums">
+              {networkCount === 0 ? "—" : numberFormatter.format(item.value)}
+            </dd>
           </div>
         ))}
-      </div>
-    </Card>
+      </dl>
+    </section>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Série de publications                                                     */
-/* -------------------------------------------------------------------------- */
+/* ---------------------------- Série de publications ------------------------ */
 
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
-function FlameIcon({ className = "h-7 w-7", color }: { className?: string; color: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none">
-      <path
-        d="M12 2.5c.9 1.9.4 3.2-.7 4.4-2 2.1-4 3.8-4 6.9a4.7 4.7 0 0 0 9.4 0c0-1.6-.5-2.7-1.1-3.7-.2 1.5-.9 2.4-1.9 2.4-1.2 0-1.9-1-1.5-2.2.7-2 2-3.3 2-5.4 0-.9-.3-1.7-.8-2.4-.5.6-.9 1.2-1.4 0Z"
-        fill={color}
-      />
-    </svg>
-  );
-}
-
-function StreakCard({ isDark }: { isDark: boolean }) {
-  const streakCount = 0;
+function StreakCard({ streakCount = 0 }: { streakCount?: number }) {
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return WEEKDAYS_FR_SHORT[d.getDay()];
+    d.setDate(today.getDate() - (6 - i));
+    return { label: WEEKDAYS_FR_SHORT[d.getDay()], isToday: i === 6 };
   });
 
   return (
-    <Card isDark={isDark} className="h-full justify-between">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p
-            className={[
-              "font-display text-[28px] font-semibold leading-none tracking-[-0.02em]",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            {streakCount} {streakCount > 1 ? "jours" : "jour"}
-          </p>
-          <p
-            className={[
-              "mt-1.5 text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
-            de publication d'affilée
-          </p>
-        </div>
-        <FlameIcon color={streakCount > 0 ? "#f97316" : isDark ? "#3a3a3d" : "#d9d9d9"} />
-      </div>
+    <section aria-label="Série de publications" className={`${panel} p-5`}>
+      <p className="font-display text-[30px] font-bold leading-none">
+        {streakCount} {streakCount > 1 ? "jours" : "jour"}
+      </p>
+      <p className="mt-1.5 text-[12.5px] font-medium text-[var(--muted)]">
+        {streakCount > 0
+          ? "de publication d'affilée"
+          : "Publiez aujourd'hui pour lancer votre série"}
+      </p>
 
-      <div className="mt-5 flex items-start justify-between gap-1">
-        {days.map((label, index) => {
-          const done = index < streakCount;
+      <ul className="mt-5 flex justify-between gap-1.5" aria-label="7 derniers jours">
+        {days.map(({ label, isToday }, index) => {
+          const done = index >= 7 - streakCount;
           return (
-            <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
+            <li key={index} className="flex flex-1 flex-col items-center gap-1.5">
               <span
                 className={[
-                  "text-[10.5px] font-semibold leading-none",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
+                  "text-[11px] font-bold leading-none",
+                  isToday ? "text-[var(--ink)]" : "text-[var(--muted)]",
                 ].join(" ")}
               >
                 {label}
               </span>
-              <div
+              <span
+                role="img"
+                aria-label={
+                  done ? "Publié" : isToday ? "Aujourd'hui, pas encore publié" : "Aucune publication"
+                }
                 className={[
-                  "h-7 w-7 rounded-full",
+                  "aspect-square w-full max-w-[34px] rounded-lg border-2",
                   done
-                    ? isDark
-                      ? "bg-white"
-                      : "bg-neutral-900"
-                    : isDark
-                      ? "bg-white/10"
-                      : "bg-neutral-100",
-                  index === 0 && !done
-                    ? isDark
-                      ? "ring-1 ring-white/40"
-                      : "ring-1 ring-neutral-900/30"
-                    : "",
+                    ? "border-[var(--ink)] bg-[var(--sun)]"
+                    : isToday
+                      ? "border-dashed border-[var(--ink)]"
+                      : "border-[var(--ink)]/20",
                 ].join(" ")}
               />
-            </div>
+            </li>
           );
         })}
-      </div>
-    </Card>
+      </ul>
+    </section>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Réseaux connectés                                                         */
-/* -------------------------------------------------------------------------- */
+/* -------------------------------- Réseaux ---------------------------------- */
 
 function ChannelAvatar({
   channel,
-  isDark,
   NetworkIcon,
 }: {
   channel: ConnectedChannel;
-  isDark: boolean;
   NetworkIcon?: (props: { className?: string }) => JSX.Element;
 }) {
   const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
+  useEffect(() => setFailed(false), [channel.avatarUrl]);
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const showImage = Boolean(channel.avatarUrl) && !failed;
-  const ring = isDark ? "ring-[#141416]" : "ring-white";
 
   return (
     <div className="relative h-10 w-10 shrink-0">
-      {showImage ? (
+      {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
-          alt={label}
+          alt=""
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className={["h-full w-full rounded-full object-cover ring-2", ring].join(" ")}
+          className="h-full w-full rounded-xl border-2 border-[var(--ink)] object-cover"
         />
       ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-full text-[14px] font-semibold ring-2",
-            ring,
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
+        <div className="flex h-full w-full items-center justify-center rounded-xl border-2 border-[var(--ink)] bg-[var(--pink)] text-[14px] font-bold text-[#15133d]">
           {initial}
         </div>
       )}
       {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
-            ring,
-          ].join(" ")}
-        >
+        <span className="absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-md border-2 border-[var(--ink)] bg-white text-black">
           <NetworkIcon className="h-3 w-3" />
         </span>
       )}
@@ -533,135 +354,77 @@ function ChannelAvatar({
   );
 }
 
-function ChannelsCard({
-  isDark,
-  channels,
-}: {
-  isDark: boolean;
-  channels: ConnectedChannel[];
-}) {
+function ChannelsCard({ channels }: { channels: ConnectedChannel[] }) {
   const count = channels.length;
 
   return (
-    <Card isDark={isDark} className="h-full">
-      <CardTitle
-        isDark={isDark}
-        title="Réseaux connectés"
-        hint={
-          count > 0
-            ? `${count} réseau${count > 1 ? "x" : ""} connecté${count > 1 ? "s" : ""}`
-            : "Aucun réseau pour le moment"
-        }
-        action={
-          <button
-            type="button"
-            onClick={() => navigate("channels")}
-            className={pillButton(isDark)}
-          >
-            <PlusIcon />
-            Connecter
-          </button>
-        }
-      />
+    <section aria-label="Réseaux connectés" className={`${panel} p-5`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-bold">Réseaux connectés</h2>
+          <p className="mt-0.5 text-[12.5px] font-medium text-[var(--muted)]">
+            {count > 0
+              ? `${count} réseau${count > 1 ? "x" : ""} connecté${count > 1 ? "s" : ""}`
+              : "Aucun réseau pour le moment"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("channels")}
+          className={`rounded-lg border-2 border-[var(--ink)] px-3 py-1.5 text-[12.5px] font-bold transition hover:bg-[var(--ink)] hover:text-[var(--surface)] ${focusRing}`}
+        >
+          Connecter un réseau
+        </button>
+      </div>
 
       {count === 0 ? (
         <button
           type="button"
           onClick={() => navigate("channels")}
-          className={[
-            "flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed py-8 text-center transition",
-            isDark
-              ? "border-white/15 hover:bg-white/[0.03]"
-              : "border-black/15 hover:bg-neutral-50",
-          ].join(" ")}
+          className={`mt-4 flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed border-[var(--ink)]/40 py-8 text-center transition hover:border-[var(--ink)] ${focusRing}`}
         >
-          <span
-            className={[
-              "text-[14px] font-semibold",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            Connectez votre premier réseau
-          </span>
-          <span
-            className={[
-              "text-[12.5px] font-medium",
-              isDark ? "text-neutral-400" : "text-neutral-500",
-            ].join(" ")}
-          >
+          <span className="text-[14px] font-bold">Connectez votre premier réseau</span>
+          <span className="text-[12.5px] font-medium text-[var(--muted)]">
             Reliez un canal pour commencer à publier
           </span>
         </button>
       ) : (
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <ul className="mt-3 divide-y divide-[var(--ink)]/15">
           {channels.map((channel) => {
             const networkId = getNetworkId(channel);
             const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : undefined;
-            const followers = readStat(channel, [
-              "followers",
-              "followersCount",
-              "followers_count",
-              "subscribers",
-              "subscribersCount",
-            ]);
+            const followers = readStat(channel, FOLLOWER_KEYS);
             return (
-              <div
-                key={channel.key}
-                className={[
-                  "flex items-center gap-3 rounded-2xl px-3 py-2.5",
-                  isDark ? "bg-white/[0.04]" : "bg-neutral-50",
-                ].join(" ")}
-              >
-                <ChannelAvatar channel={channel} isDark={isDark} NetworkIcon={NetworkIcon} />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={[
-                      "truncate text-[13.5px] font-semibold leading-tight",
-                      isDark ? "text-white" : "text-neutral-900",
-                    ].join(" ")}
-                  >
-                    {channel.handle || channel.name}
-                  </p>
-                  <p
-                    className={[
-                      "mt-0.5 text-[12px] font-medium tabular-nums",
-                      isDark ? "text-neutral-400" : "text-neutral-500",
-                    ].join(" ")}
-                  >
-                    {numberFormatter.format(followers)} abonnés
-                  </p>
-                </div>
-              </div>
+              <li key={channel.key} className="flex items-center gap-3 py-3">
+                <ChannelAvatar channel={channel} NetworkIcon={NetworkIcon} />
+                <p className="min-w-0 flex-1 truncate text-[14px] font-bold">
+                  {channel.handle || channel.name}
+                </p>
+                <p className="text-[13px] font-medium tabular-nums text-[var(--muted)]">
+                  {formatStat(followers)} abonnés
+                </p>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
-    </Card>
+    </section>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Action principale                                                         */
-/* -------------------------------------------------------------------------- */
+/* ------------------------- Action principale (le bloc fort) ---------------- */
 
-function ComposeCard({ isDark, onPlan }: { isDark: boolean; onPlan: () => void }) {
+function ComposeCard({ onPlan }: { onPlan: () => void }) {
   return (
-    <div
-      className={[
-        "flex h-full flex-col justify-between gap-6 rounded-[22px] p-5",
-        isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-      ].join(" ")}
+    <section
+      aria-label="Nouvelle publication"
+      className="flex flex-col justify-between gap-8 rounded-2xl border-2 border-[var(--ink)] bg-[var(--blue)] p-5 text-[var(--on-blue)] shadow-[6px_6px_0_0_var(--ink)]"
     >
       <div>
-        <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em]">
+        <p className="font-display text-[26px] font-bold leading-[1.1] tracking-[-0.02em]">
           Une idée de publication ?
         </p>
-        <p
-          className={[
-            "mt-1.5 text-[13px] font-medium",
-            isDark ? "text-neutral-600" : "text-neutral-400",
-          ].join(" ")}
-        >
+        <p className="mt-2 text-[13px] font-medium opacity-80">
           Rédigez-la maintenant ou planifiez-la sur vos réseaux.
         </p>
       </div>
@@ -669,175 +432,104 @@ function ComposeCard({ isDark, onPlan }: { isDark: boolean; onPlan: () => void }
       <button
         type="button"
         onClick={onPlan}
-        className={[
-          "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13.5px] font-semibold transition",
-          isDark
-            ? "bg-neutral-900 text-white hover:bg-neutral-700"
-            : "bg-white text-neutral-900 hover:bg-neutral-200",
-        ].join(" ")}
+        className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--ink)] bg-[var(--sun)] py-3 text-[14px] font-bold text-[#15133d] transition hover:-translate-y-0.5 motion-reduce:transition-none ${focusRing}`}
       >
-        <PlusIcon className="h-4 w-4" />
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
         Nouvelle publication
+        <kbd className="ml-1 rounded border border-[#15133d]/40 px-1.5 text-[11px]">N</kbd>
       </button>
-    </div>
+    </section>
   );
 }
 
-function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
+/* ---------------------------------- Blog ----------------------------------- */
 
-type BlogPostDefinition = {
-  title: string;
-  date: string;
-  imageUrl: string;
-  href: string;
-};
+type BlogPost = { title: string; date: string; imageUrl: string; href: string };
 
-const blogPostDefinitions: BlogPostDefinition[] = [
+const blogPosts: BlogPost[] = [
   {
-    title: "How to Create a Social Media Marketing Strategy in 2026 — 7-Step Guide",
-    date: "Jul 24, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-strategy/800/560",
+    title: "Créer une stratégie de réseaux sociaux en 2026 : le guide en 7 étapes",
+    date: "2026-07-24",
+    imageUrl: "https://picsum.photos/seed/stone-blog-strategy/240/240",
     href: "#",
   },
   {
-    title: "17 Best AI Tools for Social Media Content Creation (Tested for 2026)",
-    date: "Aug 3, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/800/560",
+    title: "17 meilleurs outils d'IA pour créer du contenu (testés en 2026)",
+    date: "2026-08-03",
+    imageUrl: "https://picsum.photos/seed/stone-blog-ai-tools/240/240",
     href: "#",
   },
   {
-    title: "How to Manage Multiple Social Media Accounts: 7 Tips to Do It Like a Pro",
-    date: "Jul 6, 2026",
-    imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/800/560",
+    title: "Gérer plusieurs comptes sociaux : 7 conseils de pro",
+    date: "2026-07-06",
+    imageUrl: "https://picsum.photos/seed/stone-blog-multi-account/240/240",
     href: "#",
   },
 ];
 
-function BlogPostCard({
-  isDark,
-  post,
-}: {
-  isDark: boolean;
-  post: BlogPostDefinition;
-}) {
+function BlogSection() {
   return (
-    <a
-      href={post.href}
-      className={[
-        "group flex flex-col overflow-hidden rounded-[22px] border transition",
-        isDark
-          ? "border-white/10 bg-[#141416] hover:bg-[#19191c]"
-          : "border-black/[0.06] bg-white hover:bg-neutral-50",
-        isDark
-          ? "shadow-[0_16px_44px_rgba(0,0,0,0.4)]"
-          : "shadow-[0_16px_44px_rgba(0,0,0,0.08)]",
-      ].join(" ")}
-    >
-      <div className="h-[150px] w-full shrink-0 overflow-hidden">
-        <img
-          src={post.imageUrl}
-          alt=""
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-        />
-      </div>
-
-      <div className="flex shrink-0 flex-col gap-2 p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-pink-100 px-3 py-1 text-[11px] font-semibold text-pink-600">
-            Blog post
-          </span>
-          <span
-            className={[
-              "text-[11.5px] font-medium",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-          >
-            {post.date}
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-3">
-          <p
-            className={[
-              "line-clamp-2 text-[13.5px] font-bold leading-snug",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}
-          >
-            {post.title}
-          </p>
-
-          <span
-            className={[
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
-              isDark
-                ? "text-neutral-400 group-hover:bg-white/10 group-hover:text-white"
-                : "text-neutral-400 group-hover:bg-black/5 group-hover:text-neutral-900",
-            ].join(" ")}
-          >
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </span>
-        </div>
-      </div>
-    </a>
-  );
-}
-
-function FromTheBlogSection({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="mt-auto flex flex-col pt-12 lg:pt-20">
-      <p
-        className={[
-          "shrink-0 text-[13px] font-medium",
-          isDark ? "text-neutral-400" : "text-neutral-500",
-        ].join(" ")}
-      >
-        From the Blog
-      </p>
-
-      <div className="mt-3 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {blogPostDefinitions.map((post) => (
-          <BlogPostCard key={post.title} isDark={isDark} post={post} />
+    <section aria-label="Dernières lectures" className="mt-auto pt-8">
+      <h2 className="text-[15px] font-bold text-[var(--ink)]">Dernières lectures</h2>
+      <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+        {blogPosts.map((post) => (
+          <li key={post.title}>
+            <a
+              href={post.href}
+              target={post.href.startsWith("http") ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              className={`group flex items-center gap-3 rounded-2xl border-2 border-transparent p-2 transition hover:border-[var(--ink)] hover:bg-[var(--surface)] ${focusRing}`}
+            >
+              <img
+                src={post.imageUrl}
+                alt=""
+                loading="lazy"
+                onError={(e) => (e.currentTarget.style.visibility = "hidden")}
+                className="h-16 w-16 shrink-0 rounded-xl border-2 border-[var(--ink)] bg-[var(--pink)] object-cover"
+              />
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-[13.5px] font-bold leading-snug text-[var(--ink)]">
+                  {post.title}
+                </p>
+                <p className="mt-1 text-[12px] font-medium text-[var(--muted)]">
+                  {new Date(post.date).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </a>
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }
+
+/* ---------------------------------- Page ----------------------------------- */
 
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const isDesktop = useIsDesktop();
+  const offset = isDesktop ? SIDEBAR_OFFSET : 0;
+
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   const connectedChannels = useConnectedChannels();
-  const totals = useMemo(
-    () => computeTotals(connectedChannels),
-    [connectedChannels]
-  );
+  const totals = useMemo(() => computeTotals(connectedChannels), [connectedChannels]);
 
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
+  const [loadingUser, setLoadingUser] = useState(!userProfileCache.profile);
 
   useEffect(() => {
     let mounted = true;
-
-    const loadUser = async () => {
+    (async () => {
       try {
         const userData = await getCurrentUser();
         if (mounted && userData) {
@@ -846,13 +538,27 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error loading user on Home:", error);
+      } finally {
+        if (mounted) setLoadingUser(false);
       }
-    };
-
-    loadUser();
+    })();
     return () => {
       mounted = false;
     };
+  }, []);
+
+  // Raccourcis : N = nouvelle publication, Échap = fermer le dossier
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+      }
+      if (e.key === "Escape") setIsFolderOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
@@ -864,73 +570,53 @@ export default function Home() {
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
-    switch (id) {
-      case "add":
-        setIsFolderOpen(false);
-        setIsNewPostOpen(true);
-        break;
-      case "files":
-        setIsFolderOpen((open) => !open);
-        break;
+    if (id === "add") {
+      setIsFolderOpen(false);
+      setIsNewPostOpen(true);
+    } else if (id === "files") {
+      setIsFolderOpen((open) => !open);
     }
   };
 
   return (
     <main
-      className={[
-        "relative h-screen w-full overflow-hidden transition-colors duration-500",
-        isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
-      ].join(" ")}
+      style={PALETTE[isDark ? "dark" : "light"] as React.CSSProperties}
+      className="relative h-screen w-full overflow-hidden bg-[var(--paper)] text-[var(--ink)] transition-colors duration-300 motion-reduce:transition-none"
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
+      <div className="h-full" style={{ paddingLeft: offset }}>
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto flex min-h-full w-full max-w-[1320px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(14px,2vw,24px)]">
+          <div className="mx-auto flex min-h-full w-full max-w-[1240px] flex-col gap-5 px-[clamp(16px,3vw,40px)] pb-[112px] pt-[clamp(16px,2.4vw,32px)]">
             <header className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <h1
-                  className={[
-                    "font-display text-[clamp(24px,2.8vw,36px)] font-semibold tracking-[-0.02em]",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                >
-                  Bonjour{fullName ? `, ${fullName}` : ""}
+                <GreetingAvatar avatarUrl={user?.avatar_url} initials={initials} />
+                <h1 className="font-display text-[clamp(24px,2.8vw,34px)] font-bold tracking-[-0.02em]">
+                  {getGreeting()}
+                  {loadingUser ? (
+                    <span className="ml-2 inline-block h-6 w-28 animate-pulse rounded-md bg-[var(--ink)]/10 align-middle" />
+                  ) : (
+                    fullName && `, ${fullName}`
+                  )}
                 </h1>
-                <GreetingAvatar
-                  avatarUrl={user?.avatar_url}
-                  initials={initials}
-                  isDark={isDark}
-                />
               </div>
-              <ClockDisplay isDark={isDark} />
+              <ClockDisplay />
             </header>
 
-            {/* Rangée 1 : chiffres clés + série */}
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="lg:col-span-8">
-                <OverviewCard
-                  isDark={isDark}
-                  totals={totals}
-                  networkCount={connectedChannels.length}
-                />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+              {/* Action principale en premier sur mobile */}
+              <div className="order-first flex flex-col gap-5 lg:order-last lg:col-span-4">
+                <ComposeCard onPlan={() => setIsNewPostOpen(true)} />
+                <StreakCard />
               </div>
-              <div className="lg:col-span-4">
-                <StreakCard isDark={isDark} />
-              </div>
-            </section>
 
-            {/* Rangée 2 : réseaux + action */}
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <div className="lg:col-span-8">
-                <ChannelsCard isDark={isDark} channels={connectedChannels} />
+              <div className="flex flex-col gap-5 lg:col-span-8">
+                <StatsStrip totals={totals} networkCount={connectedChannels.length} />
+                <ChannelsCard channels={connectedChannels} />
               </div>
-              <div className="lg:col-span-4">
-                <ComposeCard isDark={isDark} onPlan={() => setIsNewPostOpen(true)} />
-              </div>
-            </section>
+            </div>
 
-            <FromTheBlogSection isDark={isDark} />
+            <BlogSection />
           </div>
         </div>
       </div>
@@ -939,12 +625,12 @@ export default function Home() {
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={offset}
       />
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={offset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         query={query}
