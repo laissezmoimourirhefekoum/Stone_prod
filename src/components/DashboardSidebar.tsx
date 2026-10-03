@@ -656,16 +656,17 @@ type NetworkKey =
 type SidebarChannelsProps = {
   channels: ConnectedChannel[];
   isCollapsed: boolean;
-  openGroup: string | null;
   currentRoute: string;
   labelClass: string;
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
-  onToggleGroup: (label: string) => void;
-  onExpandAndOpen: (label: string) => void;
+  onExpand: () => void;
   onConnect: () => void;
 };
+
+/** Mémorise les réseaux dépliés entre deux changements de page. */
+const channelsMemory = { open: [] as string[] };
 
 const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
   x: XIcon,
@@ -712,13 +713,6 @@ const CommunityIcon = (p: IconProps) => (
 const InsightsIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
-  </Svg>
-);
-
-const GearIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
   </Svg>
 );
 
@@ -795,16 +789,29 @@ function ChannelAvatar({
 function SidebarChannels({
   channels,
   isCollapsed,
-  openGroup,
   currentRoute,
   labelClass,
   focus,
   t,
   onNavigate,
-  onToggleGroup,
-  onExpandAndOpen,
+  onExpand,
   onConnect,
 }: SidebarChannelsProps) {
+  // Plusieurs réseaux peuvent être dépliés en même temps.
+  const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
+
+  useEffect(() => {
+    channelsMemory.open = openKeys;
+  }, [openKeys]);
+
+  const toggleKey = (key: string) =>
+    setOpenKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+
+  const openKey = (key: string) =>
+    setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+
   const headerButton = [
     "flex h-6 w-6 items-center justify-center rounded-md",
     "transition-colors duration-150 motion-reduce:transition-none",
@@ -833,16 +840,6 @@ function SidebarChannels({
           <button
             type="button"
             tabIndex={isCollapsed ? -1 : 0}
-            aria-label="Channel settings"
-            title="Channel settings"
-            onClick={() => onNavigate("settings")}
-            className={headerButton}
-          >
-            <GearIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
             title="Connect a channel"
             onClick={onConnect}
@@ -860,7 +857,7 @@ function SidebarChannels({
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
           const label = channel.handle || channel.name;
           const groupKey = `channel:${channel.key}`;
-          const isOpen = openGroup === groupKey && !isCollapsed;
+          const isOpen = openKeys.includes(groupKey) && !isCollapsed;
 
           return (
             <div key={channel.key}>
@@ -868,9 +865,14 @@ function SidebarChannels({
                 type="button"
                 aria-expanded={isOpen}
                 title={isCollapsed ? label : undefined}
-                onClick={() =>
-                  isCollapsed ? onExpandAndOpen(groupKey) : onToggleGroup(groupKey)
-                }
+                onClick={() => {
+                  if (isCollapsed) {
+                    onExpand();
+                    openKey(groupKey);
+                  } else {
+                    toggleKey(groupKey);
+                  }
+                }}
                 className={[
                   "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
                   "rounded-xl px-2.5 text-[13px] font-medium",
@@ -1024,6 +1026,7 @@ function resetSidebarModuleState() {
   sidebarMemory.collapsed = true;
   sidebarMemory.openGroup = null;
   sidebarMemory.entered = false;
+  channelsMemory.open = [];
 }
 
 /* ============================================================================
@@ -1507,14 +1510,12 @@ export default function DashboardSidebar({
             <SidebarChannels
               channels={connectedChannels}
               isCollapsed={isCollapsed}
-              openGroup={openGroup}
               currentRoute={currentRoute}
               labelClass={labelClass}
               focus={focus}
               t={t}
               onNavigate={handleNavigate}
-              onToggleGroup={handleToggleGroup}
-              onExpandAndOpen={handleExpandAndOpen}
+              onExpand={() => setIsCollapsed(false)}
               onConnect={openConnect}
             />
           </div>
