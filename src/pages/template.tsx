@@ -46,7 +46,7 @@ const sampleData: Record<string, string> = {
    Mock data
 ============================================================================ */
 
-/* Aucun template par défaut : l'utilisateur démarre à vide. */
+/* Aucun template par défaut */
 const initialTemplates: Template[] = [];
 
 /* Featured templates (section teintée verte) */
@@ -81,7 +81,6 @@ const FEATURED: FeaturedTemplate[] = [
   },
 ];
 
-/* Sections horizontales */
 const TIPS: FeaturedTemplate[] = [
   {
     id: "tip1",
@@ -452,8 +451,7 @@ export default function TemplatesPage() {
             emptyCircle: "bg-white/[0.06] text-white/60",
             emptyTitle: "text-white",
             emptyDesc: "text-[#99a2a2]",
-            emptyButton:
-              "border border-white/10 bg-[#1a1a1c] text-white hover:bg-[#232326]",
+            emptyButton: "bg-white text-black hover:bg-white/90",
           }
         : {
             page: "bg-[#f7f7f5] text-[#151515]",
@@ -493,11 +491,11 @@ export default function TemplatesPage() {
             divider: "border-black/[0.07]",
             iconBtn: "hover:bg-black/[0.05] text-[#3f3f3d]",
 
-            emptyCircle: "bg-black/[0.06] text-black/50",
+            /* Empty state (comme l'image) */
+            emptyCircle: "bg-black/[0.05] text-black/45",
             emptyTitle: "text-[#151515]",
             emptyDesc: "text-[#71706d]",
-            emptyButton:
-              "border border-black/10 bg-white text-[#151515] hover:bg-black/[0.04] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+            emptyButton: "bg-[#151515] text-white hover:bg-[#2a2a2a]",
           },
     [isDark]
   );
@@ -744,223 +742,236 @@ export default function TemplatesPage() {
           </section>
 
           {/* ============================================================
-              TABS + RECHERCHE
+              MY TEMPLATES
           ============================================================ */}
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div
-              className={["flex gap-1 rounded-xl p-1", t.tabList].join(" ")}
-              role="tablist"
-            >
-              {(Object.keys(KIND_LABELS) as TemplateKind[]).map((kind) => {
-                const active = kind === activeKind;
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => navigate(kind)}
-                    className={[
-                      "rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium",
-                      "transition-colors duration-150",
-                      active ? t.tabActive : t.tabIdle,
-                    ].join(" ")}
-                  >
-                    {KIND_LABELS[kind]}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="relative w-full sm:w-72">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Rechercher un template…"
-                className={[
-                  "h-10 w-full rounded-xl border pl-9 pr-3 text-[13px]",
-                  "outline-none transition-colors duration-150",
-                  t.input,
-                ].join(" ")}
-              />
-            </div>
-          </div>
-
-          {/* ---------- Grid principale OU empty state ---------- */}
-          {filtered.length > 0 ? (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((template) => (
-                <article
-                  key={template.id}
-                  className={[
-                    "group flex flex-col rounded-2xl border p-4",
-                    "transition-[background-color,border-color,transform] duration-150",
-                    "hover:-translate-y-0.5",
-                    t.card,
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2
-                        className={[
-                          "truncate text-[14px] font-semibold",
-                          t.cardTitle,
-                        ].join(" ")}
-                      >
-                        {template.name}
-                      </h2>
-                      <p
-                        className={[
-                          "mt-0.5 line-clamp-2 text-[12px]",
-                          t.cardDesc,
-                        ].join(" ")}
-                      >
-                        {template.description}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                      <button
-                        type="button"
-                        aria-label="Éditer"
-                        onClick={() => openEdit(template)}
-                        className={[
-                          "rounded-lg p-1.5 transition-colors",
-                          t.iconBtn,
-                        ].join(" ")}
-                      >
-                        <EditIcon className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Dupliquer"
-                        onClick={() => handleDuplicate(template)}
-                        className={[
-                          "rounded-lg p-1.5 transition-colors",
-                          t.iconBtn,
-                        ].join(" ")}
-                      >
-                        <CopyIcon className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Supprimer"
-                        onClick={() => handleDelete(template.id)}
-                        className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <p
-                    className={[
-                      "mt-3 line-clamp-3 whitespace-pre-wrap text-[12px]",
-                      t.cardBody,
-                    ].join(" ")}
-                  >
-                    {template.content}
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {template.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                          t.tag,
-                        ].join(" ")}
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div
-                    className={[
-                      "mt-4 flex items-center justify-between border-t pt-3 text-[11px]",
-                      t.divider,
-                      t.muted,
-                    ].join(" ")}
-                  >
-                    <span>{template.usage} utilisations</span>
-                    <span>{template.updatedAt}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : hasAnyTemplate && query ? (
-            /* Recherche sans résultat */
-            <div
+          <section className="mt-12">
+            <h2
               className={[
-                "mt-16 flex flex-col items-center gap-3 text-center text-[13px]",
-                t.muted,
+                "text-[20px] font-semibold tracking-tight",
+                t.sectionTitle,
               ].join(" ")}
             >
-              <SearchIcon className="h-6 w-6 opacity-50" />
-              <p>{`Aucun template trouvé pour « ${query} ».`}</p>
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className={[
-                  "mt-1 inline-flex h-9 items-center gap-2 rounded-xl border px-3.5",
-                  "text-[12.5px] font-semibold",
-                  "transition-[background-color,transform] duration-150",
-                  "active:scale-[0.98]",
-                  t.buttonGhost,
-                ].join(" ")}
-              >
-                Effacer la recherche
-              </button>
-            </div>
-          ) : (
-            /* ============================================================
-               EMPTY STATE (comme dans l'image)
-            ============================================================ */
-            <div className="mt-16 flex flex-col items-center justify-center py-16 text-center">
-              {/* Grand cercle avec + */}
+              My templates
+            </h2>
+
+            {/* Tabs + recherche */}
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div
-                className={[
-                  "flex h-[140px] w-[140px] items-center justify-center rounded-full",
-                  t.emptyCircle,
-                ].join(" ")}
+                className={["flex gap-1 rounded-xl p-1", t.tabList].join(" ")}
+                role="tablist"
               >
-                <PlusIcon className="h-10 w-10" />
+                {(Object.keys(KIND_LABELS) as TemplateKind[]).map((kind) => {
+                  const active = kind === activeKind;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => navigate(kind)}
+                      className={[
+                        "rounded-lg px-3.5 py-1.5 text-[12.5px] font-medium",
+                        "transition-colors duration-150",
+                        active ? t.tabActive : t.tabIdle,
+                      ].join(" ")}
+                    >
+                      {KIND_LABELS[kind]}
+                    </button>
+                  );
+                })}
               </div>
 
-              <h2
-                className={[
-                  "mt-8 text-[28px] font-bold tracking-[-0.01em]",
-                  t.emptyTitle,
-                ].join(" ")}
-              >
-                Create your first template
-              </h2>
-
-              <p
-                className={[
-                  "mt-3 max-w-[420px] text-[15px] leading-relaxed",
-                  t.emptyDesc,
-                ].join(" ")}
-              >
-                Once created, you'll see your {KIND_LABELS[activeKind].toLowerCase()} listed here.
-              </p>
-
-              <button
-                type="button"
-                onClick={openNew}
-                className={[
-                  "mt-8 rounded-2xl px-8 py-3.5 text-[14px] font-semibold",
-                  "transition-[background-color,transform] duration-150",
-                  "active:scale-[0.98]",
-                  t.emptyButton,
-                ].join(" ")}
-              >
-                New template
-              </button>
+              <div className="relative w-full sm:w-72">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Rechercher un template…"
+                  className={[
+                    "h-10 w-full rounded-xl border pl-9 pr-3 text-[13px]",
+                    "outline-none transition-colors duration-150",
+                    t.input,
+                  ].join(" ")}
+                />
+              </div>
             </div>
-          )}
+
+            {/* Grid OU empty state OU recherche vide */}
+            {filtered.length > 0 ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((template) => (
+                  <article
+                    key={template.id}
+                    className={[
+                      "group flex flex-col rounded-2xl border p-4",
+                      "transition-[background-color,border-color,transform] duration-150",
+                      "hover:-translate-y-0.5",
+                      t.card,
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3
+                          className={[
+                            "truncate text-[14px] font-semibold",
+                            t.cardTitle,
+                          ].join(" ")}
+                        >
+                          {template.name}
+                        </h3>
+                        <p
+                          className={[
+                            "mt-0.5 line-clamp-2 text-[12px]",
+                            t.cardDesc,
+                          ].join(" ")}
+                        >
+                          {template.description}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                        <button
+                          type="button"
+                          aria-label="Éditer"
+                          onClick={() => openEdit(template)}
+                          className={[
+                            "rounded-lg p-1.5 transition-colors",
+                            t.iconBtn,
+                          ].join(" ")}
+                        >
+                          <EditIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Dupliquer"
+                          onClick={() => handleDuplicate(template)}
+                          className={[
+                            "rounded-lg p-1.5 transition-colors",
+                            t.iconBtn,
+                          ].join(" ")}
+                        >
+                          <CopyIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Supprimer"
+                          onClick={() => handleDelete(template.id)}
+                          className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-500/10"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p
+                      className={[
+                        "mt-3 line-clamp-3 whitespace-pre-wrap text-[12px]",
+                        t.cardBody,
+                      ].join(" ")}
+                    >
+                      {template.content}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {template.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={[
+                            "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            t.tag,
+                          ].join(" ")}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div
+                      className={[
+                        "mt-4 flex items-center justify-between border-t pt-3 text-[11px]",
+                        t.divider,
+                        t.muted,
+                      ].join(" ")}
+                    >
+                      <span>{template.usage} utilisations</span>
+                      <span>{template.updatedAt}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : hasAnyTemplate && query ? (
+              /* Recherche sans résultat */
+              <div
+                className={[
+                  "mt-16 flex flex-col items-center gap-3 text-center text-[13px]",
+                  t.muted,
+                ].join(" ")}
+              >
+                <SearchIcon className="h-6 w-6 opacity-50" />
+                <p>{`Aucun template trouvé pour « ${query} ».`}</p>
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className={[
+                    "mt-1 inline-flex h-9 items-center gap-2 rounded-xl border px-3.5",
+                    "text-[12.5px] font-semibold",
+                    "transition-[background-color,transform] duration-150",
+                    "active:scale-[0.98]",
+                    t.buttonGhost,
+                  ].join(" ")}
+                >
+                  Effacer la recherche
+                </button>
+              </div>
+            ) : (
+              /* ============================================================
+                 EMPTY STATE (style image, adapté template)
+              ============================================================ */
+              <div className="mt-16 flex flex-col items-center justify-center py-14 text-center">
+                {/* Cercle gris clair avec + */}
+                <div
+                  className={[
+                    "flex h-[120px] w-[120px] items-center justify-center rounded-full",
+                    t.emptyCircle,
+                  ].join(" ")}
+                >
+                  <PlusIcon className="h-9 w-9" />
+                </div>
+
+                <h3
+                  className={[
+                    "mt-8 text-[26px] font-bold tracking-[-0.01em]",
+                    t.emptyTitle,
+                  ].join(" ")}
+                >
+                  Create your first template
+                </h3>
+
+                <p
+                  className={[
+                    "mt-3 max-w-[440px] text-[15px] leading-relaxed",
+                    t.emptyDesc,
+                  ].join(" ")}
+                >
+                  Once created, you'll see your{" "}
+                  {KIND_LABELS[activeKind].toLowerCase()} listed here.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={openNew}
+                  className={[
+                    "mt-8 rounded-2xl px-8 py-3.5 text-[14px] font-semibold",
+                    "transition-[background-color,transform] duration-150",
+                    "active:scale-[0.98]",
+                    t.emptyButton,
+                  ].join(" ")}
+                >
+                  New template
+                </button>
+              </div>
+            )}
+          </section>
 
           {/* ============================================================
               SECTIONS HORIZONTALES
