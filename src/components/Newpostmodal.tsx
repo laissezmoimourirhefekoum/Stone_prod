@@ -286,6 +286,30 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
 
   const timezone = useMemo(() => getLocalTimezone(), []);
 
+  // ── FIX React #310 ──
+  // Ce useMemo DOIT être avant le `if (!isOpen) return null;`
+  // sinon React voit plus de hooks au 2e rendu → erreur #310.
+  // Trié selon SOCIAL_NETWORKS : YouTube se place juste après TikTok.
+  const channelTiles = useMemo(() => {
+    return connectedChannels
+      .map((channel) => {
+        const networkId = getNetworkId(channel);
+        const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
+        if (order === -1) return null;
+        return { channel, network: SOCIAL_NETWORKS[order], order };
+      })
+      .filter(
+        (
+          tile
+        ): tile is {
+          channel: ConnectedChannel;
+          network: (typeof SOCIAL_NETWORKS)[number];
+          order: number;
+        } => tile !== null
+      )
+      .sort((a, b) => a.order - b.order);
+  }, [connectedChannels]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -418,28 +442,6 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
       prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
     );
   };
-
-  // Un canal connecté par pastille (les canaux dont le réseau n'est pas reconnu sont ignorés).
-  // Trié selon l'ordre de SOCIAL_NETWORKS : YouTube se place juste après TikTok.
-  const channelTiles = useMemo(() => {
-    return connectedChannels
-      .map((channel) => {
-        const networkId = getNetworkId(channel);
-        const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
-        if (order === -1) return null;
-        return { channel, network: SOCIAL_NETWORKS[order], order };
-      })
-      .filter(
-        (
-          tile
-        ): tile is {
-          channel: ConnectedChannel;
-          network: (typeof SOCIAL_NETWORKS)[number];
-          order: number;
-        } => tile !== null
-      )
-      .sort((a, b) => a.order - b.order);
-  }, [connectedChannels]);
 
   // Le brouillon est sauvegardé, puis on va connecter un réseau.
   const handleConnectChannel = () => {

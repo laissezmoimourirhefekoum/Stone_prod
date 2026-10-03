@@ -21,29 +21,11 @@ import {
   PinterestIcon,
 } from "../components/IntegrationIcons";
 
-/**
- * Largeur réservée à la sidebar (68px + 16px d'inset + gap).
- * Utilisée à la fois pour le padding du contenu et pour centrer la
- * BottomBar sur la zone de contenu (et non sur tout l'écran).
- */
 const SIDEBAR_OFFSET = 104;
 
-/**
- * Cache du profil utilisateur, partagé entre tous les montages de cette
- * page. Sans ça, chaque changement de page qui démonte/remonte Home
- * repart de `user = null`, ce qui fait clignoter l'avatar et le
- * "Bonjour, ..." et relance systématiquement getCurrentUser(). Avec ce
- * cache, l'état initial est déjà rempli avec la dernière valeur connue,
- * et on ne fait qu'une mise à jour silencieuse en arrière-plan.
- */
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
-
-/* ──────────────────────────────────────────────────────────────
-   Réseaux sociaux : helpers pour retrouver l'icône à afficher
-   en badge sur les photos de profil des canaux connectés.
-   ────────────────────────────────────────────────────────────── */
 
 type SocialNetworkKey =
   | "x"
@@ -67,11 +49,6 @@ const NETWORK_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-/**
- * Déduit le réseau (SocialNetworkKey) d'un canal connecté.
- * On regarde d'abord un champ `platform` / `network` / `provider`
- * s'il existe, puis la clé du canal.
- */
 function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
@@ -87,10 +64,6 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Avatar de la barre "Bonjour, ..."
-   ────────────────────────────────────────────────────────────── */
 
 function GreetingAvatar({
   avatarUrl,
@@ -131,16 +104,10 @@ function GreetingAvatar({
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Horloge : heure (HH:MM) en gros, date juste en dessous.
-   ────────────────────────────────────────────────────────────── */
-
 function ClockDisplay({ isDark }: { isDark: boolean }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    // Rafraîchit toutes les 15s : suffisant pour rester synchro à la
-    // minute (plus de secondes affichées).
     const interval = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(interval);
   }, []);
@@ -178,10 +145,6 @@ function ClockDisplay({ isDark }: { isDark: boolean }) {
     </div>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Widget "Streak"
-   ────────────────────────────────────────────────────────────── */
 
 type StreakWidgetTokens = {
   cardBg: string;
@@ -257,21 +220,14 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-/**
- * Initiales des jours de la semaine en français.
- * Index aligné sur Date.getDay() : 0 = dimanche … 6 = samedi.
- */
 const WEEKDAYS_FR_SHORT = ["D", "L", "M", "M", "J", "V", "S"];
 
 function StreakStepsWidget({ isDark }: { isDark: boolean }) {
-  // TODO: brancher ici le vrai nombre de jours consécutifs avec un post.
   const streakCount = 0;
   const challengeName = "0 day of post";
 
   const tokens = buildStreakTokens(!isDark);
 
-  // 7 jours à partir d'aujourd'hui : le premier est aujourd'hui,
-  // puis les 6 jours suivants.
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -311,8 +267,6 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
         <FlameIcon className="h-8 w-8 shrink-0" color={tokens.flame} />
       </div>
 
-      {/* 7 jours : initiale du jour au-dessus de chaque rond.
-          Le premier rond correspond à aujourd'hui. */}
       <div className="mt-3.5 flex items-start justify-between gap-1">
         {days.map((dayLabel, index) => {
           const isChecked = index < streakCount;
@@ -357,15 +311,6 @@ function StreakStepsWidget({ isDark }: { isDark: boolean }) {
     </div>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Widget "Réseaux connectés"
-   - aucun réseau connecté : invitation "Connectez votre premier réseau"
-   - au moins un réseau   : uniquement les photos de profil à gauche
-                            et le bouton "Connecter" tout à droite.
-                            Chaque photo affiche le badge de son réseau.
-   Note : YouTube est volontairement exclu de ce widget côté Home.
-   ────────────────────────────────────────────────────────────── */
 
 function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
@@ -432,7 +377,6 @@ function ChannelAvatar({
 }) {
   const [failed, setFailed] = useState(false);
 
-  // Si l'URL change (reconnexion), on retente le chargement.
   useEffect(() => {
     setFailed(false);
   }, [channel.avatarUrl]);
@@ -508,8 +452,6 @@ function ConnectFirstChannelWidget({
       : "bg-neutral-900 text-white hover:bg-neutral-800",
   ].join(" ");
 
-  /* Au moins un réseau connecté : uniquement les photos de profil
-     à gauche, et le bouton "Connecter" tout à droite. */
   if (channels.length > 0) {
     return (
       <div className={cardClasses}>
@@ -541,7 +483,6 @@ function ConnectFirstChannelWidget({
     );
   }
 
-  /* Aucun réseau connecté : invitation d'origine. */
   return (
     <button
       type="button"
@@ -582,10 +523,6 @@ function ConnectFirstChannelWidget({
     </button>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Grille de droite : deux cartes (Performance retirée)
-   ────────────────────────────────────────────────────────────── */
 
 function DashboardCard({
   isDark,
@@ -689,10 +626,6 @@ function IntegrationsCard({ isDark }: { isDark: boolean }) {
   );
 }
 
-/**
- * Empty state : cercle avec "+", titre court, bouton.
- * Textes volontairement très courts.
- */
 function UpcomingPostsCard({
   isDark,
   onPlan,
@@ -751,10 +684,6 @@ function UpcomingPostsCard({
     </DashboardCard>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Section "From the Blog"
-   ────────────────────────────────────────────────────────────── */
 
 function ArrowRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -892,10 +821,6 @@ function FromTheBlogSection({ isDark }: { isDark: boolean }) {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Home
-   ────────────────────────────────────────────────────────────── */
-
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -951,21 +876,10 @@ export default function Home() {
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
 
-  /**
-   * Point d'entrée unique pour la création d'un post depuis la popup.
-   * TODO : brancher ici le vrai envoi (Supabase, file d'attente de
-   * publication, upload des médias vers un bucket, etc.).
-   */
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
   };
 
-  /**
-   * Actions de la barre du bas.
-   * Seul "add" est branché pour l'instant : il ouvre la popup de
-   * création de post. Les autres onglets sont à relier à leurs
-   * pages / modales respectives.
-   */
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
@@ -987,15 +901,8 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* pl-[104px] clears the sidebar's collapsed width (68px + 16px inset + gap).
-          The sidebar is position: fixed and floats over the content (z-20)
-          when it expands, so this padding does not need to change with its state. */}
       <div className="h-full" style={{ paddingLeft: SIDEBAR_OFFSET }}>
-        {/* pb-[96px] : réserve la place de la BottomBar (48px de bouton +
-            16px de padding interne + 16px de marge basse) pour que le
-            contenu ne passe pas dessous. */}
         <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pb-[96px] pt-[clamp(14px,2vw,24px)]">
-          {/* Heading row + widgets */}
           <div className="flex min-h-0 flex-1 flex-col gap-3.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1018,9 +925,6 @@ export default function Home() {
               <ClockDisplay isDark={isDark} />
             </div>
 
-            {/* Ligne du haut : 3 colonnes de largeur égale.
-                Streak, Intégrations et Publications à venir se partagent
-                la largeur totale à parts égales. */}
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StreakStepsWidget isDark={isDark} />
               <IntegrationsCard isDark={isDark} />
@@ -1040,8 +944,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Barre d'actions rapides, centrée sur la zone de contenu
-          (décalée de la largeur de la sidebar). */}
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
