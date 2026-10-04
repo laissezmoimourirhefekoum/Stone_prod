@@ -366,10 +366,29 @@ function BoltIcon(props: IconProps) {
   );
 }
 
-/** Icône « panneau latéral » : sert à réduire / ouvrir la sidebar. */
-function SidebarToggleIcon(props: IconProps) {
+/** Icône « panneau latéral » : le panneau gauche se remplit quand la sidebar est ouverte. */
+function SidebarToggleIcon({
+  className,
+  open,
+}: IconProps & {
+  open: boolean;
+}) {
   return (
-    <Svg {...props}>
+    <Svg className={className}>
+      <rect
+        x="3.5"
+        y="4.5"
+        width="6"
+        height="15"
+        rx="2"
+        fill="currentColor"
+        stroke="none"
+        className={[
+          "transition-opacity duration-300",
+          "motion-reduce:transition-none",
+          open ? "opacity-30" : "opacity-0",
+        ].join(" ")}
+      />
       <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
       <path d="M9.5 4.5v15" />
     </Svg>
@@ -1061,8 +1080,28 @@ function SidebarChannels({
    Sidebar memory
 ============================================================================ */
 
+const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
+
+/** Dernier état choisi par l'utilisateur (fermée par défaut). */
+function readStoredCollapsed(): boolean {
+  if (typeof window === "undefined") return true;
+
+  try {
+    const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
+
+/** Libellé du raccourci clavier selon la plateforme. */
+const TOGGLE_SHORTCUT_LABEL =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform)
+    ? "⌘B"
+    : "Ctrl B";
+
 const sidebarMemory = {
-  collapsed: true,
+  collapsed: readStoredCollapsed(),
   openGroup: null as string | null,
   entered: false,
 };
@@ -1078,6 +1117,13 @@ function setSidebarCollapsed(value: boolean) {
   if (sidebarMemory.collapsed === value) return;
 
   sidebarMemory.collapsed = value;
+
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(value));
+  } catch {
+    /* stockage indisponible : on garde juste l'état en mémoire */
+  }
+
   sidebarListeners.forEach((listener) => listener());
 }
 
@@ -1523,6 +1569,36 @@ export default function DashboardSidebar({
     setOpenGroup(null);
   }, []);
 
+  /* Raccourci Cmd/Ctrl + B (ignoré pendant la saisie de texte). */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "b" ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+
+      if (
+        target &&
+        (target.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      toggleCollapsed();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggleCollapsed]);
+
   const handleNavigate = useCallback((route: string) => {
     navigate(route);
   }, []);
@@ -1920,15 +1996,18 @@ export default function DashboardSidebar({
         </nav>
 
         {/* Account */}
-        <div ref={profileRef} className="mt-3">
+        <div
+          ref={profileRef}
+          className={["mt-3 border-t pt-3", t.rail].join(" ")}
+        >
           {/*
-            Fermée : l'icône est au-dessus de la photo de profil (colonne).
-            Ouverte : l'icône est à droite, alignée avec le profil (ligne).
+            Fermée : le toggle est au-dessus de la photo de profil (colonne).
+            Ouverte : le toggle est à droite, aligné avec le profil (ligne).
           */}
           <div
             className={[
               "flex gap-1",
-              isCollapsed ? "flex-col" : "flex-row items-center",
+              isCollapsed ? "flex-col" : "flex-row items-center gap-1.5",
             ].join(" ")}
           >
             {/* Toggle sidebar */}
@@ -1936,22 +2015,53 @@ export default function DashboardSidebar({
               type="button"
               aria-expanded={!isCollapsed}
               aria-controls="app-sidebar"
+              aria-keyshortcuts="Control+B Meta+B"
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               onClick={toggleCollapsed}
               className={[
-                "flex h-10 shrink-0 select-none items-center justify-center",
-                "rounded-xl",
-                "transition-[background-color,transform] duration-200",
-                "active:scale-[0.97]",
+                "group/toggle relative flex shrink-0 select-none",
+                "items-center justify-center rounded-xl",
+                "transition-[background-color,color,transform] duration-200",
+                "active:scale-[0.94]",
                 "motion-reduce:transition-none",
                 "motion-reduce:active:scale-100",
-                isCollapsed ? "order-first w-full" : "order-last w-10",
+                isCollapsed
+                  ? "order-first h-9 w-full"
+                  : "order-last h-9 w-9",
                 focus,
-                t.navIdle,
+                t.menuIcon,
+                t.row,
               ].join(" ")}
             >
-              <SidebarToggleIcon className="h-5 w-5" />
+              <SidebarToggleIcon className="h-[18px] w-[18px]" open={!isCollapsed} />
+
+              {/* Infobulle : libellé + raccourci */}
+              <span
+                role="tooltip"
+                className={[
+                  "pointer-events-none absolute z-50 flex items-center gap-2",
+                  "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+                  "text-[11.5px] font-medium",
+                  "opacity-0 transition-opacity duration-150 delay-0",
+                  "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
+                  "group-focus-visible/toggle:opacity-100",
+                  "motion-reduce:transition-none",
+                  isCollapsed
+                    ? "left-full top-1/2 ml-3 -translate-y-1/2"
+                    : "bottom-full right-0 mb-2",
+                  t.menu,
+                ].join(" ")}
+              >
+                {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                <kbd
+                  className={[
+                    "rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
+                    t.count,
+                  ].join(" ")}
+                >
+                  {TOGGLE_SHORTCUT_LABEL}
+                </kbd>
+              </span>
             </button>
 
             {/* Profil */}
