@@ -1434,8 +1434,8 @@ export default function DashboardSidebar({
   /* --------------------------------------------------------------------------
      Theme tokens
 
-     Mode sombre : la sidebar (#1a1a1d) est volontairement plus claire que
-     le fond de page (#09090a) et proche des cartes (#141416), au lieu du
+     Mode sombre : la sidebar (#101012) reste sombre mais un cran plus claire que
+     le fond de page (#09090a) et plus sombre que les cartes (#141416), au lieu du
      quasi-noir pur d'origine. `dotRing` doit toujours correspondre au fond
      de la sidebar pour que les pastilles s'y fondent.
   -------------------------------------------------------------------------- */
@@ -1445,15 +1445,15 @@ export default function DashboardSidebar({
       isDark
         ? {
             aside:
-              "border-white/10 bg-[#1a1a1d] shadow-[0_10px_40px_rgba(0,0,0,0.45)]",
+              "border-white/10 bg-[#101012] shadow-[0_10px_40px_rgba(0,0,0,0.55)]",
             brand: "text-white",
             divider: "bg-white/10",
             navActive: "bg-white/15 text-white",
             navIdle: "text-white hover:bg-white/10",
             handle:
-              "border-white/15 bg-[#262629]/90 text-[#d7d7d2] hover:bg-[#2f2f33]",
+              "border-white/15 bg-[#1c1c1f]/90 text-[#d7d7d2] hover:bg-[#262629]",
             count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#1a1a1d]",
+            dotRing: "ring-[#101012]",
             rail: "border-white/10",
             sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
             subActive: "bg-white/[0.08] text-white",
@@ -1462,7 +1462,7 @@ export default function DashboardSidebar({
             avatar: "bg-[#f0f0ed] text-[#111111]",
             title: "text-[#f3f3ef]",
             muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#232326] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
+            menu: "border-white/10 bg-[#1a1a1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
             menuDivider: "border-white/10",
             menuItem:
               "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
