@@ -1,9 +1,9 @@
 // src/pages/Insights.tsx
 // Page Insights en noir et blanc (route "analytics").
 // Les données sont fournies par `useInsights` : branche-le sur ton backend.
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -42,6 +42,12 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "impact", label: "Content impact" },
   { key: "growth", label: "Audience growth" },
   { key: "visibility", label: "Visibility" },
+];
+
+const VIEWS: { key: View; label: string }[] = [
+  { key: "this", label: "This period" },
+  { key: "comparison", label: "Comparison" },
+  { key: "both", label: "Both" },
 ];
 
 /* ───────── Données (à remplacer par ton API) ───────── */
@@ -107,9 +113,10 @@ function Chart({
   isDark: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const gradId = useId();
   const W = 900;
-  const H = 280;
-  const pad = { l: 36, r: 44, t: 16, b: 28 };
+  const H = 300;
+  const pad = { l: 12, r: 44, t: 16, b: 28 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
 
@@ -122,13 +129,14 @@ function Chart({
   const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
   const path = (pts: Point[]) =>
     pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.followers).toFixed(1)}`).join(" ");
+  const area = `${path(current)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
   const ink = isDark ? "#ffffff" : "#000000";
-  const grid = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const axis = isDark ? "#8a8a8a" : "#737373";
 
   const ticks = Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4));
-  const labelIdx = [0, 0.2, 0.4, 0.6, 0.8, 1].map((r) => Math.round(r * (n - 1)));
+  const labelIdx = Array.from(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((r) => Math.round(r * (n - 1)))));
 
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -138,6 +146,7 @@ function Chart({
   };
 
   const hp = hover !== null ? current[hover] : null;
+  const hq = hover !== null ? previous[hover] : null;
 
   return (
     <div className="relative">
@@ -149,16 +158,30 @@ function Chart({
         role="img"
         aria-label="Followers over time"
       >
+        <defs>
+          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={ink} stopOpacity={isDark ? 0.18 : 0.12} />
+            <stop offset="100%" stopColor={ink} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={grid} />
-            <text x={W - pad.r + 8} y={y(t) + 4} fontSize="11" fill={axis}>
+            <text x={W - pad.r + 8} y={y(t) + 4} fontSize="11" fill={axis} className="tabular-nums">
               {t}
             </text>
           </g>
         ))}
         {labelIdx.map((i) => (
-          <text key={i} x={x(i)} y={H - 6} fontSize="11" fill={axis} textAnchor="middle">
+          <text
+            key={i}
+            x={x(i)}
+            y={H - 6}
+            fontSize="11"
+            fill={axis}
+            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+          >
             {fmt(current[i].date)}
           </text>
         ))}
@@ -167,7 +190,10 @@ function Chart({
           <path d={path(previous)} fill="none" stroke={ink} strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 4" />
         )}
         {view !== "comparison" && (
-          <path d={path(current)} fill="none" stroke={ink} strokeWidth="2" strokeLinejoin="round" />
+          <>
+            <path d={area} fill={`url(#${gradId})`} />
+            <path d={path(current)} fill="none" stroke={ink} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          </>
         )}
 
         {hp && hover !== null && (
@@ -180,20 +206,26 @@ function Chart({
 
       {hp && hover !== null && (
         <div
-          className="pointer-events-none absolute top-2 rounded-lg border border-neutral-500/30 bg-white px-3 py-2 text-[12px] text-black shadow-lg dark:bg-black dark:text-white"
+          className="pointer-events-none absolute top-2 min-w-[150px] rounded-xl border border-neutral-500/30 bg-white px-3.5 py-2.5 text-[12px] text-black shadow-lg dark:bg-black dark:text-white"
           style={{
             left: `${(x(hover) / W) * 100}%`,
             transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
           }}
         >
-          <div className="mb-1 text-neutral-500">{fmtFull(hp.date)}</div>
-          <div className="flex justify-between gap-6">
-            <span>Posts</span>
-            <b>{hp.posts}</b>
-          </div>
+          <div className="mb-1.5 text-neutral-500">{fmtFull(hp.date)}</div>
           <div className="flex justify-between gap-6">
             <span>Followers</span>
-            <b>{hp.followers}</b>
+            <b className="tabular-nums">{hp.followers}</b>
+          </div>
+          {view !== "this" && hq && (
+            <div className="flex justify-between gap-6 text-neutral-500">
+              <span>Previous</span>
+              <b className="tabular-nums">{hq.followers}</b>
+            </div>
+          )}
+          <div className="flex justify-between gap-6">
+            <span>Posts</span>
+            <b className="tabular-nums">{hp.posts}</b>
           </div>
         </div>
       )}
@@ -208,18 +240,21 @@ function Segmented<T extends string>({
   options,
   onChange,
   isDark,
+  label,
 }: {
   value: T;
   options: { key: T; label: string }[];
   onChange: (k: T) => void;
   isDark: boolean;
+  label: string;
 }) {
   const on = isDark ? "bg-white text-black" : "bg-black text-white";
   const off = isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-black";
   return (
     <div
       role="tablist"
-      className={`inline-flex gap-1 rounded-xl border p-1 ${isDark ? "border-white/10" : "border-black/10"}`}
+      aria-label={label}
+      className={`inline-flex max-w-full gap-1 overflow-x-auto rounded-full border p-1 ${isDark ? "border-white/10" : "border-black/10"}`}
     >
       {options.map((o) => (
         <button
@@ -228,7 +263,7 @@ function Segmented<T extends string>({
           role="tab"
           aria-selected={value === o.key}
           onClick={() => onChange(o.key)}
-          className={`rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${
+          className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${
             isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
           } ${value === o.key ? on : off}`}
         >
@@ -236,6 +271,21 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+function Delta({ value, isDark }: { value: number; isDark: boolean }) {
+  const text = value === 0 ? "No change" : `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
+  const arrow = value === 0 ? "" : value > 0 ? "↑" : "↓";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${
+        isDark ? "border-white/15" : "border-black/15"
+      }`}
+    >
+      {arrow && <span aria-hidden="true">{arrow}</span>}
+      {text}
+    </span>
   );
 }
 
@@ -258,12 +308,14 @@ export default function Insights() {
 
   const page = isDark ? "bg-black text-white" : "bg-white text-black";
   const card = isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-[#fafafa]";
-  const tile = isDark ? "border-white/10 bg-black" : "border-black/10 bg-white";
+  const line = isDark ? "border-white/10" : "border-black/10";
+  const cell = isDark ? "bg-[#0c0c0c]" : "bg-[#fafafa]";
+  const gridBg = isDark ? "bg-white/10" : "bg-black/10";
   const muted = isDark ? "text-neutral-400" : "text-neutral-500";
-  const solid = isDark ? "bg-white text-black hover:bg-neutral-200" : "bg-black text-white hover:bg-neutral-800";
   const ghost = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
+  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
 
-  const label = channel ? channel.handle || channel.name : "No channel";
+  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "No channel";
   const start = current[0].date;
   const end = current[current.length - 1].date;
   const pStart = previous[0].date;
@@ -272,7 +324,6 @@ export default function Insights() {
   const compared = `${fmt(pStart)} - ${fmtFull(pEnd)}`;
 
   const stats: { label: string; value: string }[] = [
-    { label: "Total followers", value: String(summary.followers) },
     { label: "Posts", value: String(summary.posts) },
     { label: "Reactions", value: String(summary.reactions) },
     { label: "Comments", value: String(summary.comments) },
@@ -290,148 +341,172 @@ export default function Insights() {
 
   return (
     <main
-      className={`min-h-screen py-8 pr-8 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${page}`}
+      className={`min-h-screen py-8 pr-4 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none sm:pr-8 ${page}`}
       style={{ paddingLeft: sidebarOffset }}
     >
       <DashboardSidebar />
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8">
+      <div className="mx-auto flex max-w-[1100px] flex-col gap-10">
         {/* Header */}
         <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             {channel?.avatarUrl ? (
               <img
                 src={channel.avatarUrl}
                 alt=""
                 referrerPolicy="no-referrer"
-                className="h-12 w-12 rounded-full object-cover"
+                className="h-14 w-14 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <span className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold ${isDark ? "bg-white text-black" : "bg-black text-white"}`}>
-                {label.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
+              <span
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-semibold ${
+                  isDark ? "bg-white text-black" : "bg-black text-white"
+                }`}
+              >
+                {name.charAt(0).toUpperCase() || "?"}
               </span>
             )}
-            <h1 className="text-[26px] font-semibold tracking-tight">{label.replace(/^@/, "")}</h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-[28px] font-semibold leading-tight tracking-tight">{name}</h1>
+              <p className={`text-[14px] ${muted}`}>Insights · {period}</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => window.print()}
-            className={`rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors ${ghost}`}
+            className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 print:hidden ${ghost} ${ring}`}
           >
             Export
           </button>
         </header>
 
-        {/* Banner */}
-        <section className={`flex items-center justify-between gap-6 rounded-3xl border p-8 ${card}`}>
-          <div className="max-w-[460px]">
-            <h2 className="text-[22px] font-semibold tracking-tight">Grow with weekly takeaways</h2>
-            <p className={`mt-2 text-[15px] leading-relaxed ${muted}`}>
-              The more you post, the better your takeaways. Share a few posts and weekly insights will appear here.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("create")}
-              className={`mt-5 rounded-xl px-5 py-2.5 text-[14px] font-semibold transition-colors ${solid}`}
-            >
-              Create post
-            </button>
+        {/* Range + Summary */}
+        <section className="flex flex-col gap-5" aria-labelledby="summary-title">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="summary-title" className="text-[22px] font-semibold tracking-tight">
+              Summary
+            </h2>
+            <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} isDark={isDark} />
           </div>
-          <div className="hidden gap-3 lg:flex" aria-hidden="true">
-            {["Use your drafts", "Repost a popular post", "Reuse evergreen ideas"].map((t, i) => (
-              <div
-                key={t}
-                className={`w-40 rounded-2xl border p-4 text-[12px] font-medium ${tile}`}
-                style={{ transform: `rotate(${(i - 1) * 4}deg) translateY(${i === 1 ? -6 : 6}px)` }}
-              >
-                {t}
-                <div className={`mt-3 h-1.5 w-full rounded-full ${isDark ? "bg-white/15" : "bg-black/10"}`} />
-                <div className={`mt-1.5 h-1.5 w-2/3 rounded-full ${isDark ? "bg-white/15" : "bg-black/10"}`} />
-              </div>
-            ))}
-          </div>
-        </section>
 
-        {/* Range */}
-        <section className="flex flex-col gap-4">
-          <h2 className="text-[22px] font-semibold tracking-tight">All insights</h2>
-          <Segmented value={range} options={RANGES} onChange={setRange} isDark={isDark} />
-        </section>
-
-        {/* Summary */}
-        <section className={`rounded-3xl border p-6 ${card}`}>
-          <h3 className="text-[17px] font-semibold">Summary</h3>
-          <p className={`mt-1 text-[13px] ${muted}`}>
-            {period}, compared to {compared}
-          </p>
-          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {stats.map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-4 ${tile}`}>
-                <div className={`text-[13px] ${muted}`}>{s.label}</div>
-                <div className="mt-3 text-[28px] font-semibold tabular-nums tracking-tight">{s.value}</div>
+          <div className={`overflow-hidden rounded-3xl border ${line}`}>
+            {/* Chiffre principal */}
+            <div className={`flex flex-wrap items-end justify-between gap-4 p-6 sm:p-8 ${cell}`}>
+              <div>
+                <div className={`text-[14px] ${muted}`}>Total followers</div>
+                <div className="mt-2 text-[56px] font-semibold leading-none tabular-nums tracking-tight">
+                  {summary.followers}
+                </div>
               </div>
-            ))}
+              <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                <Delta value={delta} isDark={isDark} />
+                <span className={`text-[12px] ${muted}`}>vs. {compared}</span>
+              </div>
+            </div>
+
+            {/* Autres indicateurs */}
+            <div className={`grid grid-cols-2 gap-px border-t md:grid-cols-3 ${line} ${gridBg}`}>
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className={`p-5 last:col-span-2 md:last:col-span-1 ${isDark ? "bg-black" : "bg-white"}`}
+                >
+                  <div className={`text-[13px] ${muted}`}>{s.label}</div>
+                  <div className="mt-2 text-[26px] font-semibold tabular-nums tracking-tight">{s.value}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* Performance per post */}
-        <section className={`rounded-3xl border p-6 ${card}`}>
-          <h3 className="text-[17px] font-semibold">Performance per post</h3>
-          <p className={`mt-1 text-[13px] ${muted}`}>{period}</p>
-          <div className={`mt-5 flex flex-col items-center gap-3 rounded-2xl border px-6 py-14 text-center ${tile}`}>
-            <p className={`text-[15px] ${muted}`}>
-              No posts in the last {days} days. Pick another date range or publish a post.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("create")}
-              className={`rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors ${solid}`}
+        <section className="flex flex-col gap-4" aria-labelledby="perf-title">
+          <div>
+            <h2 id="perf-title" className="text-[22px] font-semibold tracking-tight">
+              Performance per post
+            </h2>
+            <p className={`mt-1 text-[13px] ${muted}`}>{period}</p>
+          </div>
+          <div
+            className={`flex flex-col items-center gap-3 rounded-3xl border border-dashed px-6 py-14 text-center ${
+              isDark ? "border-white/20" : "border-black/20"
+            }`}
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={muted}
+              aria-hidden="true"
             >
-              Create post
-            </button>
+              <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+            </svg>
+            <p className="text-[15px] font-medium">No posts in the last {days} days</p>
+            <p className={`max-w-[360px] text-[14px] ${muted}`}>
+              Pick another date range to see how your earlier posts performed.
+            </p>
           </div>
         </section>
 
         {/* Metrics */}
-        <section className={`rounded-3xl border p-6 ${card}`}>
-          <h3 className="text-[17px] font-semibold">Metrics</h3>
+        <section className={`rounded-3xl border p-6 sm:p-8 ${card}`} aria-labelledby="metrics-title">
+          <h2 id="metrics-title" className="text-[22px] font-semibold tracking-tight">
+            Metrics
+          </h2>
           <p className={`mt-1 text-[13px] ${muted}`}>
             {period}, compared to {compared}
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <Segmented value={tab} options={TABS} onChange={setTab} isDark={isDark} />
-            <Segmented
-              value={view}
-              options={[
-                { key: "this", label: "This period" },
-                { key: "comparison", label: "Comparison" },
-                { key: "both", label: "Both" },
-              ]}
-              onChange={setView}
-              isDark={isDark}
-            />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <Segmented label="Metric category" value={tab} options={TABS} onChange={setTab} isDark={isDark} />
+            <Segmented label="Comparison view" value={view} options={VIEWS} onChange={setView} isDark={isDark} />
           </div>
 
-          <div className={`mt-4 rounded-xl border px-4 py-3 text-[14px] ${tile}`}>
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-6">
+            <div className="flex gap-10">
+              <div>
+                <div className={`text-[13px] ${muted}`}>Followers</div>
+                <div className="text-[34px] font-semibold leading-tight tabular-nums">{summary.followers}</div>
+              </div>
+              <div>
+                <div className={`text-[13px] ${muted}`}>Posts</div>
+                <div className="text-[34px] font-semibold leading-tight tabular-nums">{summary.posts}</div>
+              </div>
+            </div>
+
+            {/* Légende */}
+            <div className={`flex items-center gap-5 text-[12px] ${muted}`} aria-hidden="true">
+              {view !== "comparison" && (
+                <span className="flex items-center gap-2">
+                  <span className={`h-0.5 w-5 rounded-full ${isDark ? "bg-white" : "bg-black"}`} />
+                  This period
+                </span>
+              )}
+              {view !== "this" && (
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-0 w-5 border-t-2 border-dashed"
+                    style={{ borderColor: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}
+                  />
+                  Previous period
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className={`mt-3 text-[14px] ${muted}`}>
             {delta === 0
               ? "Your audience was flat this period."
               : delta > 0
               ? `You gained ${delta} followers this period.`
               : `You lost ${Math.abs(delta)} followers this period.`}
-          </div>
+          </p>
 
-          <div className="mt-6 flex gap-10">
-            <div>
-              <div className={`text-[13px] ${muted}`}>Posts</div>
-              <div className="text-[30px] font-semibold tabular-nums">{summary.posts}</div>
-            </div>
-            <div>
-              <div className={`text-[13px] ${muted}`}>Followers</div>
-              <div className="text-[30px] font-semibold tabular-nums">{summary.followers}</div>
-            </div>
-          </div>
-
-          <div className="mt-4">
+          <div className="mt-6">
             <Chart current={current} previous={previous} view={view} isDark={isDark} />
           </div>
         </section>
