@@ -262,17 +262,6 @@ function CalendarIcon(props: IconProps) {
   );
 }
 
-function AnalyticsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M5 18V9" />
-      <path d="M12 18V5" />
-      <path d="M19 18v-7" />
-      <path d="M3 20h18" />
-    </Svg>
-  );
-}
-
 function TemplatesIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -413,7 +402,6 @@ const navSections: NavSection[] = [
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
-      { label: "Analytics", icon: AnalyticsIcon, route: "analytics" },
       { label: "Templates", icon: TemplatesIcon, route: "template" },
     ],
   },
