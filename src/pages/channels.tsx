@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import ConnectChannelModal from "../components/ConnectChannelModal";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
@@ -501,6 +503,9 @@ export default function Channels({
   const onToggleTheme = onToggleThemeProp ?? themeContext.toggle;
   const isDark = theme === "dark";
 
+  // Largeur dynamique de la sidebar (identique à la Home).
+  const sidebarOffset = useSidebarOffset();
+
   const { user } = useUser();
   const userId = user?.id ?? null;
 
@@ -904,7 +909,15 @@ export default function Channels({
     >
       <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      <main className="h-full overflow-y-auto py-12 pl-[104px] pr-6 sm:pr-10">
+      <main
+        className={[
+          "h-full overflow-y-auto py-12 pr-6 sm:pr-10",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
+        style={{ paddingLeft: sidebarOffset }}
+      >
         <div className="mx-auto max-w-4xl">
           {/* Header */}
           <div className="flex items-center justify-between gap-4">
