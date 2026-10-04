@@ -671,12 +671,9 @@ export default function Home() {
   const connectedChannels =
     useConnectedChannels();
 
+  // Tous les réseaux connectés sont affichés, YouTube inclus.
   const homeConnectedChannels = useMemo(
-    () =>
-      connectedChannels.filter(
-        (channel) =>
-          getNetworkId(channel) !== "youtube"
-      ),
+    () => connectedChannels,
     [connectedChannels]
   );
 
@@ -778,8 +775,6 @@ export default function Home() {
 
       {/* ======================================================
           CONTENT
-          Aucun overflow-y-auto.
-          Aucun scrollbar visible à droite.
       ====================================================== */}
 
       <div
