@@ -1,5 +1,4 @@
-﻿
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -663,64 +662,6 @@ function Channels({
 }
 
 /* ============================================================
-   QUICK ACTIONS
-============================================================ */
-
-function QuickActions({
-  isDark,
-  onNewPost,
-  onFiles,
-}: {
-  isDark: boolean;
-  onNewPost: () => void;
-  onFiles: () => void;
-}) {
-  const actions = [
-    {
-      icon: Plus,
-      label: "New post",
-      action: onNewPost,
-    },
-    {
-      icon: CalendarDays,
-      label: "Schedule",
-      action: () => navigate("calendar"),
-    },
-    {
-      icon: FileText,
-      label: "Files",
-      action: onFiles,
-    },
-  ];
-
-  return (
-    <div className="flex items-center gap-2">
-      {actions.map((item) => {
-        const Icon = item.icon;
-
-        return (
-          <button
-            key={item.label}
-            type="button"
-            onClick={item.action}
-            className={[
-              "flex h-9 items-center gap-2 rounded-xl border px-3",
-              "text-[10px] font-semibold transition",
-              isDark
-                ? "border-white/[0.07] bg-[#141416] text-neutral-300 hover:bg-[#19191c] hover:text-white"
-                : "border-black/[0.06] bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900",
-            ].join(" ")}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {item.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ============================================================
    HOME
 ============================================================ */
 
@@ -902,23 +843,6 @@ export default function Home() {
               <ClockDisplay
                 isDark={isDark}
               />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setIsNewPostOpen(true)
-                }
-                className={[
-                  "flex h-9 items-center gap-1.5 rounded-xl px-3.5",
-                  "text-[10px] font-semibold transition",
-                  isDark
-                    ? "bg-white text-black hover:bg-neutral-200"
-                    : "bg-neutral-900 text-white hover:bg-neutral-800",
-                ].join(" ")}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New post
-              </button>
             </div>
           </header>
 
@@ -957,16 +881,6 @@ export default function Home() {
                     Your activity at a glance
                   </p>
                 </div>
-
-                <QuickActions
-                  isDark={isDark}
-                  onNewPost={() =>
-                    setIsNewPostOpen(true)
-                  }
-                  onFiles={() =>
-                    setIsFolderOpen(true)
-                  }
-                />
               </div>
 
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_2fr]">
