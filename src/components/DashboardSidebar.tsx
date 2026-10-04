@@ -261,17 +261,6 @@ function CalendarIcon(props: IconProps) {
   );
 }
 
-function QueueIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M7 7h10M7 12h10M7 17h6" />
-      <circle cx="4.5" cy="7" r="1.5" />
-      <circle cx="4.5" cy="12" r="1.5" />
-      <circle cx="4.5" cy="17" r="1.5" />
-    </Svg>
-  );
-}
-
 function AnalyticsIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -415,7 +404,6 @@ const navSections: NavSection[] = [
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
-      { label: "Queue", icon: QueueIcon, route: "queue" },
       { label: "Analytics", icon: AnalyticsIcon, route: "analytics" },
       { label: "Templates", icon: TemplatesIcon, route: "template" },
     ],
@@ -2102,7 +2090,7 @@ export default function DashboardSidebar({
                 "items-center gap-3",
                 "overflow-hidden",
                 "rounded-xl px-1.5",
-                "transition-colors",
+                "transition-[background-color,transform]",
                 "duration-200",
                 "active:scale-[0.97]",
                 "motion-reduce:transition-none",
@@ -2120,7 +2108,10 @@ export default function DashboardSidebar({
                     "h-8 w-8 shrink-0",
                     "select-none",
                     "rounded-full object-cover",
-                    "transition-none",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
                   ].join(" ")}
                   onError={() => setAvatarLoadFailed(true)}
                 />
@@ -2132,7 +2123,10 @@ export default function DashboardSidebar({
                     "items-center justify-center",
                     "rounded-full",
                     "text-[10px] font-semibold",
-                    "transition-none",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
                     t.avatar,
                   ].join(" ")}
                 >
@@ -2140,25 +2134,17 @@ export default function DashboardSidebar({
                 </span>
               )}
 
-              <span className="flex min-w-0 flex-1 flex-col text-left">
-                <span
-                  className={[
-                    "truncate text-[13px] font-medium",
-                    labelClass,
-                    t.title,
-                  ].join(" ")}
-                >
-                  {account.name}
-                </span>
-                <span
-                  className={[
-                    "truncate text-[11px]",
-                    labelClass,
-                    t.muted,
-                  ].join(" ")}
-                >
-                  {account.plan}
-                </span>
+              <span
+                className={[
+                  "min-w-0 flex-1",
+                  "select-none",
+                  "truncate text-left",
+                  "text-[13px] font-medium",
+                  t.title,
+                  labelClass,
+                ].join(" ")}
+              >
+                {account.name}
               </span>
             </button>
           </div>
