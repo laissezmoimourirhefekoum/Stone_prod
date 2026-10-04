@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import PageTransition from "../components/PageTransition";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
-
-/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
-const SIDEBAR_OFFSET = 104;
 
 /* ------------------------------------------------------------------ */
 /* Icons                                                               */
@@ -676,6 +675,9 @@ export default function Schedule() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
+  const sidebarOffset = useSidebarOffset();
+
   /* ---------------- State ---------------- */
   const [categories, setCategories] = useState<Category[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -970,7 +972,10 @@ export default function Schedule() {
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="h-full pl-[104px]">
+      <div
+        className="h-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        style={{ paddingLeft: sidebarOffset }}
+      >
         <PageTransition>
           {/* pb-[96px] : réserve la place de la BottomBar. */}
           <div className="mx-auto flex h-[100dvh] w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
@@ -1418,12 +1423,12 @@ export default function Schedule() {
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
       />
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         query={bottomQuery}

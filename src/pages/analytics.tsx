@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
-
-/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
-const SIDEBAR_OFFSET = 104;
 
 /* ---------------------------------------------------------------- */
 /* Icons                                                             */
@@ -512,6 +511,9 @@ export default function Analytics() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
+  const sidebarOffset = useSidebarOffset();
+
   const [range, setRange] = useState("Last 30 Days");
   const [view, setView] = useState("Performance");
   const [tab, setTab] = useState("Overview");
@@ -541,7 +543,10 @@ export default function Analytics() {
     <main className={["relative min-h-screen w-full transition-colors duration-500", isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]"].join(" ")}>
       <DashboardSidebar theme={theme} />
 
-      <div className="pl-[104px]">
+      <div
+        className="transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        style={{ paddingLeft: sidebarOffset }}
+      >
         {/* pb-[96px] : réserve la place de la BottomBar. */}
         <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
           {/* Top row */}
@@ -636,12 +641,12 @@ export default function Analytics() {
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
       />
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         query={bottomQuery}

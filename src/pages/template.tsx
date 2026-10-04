@@ -6,7 +6,9 @@ import {
   type ReactNode,
 } from "react";
 
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import { useTheme } from "../hooks/useTheme";
 
 /* ============================================================================
@@ -217,28 +219,6 @@ const XIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
 );
 
 /* ============================================================================
-   Hook : état collapsed de la sidebar
-============================================================================ */
-
-function useSidebarCollapsed() {
-  const [collapsed, setCollapsed] = useState(true);
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ collapsed: boolean }>).detail;
-      if (detail && typeof detail.collapsed === "boolean") {
-        setCollapsed(detail.collapsed);
-      }
-    };
-
-    window.addEventListener("sidebar-state-change", handler);
-    return () => window.removeEventListener("sidebar-state-change", handler);
-  }, []);
-
-  return collapsed;
-}
-
-/* ============================================================================
    Carte "prompt" (avec emoji)
 ============================================================================ */
 
@@ -299,7 +279,9 @@ function PromptCard({
 export default function TemplatesPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const sidebarCollapsed = useSidebarCollapsed();
+
+  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
+  const sidebarOffset = useSidebarOffset();
 
   /* Onglet actif — state local, aucun impact sur le hash de l'URL.
      La sidebar a une seule entrée "Templates" → route "template". */
@@ -569,11 +551,11 @@ export default function TemplatesPage() {
       <main
         className={[
           "h-full overflow-y-auto",
-          "transition-[padding] duration-[380ms]",
+          "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
-          sidebarCollapsed ? "pl-[96px]" : "pl-[272px]",
         ].join(" ")}
+        style={{ paddingLeft: sidebarOffset }}
       >
         <div className="mx-auto max-w-[1200px] px-6 py-10 sm:px-10 sm:py-12">
           {/* ============================================================
