@@ -839,13 +839,12 @@ export default function Home() {
   );
 
   /* ----------------------------------------------------------
-     DEBUG : commande console pour changer le streak (dev only)
+     DEBUG : commande console pour changer le streak
      Utilisation dans la console : setStreak(15)
+     À SUPPRIMER une fois les tests terminés.
   ---------------------------------------------------------- */
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
     const w = window as unknown as {
       setStreak?: (value: number) => void;
     };
