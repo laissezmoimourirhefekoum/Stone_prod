@@ -333,8 +333,7 @@ function Stat({
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
 
-function Streak({ isDark }: { isDark: boolean }) {
-  const streak = 0;
+function Streak({ isDark, streak }: { isDark: boolean; streak: number }) {
   const today = new Date();
 
   const days = Array.from({ length: 7 }, (_, index) => {
@@ -828,6 +827,9 @@ export default function Home() {
   // Heure partagée (greeting + horloge)
   const [now, setNow] = useState(() => new Date());
 
+  // Valeur du streak (à brancher sur tes vraies données plus tard)
+  const [streakValue, setStreakValue] = useState(0);
+
   const connectedChannels = useConnectedChannels();
 
   // Tous les réseaux connectés sont affichés, YouTube inclus.
@@ -835,6 +837,25 @@ export default function Home() {
     () => connectedChannels,
     [connectedChannels]
   );
+
+  /* ----------------------------------------------------------
+     DEBUG : commande console pour changer le streak (dev only)
+     Utilisation dans la console : setStreak(15)
+  ---------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const w = window as unknown as {
+      setStreak?: (value: number) => void;
+    };
+
+    w.setStreak = (value: number) => setStreakValue(Number(value) || 0);
+
+    return () => {
+      delete w.setStreak;
+    };
+  }, []);
 
   /* ----------------------------------------------------------
      CLOCK TICK
@@ -988,7 +1009,11 @@ export default function Home() {
 
                   {/* -my-2 : évite d'agrandir la hauteur du header */}
                   <span className="-my-2 flex shrink-0">
-                    <StreakFlame value={700} size={44} isDark={isDark} />
+                    <StreakFlame
+                      value={streakValue}
+                      size={44}
+                      isDark={isDark}
+                    />
                   </span>
                 </div>
               </div>
@@ -1057,7 +1082,7 @@ export default function Home() {
                 />
               </div>
 
-              <Streak isDark={isDark} />
+              <Streak isDark={isDark} streak={streakValue} />
             </div>
           </section>
 
