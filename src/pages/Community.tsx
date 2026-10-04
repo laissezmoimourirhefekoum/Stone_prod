@@ -374,7 +374,9 @@ export default function Community() {
   const card = isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-[#fafafa]";
   const line = isDark ? "border-white/10" : "border-black/10";
   const muted = isDark ? "text-neutral-400" : "text-neutral-500";
-  const ghost = isDark ? "hover:bg-white/10" : "hover:bg-black/5";
+  const ghost = isDark
+    ? "hover:bg-neutral-700/70 active:bg-neutral-700"
+    : "hover:bg-neutral-200 active:bg-neutral-300";
   const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
   const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
 
