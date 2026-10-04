@@ -22,7 +22,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
-  Clock3,
   FileText,
   Heart,
   MessageCircle,
@@ -182,37 +181,26 @@ function ClockDisplay({
   });
 
   return (
-    <div className="flex items-center gap-2.5">
-      <Clock3
+    <div className="text-right">
+      <p
         className={[
-          "h-4 w-4",
+          "text-[16px] font-semibold tabular-nums",
+          isDark ? "text-white" : "text-neutral-900",
+        ].join(" ")}
+      >
+        {time}
+      </p>
+
+      <p
+        className={[
+          "text-[11px] font-medium capitalize",
           isDark
-            ? "text-neutral-500"
+            ? "text-neutral-600"
             : "text-neutral-400",
         ].join(" ")}
-      />
-
-      <div className="text-right">
-        <p
-          className={[
-            "text-[13px] font-semibold tabular-nums",
-            isDark ? "text-white" : "text-neutral-900",
-          ].join(" ")}
-        >
-          {time}
-        </p>
-
-        <p
-          className={[
-            "text-[10px] font-medium capitalize",
-            isDark
-              ? "text-neutral-600"
-              : "text-neutral-400",
-          ].join(" ")}
-        >
-          {date}
-        </p>
-      </div>
+      >
+        {date}
+      </p>
     </div>
   );
 }
