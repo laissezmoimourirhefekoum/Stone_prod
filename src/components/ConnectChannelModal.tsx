@@ -43,14 +43,6 @@ function CloseIcon(props: IconProps) {
   );
 }
 
-function CheckIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m5 12.5 4.5 4.5L19 7.5" />
-    </Svg>
-  );
-}
-
 /* ============================================================================
    ConnectChannelModal
    Rendu dans document.body via un portail : aucun parent (sidebar, overflow,
@@ -182,6 +174,7 @@ export default function ConnectChannelModal({
             {channels.map((channel) => {
               const connected = connections[channel.key].connected;
               const isPending = pendingKey === channel.key;
+              // Un canal déjà connecté peut toujours être reconnecté
               const blocked = limitReached && !connected;
               const Icon = channel.icon;
 
@@ -189,11 +182,11 @@ export default function ConnectChannelModal({
                 <button
                   key={channel.key}
                   type="button"
-                  disabled={isPending || connected || blocked}
+                  disabled={isPending || blocked}
                   onClick={() => onToggle(channel.key)}
                   className={[
                     cardBase,
-                    connected || blocked ? "" : cardHover,
+                    blocked ? "" : cardHover,
                     "disabled:cursor-default",
                     isPending || blocked ? "opacity-60" : "",
                   ].join(" ")}
@@ -212,20 +205,11 @@ export default function ConnectChannelModal({
                       subtitleColor,
                     ].join(" ")}
                   >
-                    {isPending ? (
-                      realOAuthKeys.includes(channel.key) ? (
-                        "Redirecting..."
-                      ) : (
-                        "Connecting..."
-                      )
-                    ) : connected ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <CheckIcon className="h-4 w-4" />
-                        Connected
-                      </span>
-                    ) : (
-                      channel.subtitle
-                    )}
+                    {isPending
+                      ? realOAuthKeys.includes(channel.key)
+                        ? "Redirecting..."
+                        : "Connecting..."
+                      : channel.subtitle}
                   </span>
                 </button>
               );
