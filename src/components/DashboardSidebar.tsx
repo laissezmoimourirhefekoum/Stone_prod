@@ -154,10 +154,23 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Keyframes + global UI guards
+   Keyframes + global UI guards + typographie
 ============================================================================ */
 
 const SIDEBAR_KEYFRAMES = `
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
+#app-sidebar,
+#app-sidebar button,
+#account-menu,
+#account-menu button {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 @keyframes sbMenuIn {
   from {
     opacity: 0;
@@ -223,7 +236,7 @@ const SIDEBAR_KEYFRAMES = `
 ============================================================================ */
 
 function Svg({
-  className = "h-4 w-4",
+  className = "h-[15px] w-[15px]",
   children,
 }: IconProps & {
   children: ReactNode;
@@ -367,7 +380,7 @@ function BoltIcon(props: IconProps) {
 }
 
 function ChevronIcon({
-  className = "h-3.5 w-3.5",
+  className = "h-3 w-3",
   collapsed,
 }: IconProps & {
   collapsed: boolean;
@@ -505,11 +518,12 @@ function NavItemViewImpl({
         title={isCollapsed ? item.label : undefined}
         onClick={onClick}
         className={[
-          "group relative flex h-10 w-full",
+          "group relative flex h-9 w-full",
           "select-none",
           "items-center gap-3 overflow-hidden",
-          "rounded-xl px-3",
-          "text-[13px] font-medium",
+          "rounded-[10px] px-3",
+          "text-[12.5px]",
+          isActive ? "font-semibold" : "font-medium",
           "transition-[background-color,color,transform]",
           "duration-200",
           "active:scale-[0.97]",
@@ -530,7 +544,7 @@ function NavItemViewImpl({
             "motion-reduce:group-hover:scale-100",
           ].join(" ")}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-[18px] w-[18px]" />
 
           {item.badge && (
             <span
@@ -579,7 +593,7 @@ function NavItemViewImpl({
           >
             <ChevronDownIcon
               className={[
-                "h-4 w-4",
+                "h-3.5 w-3.5",
                 "transition-transform duration-300",
                 "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                 "motion-reduce:transition-none",
@@ -626,13 +640,13 @@ function NavItemViewImpl({
                         : "0ms",
                     }}
                     className={[
-                      "flex h-9 w-full",
+                      "flex h-8 w-full",
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
                       "rounded-lg px-2",
-                      "text-left text-[13px]",
-                      "font-medium",
+                      "text-left text-[12.5px]",
+                      childActive ? "font-semibold" : "font-medium",
                       "transition-[background-color,color,opacity,transform]",
                       "duration-300",
                       "ease-[cubic-bezier(0.32,0.72,0,1)]",
@@ -797,7 +811,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+    <span className="relative h-5 w-5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -808,7 +822,7 @@ function ChannelAvatar({
           className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[9px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -816,12 +830,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-[4px] bg-white text-black ring-2",
+            "absolute -bottom-1 -right-1 flex h-3 w-3 items-center justify-center",
+            "rounded-[3px] bg-white text-black ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-2 w-2" />
+          <NetworkIcon className="h-[7px] w-[7px]" />
         </span>
       )}
     </span>
@@ -890,7 +904,7 @@ function SidebarChannels({
             onClick={onConnect}
             className={headerButton}
           >
-            <PlusIcon className="h-4 w-4" />
+            <PlusIcon className="h-3.5 w-3.5" />
           </button>
         </span>
       </div>
@@ -919,7 +933,7 @@ function SidebarChannels({
                 }}
                 className={[
                   "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
-                  "rounded-xl px-2.5 text-[13px] font-medium",
+                  "rounded-[10px] px-2.5 text-[12.5px] font-medium",
                   "transition-[background-color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none",
                   focus,
@@ -942,7 +956,7 @@ function SidebarChannels({
                 <span className={["flex shrink-0", labelClass].join(" ")}>
                   <ChevronDownIcon
                     className={[
-                      "h-3.5 w-3.5 opacity-50",
+                      "h-3 w-3 opacity-50",
                       "transition-[transform,opacity] duration-300",
                       "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                       "group-hover:opacity-100",
@@ -995,8 +1009,9 @@ function SidebarChannels({
                             transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
                           }}
                           className={[
-                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[13px] font-medium",
+                            "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[12.5px]",
+                            active ? "font-semibold" : "font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
@@ -1006,12 +1021,12 @@ function SidebarChannels({
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <Icon className="h-4 w-4 shrink-0" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1034,15 +1049,15 @@ function SidebarChannels({
           type="button"
           onClick={onConnect}
           className={[
-            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
-            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
+            "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
+            "rounded-[10px] border border-dashed px-3 text-[12.5px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
             t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-4 w-4 shrink-0" />
+          <PlusIcon className="h-3.5 w-3.5 shrink-0" />
           Connect a channel
         </button>
       )}
@@ -1054,14 +1069,14 @@ function SidebarChannels({
           title="Connect a channel"
           onClick={onConnect}
           className={[
-            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-[10px] px-3",
             "transition-[background-color,transform] duration-200 active:scale-[0.97]",
             "motion-reduce:transition-none",
             focus,
             t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-5 w-5 shrink-0" />
+          <PlusIcon className="h-[18px] w-[18px] shrink-0" />
         </button>
       )}
     </div>
@@ -1864,7 +1879,7 @@ export default function DashboardSidebar({
           <span
             className={[
               "select-none",
-              "text-[20px] font-semibold",
+              "text-[20px] font-bold",
               "leading-none tracking-tight",
               labelClass,
             ].join(" ")}
@@ -2014,7 +2029,7 @@ export default function DashboardSidebar({
                   >
                     <BoltIcon
                       className={[
-                        "h-4 w-4",
+                        "h-[15px] w-[15px]",
                         "transition-transform duration-300",
                         "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                         "group-hover:-rotate-12",
@@ -2063,9 +2078,9 @@ export default function DashboardSidebar({
                             "sb-item group flex",
                             "w-full cursor-pointer",
                             "select-none",
-                            "items-center gap-3",
+                            "items-center gap-2.5",
                             "rounded-[10px]",
-                            "px-2.5 py-2",
+                            "px-2.5 py-1.5",
                             "text-left text-[12.5px]",
                             "font-medium",
                             "transition-[background-color,transform] duration-150",
@@ -2078,7 +2093,7 @@ export default function DashboardSidebar({
                         >
                           <Icon
                             className={[
-                              "h-4 w-4 shrink-0",
+                              "h-[15px] w-[15px] shrink-0",
                               "transition-transform duration-200",
                               "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                               "group-hover:scale-110",
@@ -2130,7 +2145,7 @@ export default function DashboardSidebar({
                 "select-none",
                 "items-center gap-3",
                 "overflow-hidden",
-                "rounded-xl px-1.5",
+                "rounded-[10px] px-1.5",
                 "transition-[background-color,transform]",
                 "duration-200",
                 "active:scale-[0.97]",
@@ -2180,7 +2195,7 @@ export default function DashboardSidebar({
                   "min-w-0 flex-1",
                   "select-none",
                   "truncate text-left",
-                  "text-[13px] font-medium",
+                  "text-[12.5px] font-medium",
                   t.title,
                   labelClass,
                 ].join(" ")}
