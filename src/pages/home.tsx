@@ -6,7 +6,9 @@ import {
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
 
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
@@ -39,8 +41,6 @@ import {
 /* ============================================================
    LAYOUT
 ============================================================ */
-
-const SIDEBAR_OFFSET = 104;
 
 const cardClass = (isDark: boolean) =>
   isDark
@@ -802,6 +802,8 @@ export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  const sidebarOffset = useSidebarOffset();
+
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
@@ -899,8 +901,14 @@ export default function Home() {
       ====================================================== */}
 
       <div
-        className="h-full overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{ paddingLeft: SIDEBAR_OFFSET }}
+        className={[
+          "h-full overflow-y-auto overflow-x-hidden",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
+        style={{ paddingLeft: sidebarOffset }}
       >
         <div className="mx-auto flex w-full max-w-[1280px] flex-col px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
           {/* ==================================================
@@ -1093,7 +1101,7 @@ export default function Home() {
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
       />
 
       {/* ======================================================
@@ -1102,7 +1110,7 @@ export default function Home() {
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         query={query}

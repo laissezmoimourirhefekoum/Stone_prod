@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 import type { ReactNode } from "react";
@@ -1069,13 +1070,45 @@ const sidebarMemory = {
   entered: false,
 };
 
+/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
+   plus sa marge gauche (16px) et un espace de respiration. */
+export const SIDEBAR_COLLAPSED_OFFSET = 104;
+export const SIDEBAR_EXPANDED_OFFSET = 232;
+
+const sidebarListeners = new Set<() => void>();
+
+function setSidebarCollapsed(value: boolean) {
+  if (sidebarMemory.collapsed === value) return;
+
+  sidebarMemory.collapsed = value;
+  sidebarListeners.forEach((listener) => listener());
+}
+
+function subscribeSidebar(listener: () => void) {
+  sidebarListeners.add(listener);
+  return () => {
+    sidebarListeners.delete(listener);
+  };
+}
+
+/** Marge gauche que les pages doivent appliquer pour ne pas toucher la sidebar. */
+export function useSidebarOffset(): number {
+  const collapsed = useSyncExternalStore(
+    subscribeSidebar,
+    () => sidebarMemory.collapsed,
+    () => true
+  );
+
+  return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
+}
+
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
 
 function resetSidebarModuleState() {
   userProfileCache.profile = null;
-  sidebarMemory.collapsed = true;
+  setSidebarCollapsed(true);
   sidebarMemory.openGroup = null;
   sidebarMemory.entered = false;
   channelsMemory.open = [];
@@ -1355,7 +1388,7 @@ export default function DashboardSidebar({
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
-    sidebarMemory.collapsed = isCollapsed;
+    setSidebarCollapsed(isCollapsed);
     sidebarMemory.openGroup = openGroup;
   }, [isCollapsed, openGroup]);
 

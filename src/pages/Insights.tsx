@@ -4,7 +4,9 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 
 /* ───────── Types ───────── */
@@ -242,6 +244,7 @@ function Segmented<T extends string>({
 export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
@@ -286,7 +289,10 @@ export default function Insights() {
   const delta = last.followers - first.followers;
 
   return (
-    <main className={`min-h-screen py-8 pl-[104px] pr-8 ${page}`}>
+    <main
+      className={`min-h-screen py-8 pr-8 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${page}`}
+      style={{ paddingLeft: sidebarOffset }}
+    >
       <DashboardSidebar />
       <div className="mx-auto flex max-w-[1200px] flex-col gap-8">
         {/* Header */}
