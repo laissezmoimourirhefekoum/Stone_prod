@@ -1,4 +1,6 @@
 // src/components/StreakFlame.tsx
+// Streak affiché sous forme de cristal facetté (le nom du composant reste
+// StreakFlame pour ne rien casser dans les imports existants).
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
@@ -7,9 +9,9 @@ import type { CSSProperties } from "react";
 ============================================================================ */
 
 export interface StreakFlameProps {
-  /** Valeur du streak affichée dans la flamme. */
+  /** Valeur du streak affichée dans le cristal. */
   value: number | string;
-  /** Hauteur de la flamme en px (défaut : 44). */
+  /** Hauteur du cristal en px (défaut : 44). */
   size?: number;
   /** Adapte l'intensité du glow au thème (défaut : true). */
   isDark?: boolean;
@@ -18,105 +20,102 @@ export interface StreakFlameProps {
 interface Tier {
   /** Valeur minimale (incluse) pour atteindre ce palier. */
   min: number;
-  /** Dégradé du corps : haut → bas. */
+  /**
+   * Teintes du cristal :
+   * [0] reflets clairs · [1] teinte moyenne · [2] teinte soutenue · [3] cœur sombre.
+   */
   body: [string, string, string, string];
-  /** Flamme intérieure. */
-  inner: string;
-  /** Lumière centrale : centre, milieu, bord. */
-  core: [string, string, string];
-  /** Liseré du contour : début, fin. */
-  edge: [string, string];
   /** Contour du nombre. */
   stroke: string;
-  /** Couleur du glow, format "r g b" (utilisé dans rgb(... / alpha)). */
+  /** Couleur du halo, format "r g b" (utilisé dans rgb(... / alpha)). */
   glow: string;
-  /** Durée de la respiration (plus court = flamme plus nerveuse). */
+  /** Durée du flottement (plus court = cristal plus vivant). */
   breathe: number;
   /** Multiplicateur de la taille du halo. */
   glowScale: number;
-  /** Nombre de braises qui montent en continu. */
-  embers: number;
+  /** Nombre d'éclats qui scintillent autour. */
+  sparkles: number;
+  /** Durée entre deux passages de reflet (secondes). */
+  sweep: number;
 }
 
 /* ============================================================================
    Paliers
-   0–14 orange · 15–29 rouge · 30–59 rose · 60–99 violet · 100–249 bleu · 250+ cyan
+   0–14 ambre · 15–29 rouge · 30–59 rose · 60–99 violet · 100–249 bleu · 250+ diamant
 ============================================================================ */
 
 const TIERS: Tier[] = [
   {
     min: 0,
-    body: ["#fde68a", "#fb923c", "#ea580c", "#c2410c"],
-    inner: "#facc15",
-    core: ["#fffbeb", "#fde047", "#f97316"],
-    edge: ["#fed7aa", "#fdba74"],
+    body: ["#fff7ed", "#fdba74", "#f97316", "#2b1004"],
     stroke: "#9a3412",
     glow: "249 115 22",
-    breathe: 3.6,
+    breathe: 4,
     glowScale: 0.85,
-    embers: 0,
+    sparkles: 1,
+    sweep: 6,
   },
   {
     min: 15,
-    body: ["#fecdd3", "#fb7185", "#e11d48", "#9f1239"],
-    inner: "#fb923c",
-    core: ["#fff1f2", "#fda4af", "#f43f5e"],
-    edge: ["#fecdd3", "#fb7185"],
+    body: ["#fff1f2", "#fda4af", "#f43f5e", "#2d0610"],
     stroke: "#881337",
     glow: "244 63 94",
-    breathe: 3.3,
+    breathe: 3.7,
     glowScale: 0.95,
-    embers: 2,
+    sparkles: 2,
+    sweep: 5.4,
   },
   {
     min: 30,
-    body: ["#fbcfe8", "#f472b6", "#db2777", "#9d174d"],
-    inner: "#f43f5e",
-    core: ["#fff1fb", "#f9a8d4", "#ec4899"],
-    edge: ["#fbcfe8", "#f9a8d4"],
+    body: ["#fdf2f8", "#f9a8d4", "#ec4899", "#2a0618"],
     stroke: "#831843",
     glow: "236 72 153",
-    breathe: 3.0,
+    breathe: 3.4,
     glowScale: 1.05,
-    embers: 3,
+    sparkles: 3,
+    sweep: 4.8,
   },
   {
-    // Palier d'origine du composant.
     min: 60,
-    body: ["#f0abfc", "#d946ef", "#9333ea", "#6d28d9"],
-    inner: "#ec4899",
-    core: ["#fff1fb", "#f9a8d4", "#ec4899"],
-    edge: ["#fbcfe8", "#a78bfa"],
-    stroke: "#a21caf",
-    glow: "217 70 239",
-    breathe: 2.7,
+    body: ["#faf5ff", "#d8b4fe", "#a855f7", "#1a0733"],
+    stroke: "#6b21a8",
+    glow: "168 85 247",
+    breathe: 3.1,
     glowScale: 1.15,
-    embers: 4,
+    sparkles: 4,
+    sweep: 4.2,
   },
   {
     min: 100,
-    body: ["#bfdbfe", "#60a5fa", "#2563eb", "#1e3a8a"],
-    inner: "#818cf8",
-    core: ["#eff6ff", "#93c5fd", "#6366f1"],
-    edge: ["#dbeafe", "#818cf8"],
+    body: ["#eff6ff", "#93c5fd", "#3b82f6", "#06142e"],
     stroke: "#1e3a8a",
     glow: "59 130 246",
-    breathe: 2.4,
+    breathe: 2.8,
     glowScale: 1.25,
-    embers: 5,
+    sparkles: 5,
+    sweep: 3.6,
   },
   {
+    // Diamant : le plus proche d'un cristal pur.
     min: 250,
-    body: ["#ecfeff", "#22d3ee", "#0891b2", "#4f46e5"],
-    inner: "#a5f3fc",
-    core: ["#ffffff", "#a5f3fc", "#22d3ee"],
-    edge: ["#ffffff", "#67e8f9"],
+    body: ["#ffffff", "#a5f3fc", "#22d3ee", "#041a22"],
     stroke: "#155e75",
     glow: "34 211 238",
-    breathe: 2.1,
+    breathe: 2.5,
     glowScale: 1.4,
-    embers: 6,
+    sparkles: 6,
+    sweep: 3,
   },
+];
+
+/** Positions des éclats (coordonnées du viewBox 64×80). */
+const SPARKLES = [
+  { x: 32, y: 3, s: 1.2, d: 0 },
+  { x: 51, y: 57, s: 0.9, d: 0.9 },
+  { x: 14, y: 36, s: 0.8, d: 1.7 },
+  { x: 58, y: 24, s: 0.7, d: 2.4 },
+  { x: 7, y: 14, s: 0.7, d: 0.5 },
+  { x: 45, y: 72, s: 0.8, d: 1.3 },
 ];
 
 /* ============================================================================
@@ -125,8 +124,8 @@ const TIERS: Tier[] = [
 
 const STREAK_FLAME_CSS = `
 @keyframes sfBreathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-1.5px) scale(1.04); }
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50%      { transform: translateY(-1.5px) rotate(1.5deg); }
 }
 
 @keyframes sfGlow {
@@ -140,13 +139,31 @@ const STREAK_FLAME_CSS = `
   100% { transform: scale(1); }
 }
 
-/* Changement de palier vers le haut : la flamme se tasse, puis explose. */
+/* Passage de reflet sur les facettes. */
+@keyframes sfSweep {
+  0%   { transform: translateX(0) skewX(-20deg);     opacity: 0; }
+  8%   { opacity: 1; }
+  32%  { transform: translateX(105px) skewX(-20deg); opacity: 1; }
+  38%  { transform: translateX(112px) skewX(-20deg); opacity: 0; }
+  100% { transform: translateX(112px) skewX(-20deg); opacity: 0; }
+}
+
+@keyframes sfTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+@keyframes sfGlint {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* Montée de palier : le cristal fait un tour sur lui-même en grossissant. */
 @keyframes sfTierUp {
-  0%   { transform: scale(1)    rotate(0deg);  filter: brightness(1); }
-  20%  { transform: scale(0.82) rotate(-6deg); filter: brightness(1.1); }
-  50%  { transform: scale(1.5)  rotate(5deg);  filter: brightness(1.8); }
-  72%  { transform: scale(0.96) rotate(-2deg); filter: brightness(1.2); }
-  100% { transform: scale(1)    rotate(0deg);  filter: brightness(1); }
+  0%   { transform: perspective(240px) rotateY(0deg)   scale(1);    filter: brightness(1); }
+  30%  { transform: perspective(240px) rotateY(120deg) scale(0.85); filter: brightness(1.2); }
+  60%  { transform: perspective(240px) rotateY(300deg) scale(1.45); filter: brightness(1.9); }
+  100% { transform: perspective(240px) rotateY(360deg) scale(1);    filter: brightness(1); }
 }
 
 @keyframes sfValueTierUp {
@@ -156,7 +173,7 @@ const STREAK_FLAME_CSS = `
   100% { transform: scale(1); }
 }
 
-/* Changement de palier vers le bas : la flamme s'affaisse. */
+/* Descente de palier : le cristal se ternit et se tasse. */
 @keyframes sfTierDown {
   0%   { transform: scale(1);    filter: brightness(1); }
   35%  { transform: scale(0.72); filter: brightness(0.7) saturate(0.7); }
@@ -164,9 +181,9 @@ const STREAK_FLAME_CSS = `
 }
 
 @keyframes sfFlash {
-  0%   { opacity: 0;   transform: scale(0.4); }
+  0%   { opacity: 0;    transform: scale(0.4); }
   25%  { opacity: 0.95; transform: scale(1.1); }
-  100% { opacity: 0;   transform: scale(1.9); }
+  100% { opacity: 0;    transform: scale(1.9); }
 }
 
 @keyframes sfRing {
@@ -183,12 +200,6 @@ const STREAK_FLAME_CSS = `
     opacity: 0;
     transform: translate(-50%, -50%) rotate(var(--sf-a)) translateX(var(--sf-spark-d)) scaleX(0.2);
   }
-}
-
-@keyframes sfEmber {
-  0%   { opacity: 0; transform: translate(0, 0) scale(1); }
-  15%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--sf-ex), -150%) scale(0.2); }
 }
 
 .sf-root {
@@ -221,8 +232,8 @@ const STREAK_FLAME_CSS = `
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgb(var(--sf-glow) / 0.6) 0%,
-    rgb(var(--sf-glow) / 0.28) 45%,
+    rgb(var(--sf-glow) / 0.5) 0%,
+    rgb(var(--sf-glow) / 0.22) 45%,
     transparent 70%
   );
   filter: blur(8px);
@@ -232,13 +243,13 @@ const STREAK_FLAME_CSS = `
 .sf-light .sf-glow {
   background: radial-gradient(
     circle,
-    rgb(var(--sf-glow) / 0.4) 0%,
-    rgb(var(--sf-glow) / 0.16) 45%,
+    rgb(var(--sf-glow) / 0.34) 0%,
+    rgb(var(--sf-glow) / 0.14) 45%,
     transparent 70%
   );
 }
 
-/* ---------- Flamme ---------- */
+/* ---------- Cristal ---------- */
 
 .sf-scale {
   position: absolute;
@@ -250,22 +261,69 @@ const STREAK_FLAME_CSS = `
 .sf-svg {
   display: block;
   overflow: visible;
-  transform-origin: 50% 90%;
+  transform-origin: 50% 50%;
   animation: sfBreathe var(--sf-breathe, 3.2s) ease-in-out infinite;
-  filter: drop-shadow(0 0 4px rgb(var(--sf-glow) / 0.55));
+  filter: drop-shadow(0 0 4px rgb(var(--sf-glow) / 0.5));
 }
 
 .sf-light .sf-svg {
   filter: drop-shadow(0 1px 3px rgb(var(--sf-glow) / 0.5));
 }
 
-/* Les couleurs changent en fondu quand on passe d'un palier à l'autre. */
+/* Les teintes passent en fondu d'un palier à l'autre. */
 .sf-stop {
   transition: stop-color 0.8s ease, stop-opacity 0.8s ease;
 }
 
 .sf-fill {
-  transition: fill 0.8s ease;
+  transition: fill 0.8s ease, stroke 0.8s ease;
+}
+
+/* Arêtes des facettes : fines lignes claires, comme le verre taillé. */
+.sf-edge {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+
+.sf-light .sf-edge {
+  stroke: rgb(var(--sf-glow) / 0.45);
+}
+
+.sf-outline {
+  fill: none;
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+
+.sf-dark .sf-outline {
+  opacity: 0.5;
+}
+
+.sf-light .sf-outline {
+  opacity: 0.95;
+}
+
+.sf-sweep {
+  opacity: 0;
+  animation: sfSweep var(--sf-sweep, 5s) ease-in-out infinite;
+}
+
+.sf-glint {
+  animation: sfGlint 3.6s ease-in-out infinite;
+}
+
+.sf-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  fill: #ffffff;
+  filter: drop-shadow(0 0 1.5px rgb(var(--sf-glow)));
+  animation: sfTwinkle 2.6s ease-in-out infinite;
+}
+
+.sf-light .sf-twinkle {
+  fill: rgb(var(--sf-glow));
 }
 
 /* ---------- Nombre ---------- */
@@ -274,7 +332,7 @@ const STREAK_FLAME_CSS = `
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 12%;
+  bottom: 24%;
   text-align: center;
   font-size: var(--sf-font-size, 16px);
   font-weight: 800;
@@ -282,7 +340,7 @@ const STREAK_FLAME_CSS = `
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: #ffffff;
-  -webkit-text-stroke: var(--sf-stroke, 3px) var(--sf-stroke-color, #a21caf);
+  -webkit-text-stroke: var(--sf-stroke, 3px) var(--sf-stroke-color, #6b21a8);
   paint-order: stroke fill;
   text-shadow: 0 1px 6px rgb(var(--sf-glow) / 0.55);
   white-space: nowrap;
@@ -307,7 +365,7 @@ const STREAK_FLAME_CSS = `
 /* ---------- Changement de palier ---------- */
 
 .sf-tier-up .sf-scale {
-  animation: sfTierUp 0.95s cubic-bezier(0.34, 1.3, 0.64, 1);
+  animation: sfTierUp 0.95s cubic-bezier(0.34, 1.1, 0.64, 1);
 }
 
 .sf-tier-up .sf-value {
@@ -374,35 +432,22 @@ const STREAK_FLAME_CSS = `
   animation: sfSpark 0.85s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
 }
 
-/* ---------- Braises (ambiance, paliers supérieurs) ---------- */
-
-.sf-embers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.sf-ember {
-  position: absolute;
-  bottom: 40%;
-  width: 7%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--sf-spark-color);
-  box-shadow: 0 0 4px rgb(var(--sf-glow) / 0.9);
-  opacity: 0;
-  animation: sfEmber 2.2s ease-out infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sf-svg,
   .sf-glow,
+  .sf-sweep,
+  .sf-glint,
+  .sf-twinkle,
   .sf-boost .sf-value,
   .sf-tier-up .sf-scale,
   .sf-tier-up .sf-value,
   .sf-tier-down .sf-scale {
     animation: none;
+  }
+
+  .sf-sweep,
+  .sf-twinkle {
+    opacity: 0;
   }
 
   .sf-scale,
@@ -412,8 +457,7 @@ const STREAK_FLAME_CSS = `
     transition: none;
   }
 
-  .sf-fx,
-  .sf-embers {
+  .sf-fx {
     display: none;
   }
 }
@@ -514,6 +558,7 @@ export default function StreakFlame({
     "--sf-glow": tier.glow,
     "--sf-glow-scale": tier.glowScale,
     "--sf-breathe": `${tier.breathe}s`,
+    "--sf-sweep": `${tier.sweep}s`,
     "--sf-spark-d": `${Math.round(size * 0.85)}px`,
     "--sf-spark-size": `${Math.max(2, Math.round(size * 0.07))}px`,
     "--sf-spark-color": tier.body[0],
@@ -529,6 +574,8 @@ export default function StreakFlame({
     .filter(Boolean)
     .join(" ");
 
+  const [light, mid, deep, dark] = tier.body;
+
   return (
     <span
       className={className}
@@ -542,26 +589,6 @@ export default function StreakFlame({
         <span className="sf-glow" />
       </span>
 
-      {/* Braises permanentes : de plus en plus nombreuses avec le palier. */}
-      {tier.embers > 0 && (
-        <span className="sf-embers" aria-hidden="true">
-          {Array.from({ length: tier.embers }, (_, i) => (
-            <span
-              key={i}
-              className="sf-ember"
-              style={
-                {
-                  left: `${22 + ((i * 17) % 56)}%`,
-                  animationDelay: `${(i * 0.37).toFixed(2)}s`,
-                  animationDuration: `${(1.8 + (i % 3) * 0.5).toFixed(1)}s`,
-                  "--sf-ex": `${((i % 3) - 1) * 7}px`,
-                } as CSSProperties
-              }
-            />
-          ))}
-        </span>
-      )}
-
       <span className="sf-scale" aria-hidden="true">
         <svg
           className="sf-svg"
@@ -571,86 +598,119 @@ export default function StreakFlame({
           focusable="false"
         >
           <defs>
-            <linearGradient id={`${uid}-body`} x1="0.5" y1="0" x2="0.5" y2="1">
-              <stop className="sf-stop" offset="0%" style={{ stopColor: tier.body[0] }} />
-              <stop className="sf-stop" offset="35%" style={{ stopColor: tier.body[1] }} />
-              <stop className="sf-stop" offset="70%" style={{ stopColor: tier.body[2] }} />
-              <stop className="sf-stop" offset="100%" style={{ stopColor: tier.body[3] }} />
+            {/* Facettes claires, dégradé vertical */}
+            <linearGradient id={`${uid}-a`} x1="0.2" y1="0" x2="0.8" y2="1">
+              <stop className="sf-stop" offset="0%" style={{ stopColor: light, stopOpacity: 0.95 }} />
+              <stop className="sf-stop" offset="100%" style={{ stopColor: mid, stopOpacity: 0.5 }} />
             </linearGradient>
 
-            <radialGradient id={`${uid}-core`} cx="50%" cy="72%" r="55%">
-              <stop
-                className="sf-stop"
-                offset="0%"
-                style={{ stopColor: tier.core[0], stopOpacity: 0.95 }}
-              />
-              <stop
-                className="sf-stop"
-                offset="55%"
-                style={{ stopColor: tier.core[1], stopOpacity: 0.55 }}
-              />
-              <stop
-                className="sf-stop"
-                offset="100%"
-                style={{ stopColor: tier.core[2], stopOpacity: 0 }}
-              />
-            </radialGradient>
-
-            <linearGradient id={`${uid}-edge`} x1="0" y1="0" x2="1" y2="1">
-              <stop
-                className="sf-stop"
-                offset="0%"
-                style={{ stopColor: tier.edge[0], stopOpacity: 0.9 }}
-              />
-              <stop
-                className="sf-stop"
-                offset="100%"
-                style={{ stopColor: tier.edge[1], stopOpacity: 0.2 }}
-              />
+            {/* Facettes éclairées par la droite */}
+            <linearGradient id={`${uid}-b`} x1="0" y1="0" x2="1" y2="0.4">
+              <stop className="sf-stop" offset="0%" style={{ stopColor: mid, stopOpacity: 0.55 }} />
+              <stop className="sf-stop" offset="100%" style={{ stopColor: light, stopOpacity: 0.95 }} />
             </linearGradient>
+
+            {/* Facettes basses */}
+            <linearGradient id={`${uid}-c`} x1="0.5" y1="0" x2="0.5" y2="1">
+              <stop className="sf-stop" offset="0%" style={{ stopColor: light, stopOpacity: 0.9 }} />
+              <stop className="sf-stop" offset="100%" style={{ stopColor: deep, stopOpacity: 0.6 }} />
+            </linearGradient>
+
+            {/* Cœur sombre, comme la pointe vitrée du cristal */}
+            <linearGradient id={`${uid}-core`} x1="0.5" y1="0" x2="0.5" y2="1">
+              <stop className="sf-stop" offset="0%" style={{ stopColor: dark, stopOpacity: 0.95 }} />
+              <stop className="sf-stop" offset="100%" style={{ stopColor: deep, stopOpacity: 0.5 }} />
+            </linearGradient>
+
+            {/* Dispersion de la lumière (reflet arc-en-ciel) */}
+            <linearGradient id={`${uid}-glint`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f9a8d4" />
+              <stop offset="50%" stopColor="#fde68a" />
+              <stop offset="100%" stopColor="#67e8f9" />
+            </linearGradient>
+
+            <linearGradient id={`${uid}-sweep`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+              <stop offset="50%" stopColor="#ffffff" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </linearGradient>
+
+            <clipPath id={`${uid}-clip`}>
+              <path d="M32 2 L55 50 L32 78 L9 50 Z" />
+            </clipPath>
           </defs>
 
-          {/* Corps de la flamme */}
-          <path
-            d="M32 2 C34 14 50 22 54 42 C58 60 46 78 32 78 C18 78 6 62 10 44 C12 34 18 28 22 20 C24 28 28 30 30 28 C34 22 30 12 32 2 Z"
-            fill={`url(#${uid}-body)`}
-            stroke={`url(#${uid}-edge)`}
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-          />
+          {/* Facettes hautes */}
+          <path className="sf-edge" d="M32 2 L9 50 L21 48 L32 5 Z" fill={`url(#${uid}-a)`} />
+          <path className="sf-edge" d="M32 2 L55 50 L43 48 L32 5 Z" fill={`url(#${uid}-b)`} />
 
-          {/* Flamme intérieure */}
+          {/* Cœur sombre */}
+          <path className="sf-edge" d="M32 5 L21 48 L32 57 L43 48 Z" fill={`url(#${uid}-core)`} />
+          <path d="M32 5 L21 48 L32 57 Z" fill="#ffffff" opacity="0.07" />
           <path
             className="sf-fill"
-            d="M32 30 C34 40 46 46 47 59 C48 69 41 75 32 75 C23 75 17 69 18 60 C19 51 28 45 32 30 Z"
-            style={{ fill: tier.inner }}
-            opacity="0.55"
+            d="M32 14 L28 40 L32 46 Z"
+            style={{ fill: mid }}
+            opacity="0.25"
           />
 
-          {/* Lumière centrale */}
-          <ellipse
-            cx="32"
-            cy="58"
-            rx="20"
-            ry="22"
-            fill={`url(#${uid}-core)`}
-          />
-
-          {/* Reflet */}
+          {/* Facettes de ceinture */}
           <path
-            d="M20 46 C19 54 22 62 27 67"
-            fill="none"
-            stroke="#ffffff"
-            strokeOpacity="0.35"
-            strokeWidth="2"
-            strokeLinecap="round"
+            className="sf-edge sf-fill"
+            d="M9 50 L21 48 L32 57 Z"
+            style={{ fill: mid }}
+            opacity="0.7"
           />
+          <path
+            className="sf-edge sf-fill"
+            d="M55 50 L43 48 L32 57 Z"
+            style={{ fill: light }}
+            opacity="0.85"
+          />
+
+          {/* Facettes basses */}
+          <path className="sf-edge" d="M9 50 L32 57 L32 78 Z" fill={`url(#${uid}-c)`} />
+          <path className="sf-edge" d="M55 50 L32 57 L32 78 Z" fill={`url(#${uid}-b)`} />
+
+          {/* Reflets arc-en-ciel */}
+          <path className="sf-glint" d="M23 27 L28 23 L30 27 L25 30 Z" fill={`url(#${uid}-glint)`} />
+          <path className="sf-glint" d="M44 55 L48 53 L49 56 L45 58 Z" fill={`url(#${uid}-glint)`} />
+
+          {/* Passage de lumière sur les facettes */}
+          <g clipPath={`url(#${uid}-clip)`}>
+            <rect
+              className="sf-sweep"
+              x="-16"
+              y="-4"
+              width="12"
+              height="90"
+              fill={`url(#${uid}-sweep)`}
+            />
+          </g>
+
+          {/* Contour */}
+          <path
+            className="sf-outline sf-fill"
+            d="M32 2 L55 50 L32 78 L9 50 Z"
+            style={{ stroke: deep }}
+          />
+
+          {/* Éclats : de plus en plus nombreux avec le palier */}
+          {SPARKLES.slice(0, tier.sparkles).map((s, i) => (
+            <g key={i} transform={`translate(${s.x} ${s.y}) scale(${s.s})`}>
+              <path
+                className="sf-twinkle"
+                d="M0 -4 L1.1 -1.1 L4 0 L1.1 1.1 L0 4 L-1.1 1.1 L-4 0 L-1.1 -1.1 Z"
+                style={{ animationDelay: `${s.d}s` }}
+              />
+            </g>
+          ))}
         </svg>
       </span>
 
       <span className="sf-value">{text}</span>
 
-      {/* Effets de montée de palier : flash, ondes de choc, étincelles. */}
+      {/* Effets de montée de palier : flash, ondes de choc, éclats de cristal. */}
       {fx?.dir === "up" && (
         <span className="sf-fx" key={fx.id} aria-hidden="true">
           <span className="sf-flash" />
