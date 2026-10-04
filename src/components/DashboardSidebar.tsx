@@ -1806,8 +1806,8 @@ export default function DashboardSidebar({
         id="app-sidebar"
         className={[
           "relative flex h-full flex-col",
-          "overflow-visible rounded-[36px]",
-          "border px-3 py-5",
+          "overflow-visible rounded-[56px]",
+          "border px-3 py-7",
           "transition-[width,box-shadow]",
           "duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
