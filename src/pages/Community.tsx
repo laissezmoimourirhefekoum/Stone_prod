@@ -2,7 +2,7 @@
 // Page Community (route "community") : boîte de réception des commentaires et mentions.
 // Noir et blanc, même thème que la page Insights.
 // Les données (posts / commentaires) sont fournies par `useCommunity` : branche-le sur ton backend.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -133,6 +133,13 @@ const SyncIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M20 12a8 8 0 0 1-13.7 5.7M4 12A8 8 0 0 1 17.7 6.3" />
     <path d="M18 3v4h-4M6 21v-4h4" />
+  </Svg>
+);
+/** Cercle en pointillés avec flèche vers le haut (« remonter les posts »). */
+const BringToTopIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" strokeDasharray="3 3.2" />
+    <path d="M12 16V8.5M8.5 12 12 8.5 15.5 12" />
   </Svg>
 );
 const PanelIcon = (p: IconProps) => (
@@ -319,8 +326,18 @@ export default function Community() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
-  const channelKey = useHashChannel();
-  const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
+
+  // Le channel sélectionné vit dans un state local : le changement est instantané
+  // et ne dépend plus du routeur (qui ne gère pas le "?channel=…" dans le hash).
+  const hashChannel = useHashChannel();
+  const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
+
+  // Si l'URL change de l'extérieur (lien, bouton retour), on suit.
+  useEffect(() => {
+    if (hashChannel) setSelectedKey(hashChannel);
+  }, [hashChannel]);
+
+  const channel = channels.find((c) => c.key === selectedKey) ?? channels[0];
 
   const [tab, setTab] = useState<Tab>("comments");
   const [layout, setLayout] = useState<Layout>("post");
@@ -347,8 +364,15 @@ export default function Community() {
     label: (c.handle || c.name).replace(/^@/, ""),
   }));
 
-  const goChannel = (key: string) =>
-    navigate(`community?channel=${encodeURIComponent(key)}`);
+  const goChannel = (key: string) => {
+    setSelectedKey(key);
+    // Met l'URL à jour sans déclencher le routeur ni remonter la page.
+    window.history.replaceState(
+      null,
+      "",
+      `#/community?channel=${encodeURIComponent(key)}`
+    );
+  };
 
   const visiblePosts = showAll ? posts : posts.filter((p) => p.commentCount > 0);
 
@@ -510,12 +534,12 @@ export default function Community() {
                 <h2 className={`text-[15px] font-medium ${muted}`}>Posts</h2>
                 <div className="flex items-center">
                   <IconButton
-                    label="Sync posts"
+                    label="Bring posts with the newest unanswered comments to the top."
                     ghost={ghost}
                     isDark={isDark}
                     className="h-8 w-8"
                   >
-                    <SyncIcon className="h-[18px] w-[18px]" />
+                    <BringToTopIcon className="h-[18px] w-[18px]" />
                   </IconButton>
                   <IconButton
                     label={showAll ? "Only posts with comments" : "Show all posts"}

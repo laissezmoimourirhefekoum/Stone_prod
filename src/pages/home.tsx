@@ -889,6 +889,22 @@ export default function Home() {
   };
 
   /* ----------------------------------------------------------
+     COMMUNITY (View All des commentaires)
+     Ouvre la page Community sur le premier canal connecté.
+     Sans canal connecté, on ouvre la page sans paramètre.
+  ---------------------------------------------------------- */
+
+  const handleViewAllComments = () => {
+    const first = homeConnectedChannels[0];
+
+    navigate(
+      first
+        ? `community?channel=${encodeURIComponent(first.key)}`
+        : "community"
+    );
+  };
+
+  /* ----------------------------------------------------------
      BOTTOM BAR
   ---------------------------------------------------------- */
 
@@ -1089,6 +1105,7 @@ export default function Home() {
               isDark={isDark}
               title="Comments"
               meta="0 unanswered"
+              onViewAll={handleViewAllComments}
               icon={<MessageCircle className="h-5 w-5" />}
               line1="No comments yet."
               line2="You'll see the latest comments here."
