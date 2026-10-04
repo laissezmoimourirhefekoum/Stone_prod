@@ -55,7 +55,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 function useCommunity(_channelKey: string | undefined, _tab: Tab, _filter: Filter) {
   // Branche ici ton backend : renvoie les posts qui ont reçu des commentaires / mentions.
   const posts: Post[] = [];
-  return { posts, unread: 0 };
+  return { posts };
 }
 
 /* ───────── Helpers ───────── */
@@ -118,11 +118,6 @@ function Svg({
   );
 }
 
-const BookmarkIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1Z" />
-  </Svg>
-);
 const ChatHeartIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 20.5a8.5 8.5 0 1 0-7.4-4.3L3.5 20.5l4.5-1.1a8.4 8.4 0 0 0 4 1.1Z" />
@@ -368,7 +363,7 @@ export default function Community() {
   const [postsOpen, setPostsOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
-  const { posts, unread } = useCommunity(channel?.key, tab, filter);
+  const { posts } = useCommunity(channel?.key, tab, filter);
 
   const page = isDark ? "bg-black text-white" : "bg-white text-black";
   const card = isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-[#fafafa]";
@@ -445,17 +440,6 @@ export default function Community() {
             </span>
 
             <h1 className="truncate text-[26px] font-semibold tracking-tight">{name}</h1>
-
-            <IconButton label="Save this view" ghost={ghost} isDark={isDark}>
-              <BookmarkIcon className="h-5 w-5" />
-            </IconButton>
-
-            <span
-              aria-label={`${unread} unread`}
-              className={`flex h-9 min-w-9 items-center justify-center rounded-full border px-2 text-[14px] font-semibold tabular-nums ${line}`}
-            >
-              {unread}
-            </span>
           </div>
 
           <div className="flex items-center gap-2">
