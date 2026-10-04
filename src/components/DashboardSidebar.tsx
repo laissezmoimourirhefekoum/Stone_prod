@@ -142,6 +142,9 @@ type StatusResponse = {
    Motion — une seule animation : l'ouverture du menu compte
 ============================================================================ */
 
+const ACTIVE_BAR =
+  "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-current";
+
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -434,7 +437,7 @@ function NavItemViewImpl({
         title={isCollapsed ? item.label : undefined}
         onClick={onClick}
         className={[
-          "flex h-9 w-full items-center gap-3 overflow-hidden rounded-lg px-3",
+          "relative flex h-9 w-full items-center gap-3 overflow-hidden rounded-md px-3",
           "text-[13px] font-medium",
           "transition-colors duration-150 motion-reduce:transition-none",
           focus,
@@ -1254,19 +1257,19 @@ export default function DashboardSidebar({
     () =>
       isDark
         ? {
-            aside: "border-white/[0.08] bg-[#0b0b0c]",
+            aside: "border-white/[0.07] bg-[#09090b]",
             brand: "text-white",
             divider: "bg-white/[0.08]",
-            navActive: "bg-white/[0.08] text-white",
+            navActive: `text-white ${ACTIVE_BAR}`,
             navIdle:
-              "text-neutral-400 hover:bg-white/[0.05] hover:text-white",
+              "text-neutral-500 hover:text-white",
             handle:
-              "border-white/[0.1] bg-[#0b0b0c] text-neutral-400 hover:text-white",
+              "border-white/[0.1] bg-[#09090b] text-neutral-400 hover:text-white",
             count: "bg-white/[0.08] text-neutral-300",
-            dotRing: "ring-[#0b0b0c]",
-            rail: "border-white/[0.08]",
-            sub: "text-neutral-500 hover:bg-white/[0.05] hover:text-white",
-            subActive: "bg-white/[0.08] text-white",
+            dotRing: "ring-[#09090b]",
+            rail: "border-white/[0.07]",
+            sub: "text-neutral-500 hover:text-white",
+            subActive: "font-semibold text-white",
             row: "hover:bg-white/[0.06]",
             rowOpen: "bg-white/[0.06]",
             avatar: "bg-white/[0.12] text-white",
@@ -1283,19 +1286,19 @@ export default function DashboardSidebar({
             ring: "focus-visible:ring-white/30",
           }
         : {
-            aside: "border-black/[0.08] bg-white",
+            aside: "border-black/[0.07] bg-[#fafafa]",
             brand: "text-neutral-900",
             divider: "bg-black/[0.06]",
-            navActive: "bg-black/[0.05] text-neutral-900",
+            navActive: `text-neutral-900 ${ACTIVE_BAR}`,
             navIdle:
-              "text-neutral-500 hover:bg-black/[0.03] hover:text-neutral-900",
+              "text-neutral-500 hover:text-neutral-900",
             handle:
-              "border-black/[0.1] bg-white text-neutral-500 hover:text-neutral-900",
+              "border-black/[0.1] bg-[#fafafa] text-neutral-500 hover:text-neutral-900",
             count: "bg-black/[0.05] text-neutral-600",
-            dotRing: "ring-white",
+            dotRing: "ring-[#fafafa]",
             rail: "border-black/[0.08]",
-            sub: "text-neutral-500 hover:bg-black/[0.03] hover:text-neutral-900",
-            subActive: "bg-black/[0.05] text-neutral-900",
+            sub: "text-neutral-500 hover:text-neutral-900",
+            subActive: "font-semibold text-neutral-900",
             row: "hover:bg-black/[0.04]",
             rowOpen: "bg-black/[0.04]",
             avatar: "bg-neutral-900 text-white",
@@ -1594,7 +1597,7 @@ export default function DashboardSidebar({
   return (
     <div
       className={[
-        "fixed inset-y-8 left-4 z-20",
+        "fixed inset-y-0 left-0 z-20",
         "transition-opacity duration-300 motion-reduce:transition-none",
         hasMounted ? "opacity-100" : "opacity-0",
       ].join(" ")}
@@ -1604,7 +1607,7 @@ export default function DashboardSidebar({
       <aside
         id="app-sidebar"
         className={[
-          "relative flex h-full flex-col overflow-visible rounded-2xl border px-3 py-4",
+          "relative flex h-full flex-col overflow-visible border-r px-3 py-6",
           "transition-[width] duration-300 ease-out motion-reduce:transition-none",
           t.aside,
           isCollapsed ? "w-[68px]" : "w-[200px]",
@@ -1793,7 +1796,7 @@ export default function DashboardSidebar({
                             if (item.route) navigate(item.route);
                           }}
                           className={[
-                            "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-1.5",
+                            "flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5",
                             "text-left text-[13px] font-medium",
                             "transition-colors duration-150 motion-reduce:transition-none",
                             "disabled:cursor-wait disabled:opacity-60",
