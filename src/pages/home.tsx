@@ -420,17 +420,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                 Streak
               </p>
 
-              <button
-                type="button"
-                className={[
-                  "text-[9px] font-medium transition-colors",
-                  isDark
-                    ? "text-neutral-500 hover:text-white"
-                    : "text-neutral-500 hover:text-black",
-                ].join(" ")}
-              >
-                No goals yet · Set goals
-              </button>
+             
             </div>
 
             <div className="mt-1 flex items-end gap-1.5">
