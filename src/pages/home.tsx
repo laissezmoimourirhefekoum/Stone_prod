@@ -18,11 +18,10 @@ import {
 } from "../services/supabase";
 
 import {
-  Activity,
   ArrowUpRight,
   CalendarDays,
-  Check,
   FileText,
+  Flame,
   Heart,
   MessageCircle,
   Plus,
@@ -311,7 +310,6 @@ function Streak({
 
       return {
         day: WEEKDAYS[date.getDay()],
-        date: date.getDate(),
       };
     }
   );
@@ -363,7 +361,7 @@ function Streak({
           </div>
         </div>
 
-        <Activity
+        <Flame
           className={[
             "h-4 w-4",
             isDark
@@ -375,12 +373,10 @@ function Streak({
 
       <div className="grid grid-cols-7 gap-1">
         {days.map((day, index) => {
-          const active = index < streak;
-
           return (
             <div
               key={`${day.day}-${index}`}
-              className="flex flex-col items-center gap-1"
+              className="flex flex-col items-center gap-1.5"
             >
               <span
                 className={[
@@ -395,31 +391,12 @@ function Streak({
 
               <div
                 className={[
-                  "flex h-7 w-7 items-center justify-center rounded-lg",
-                  active
-                    ? isDark
-                      ? "bg-white text-black"
-                      : "bg-neutral-900 text-white"
-                    : isDark
-                      ? "bg-white/[0.04]"
-                      : "bg-neutral-50",
+                  "h-6 w-6 rounded-full border",
+                  isDark
+                    ? "border-white/20"
+                    : "border-black/20",
                 ].join(" ")}
-              >
-                {active ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span
-                    className={[
-                      "text-[9px] font-medium",
-                      isDark
-                        ? "text-neutral-700"
-                        : "text-neutral-400",
-                    ].join(" ")}
-                  >
-                    {day.date}
-                  </span>
-                )}
-              </div>
+              />
             </div>
           );
         })}

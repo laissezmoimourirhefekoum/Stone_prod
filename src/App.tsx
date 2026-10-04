@@ -14,6 +14,7 @@ import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Queue from "./pages/queue";
 import Analytics from "./pages/analytics";
+import Insights from "./pages/Insights";
 import Channels from "./pages/channels";
 import Faq from "./pages/Faq";
 import Tos from "./pages/tos";
@@ -344,6 +345,7 @@ const PROTECTED_ROUTES = new Set([
   "create",
   "queue",
   "analytics",
+  "insights",
   "integrations",
   "settings",
   "schedule",
@@ -581,6 +583,15 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
         <Analytics />
+      </div>
+    );
+  }
+
+  /* Insights d'un canal (/#/insights?channel=<key>) */
+  if (route === "insights") {
+    return (
+      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <Insights />
       </div>
     );
   }

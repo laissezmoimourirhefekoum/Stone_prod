@@ -725,6 +725,17 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
+/** Canal ciblé par /#/insights?channel=<key> (null si absent). */
+function getHashChannel(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const hash = window.location.hash;
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) return null;
+
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
+}
+
 const PublishIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
@@ -756,10 +767,18 @@ const CHANNEL_LINKS: {
   route: string;
   icon: IconComponent;
   badge?: string;
+  /** Le lien porte le canal : /#/<route>?channel=<key> */
+  perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
   { label: "Community", route: "community", icon: CommunityIcon },
-  { label: "Insights", route: "analytics", icon: InsightsIcon, badge: "New" },
+  {
+    label: "Insights",
+    route: "insights",
+    icon: InsightsIcon,
+    badge: "New",
+    perChannel: true,
+  },
 ];
 
 function ChannelAvatar({
@@ -828,6 +847,9 @@ function SidebarChannels({
   useEffect(() => {
     channelsMemory.open = openKeys;
   }, [openKeys]);
+
+  // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
+  const hashChannel = currentRoute === "insights" ? getHashChannel() : null;
 
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
@@ -950,14 +972,28 @@ function SidebarChannels({
                   >
                     {CHANNEL_LINKS.map((link, i) => {
                       const Icon = link.icon;
-                      const active = link.route === currentRoute;
+
+                      const target = link.perChannel
+                        ? `${link.route}?channel=${encodeURIComponent(
+                            channel.key
+                          )}`
+                        : link.route;
+
+                      // Un lien "par canal" n'est actif que pour le canal ouvert.
+                      const active = link.perChannel
+                        ? link.route === currentRoute &&
+                          (hashChannel === null
+                            ? channels[0]?.key === channel.key
+                            : hashChannel === channel.key)
+                        : link.route === currentRoute;
+
                       return (
                         <button
                           key={link.route}
                           type="button"
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
-                          onClick={() => onNavigate(link.route)}
+                          onClick={() => onNavigate(target)}
                           style={{
                             transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
                           }}
@@ -1234,8 +1270,8 @@ export default function DashboardSidebar({
     if (returned.youtube) clearCache(userId, "youtube");
 
     // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
-    // (Les autres pages gèrent leur propre hash et ne doivent pas être
-    // polluées par un replaceState.)
+    // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
+    // et ne doivent pas être polluées par un replaceState.)
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -1482,7 +1518,6 @@ export default function DashboardSidebar({
    * sur /channels). La sidebar ne redirige pas vers /channels.
    */
   const openConnect = useCallback(() => {
-    console.log("[Stone] Sidebar: connect clicked");
     setMenuOpen(false);
     setConnectError(null);
     setConnectOpen(true);
@@ -2059,7 +2094,7 @@ export default function DashboardSidebar({
               aria-expanded={menuOpen}
               aria-controls="account-menu"
               aria-label="Open account menu"
-              title={isCollapsed ? account.name : undefined}
+              title={isCollapsed ? account.organization : undefined}
               onClick={() => setMenuOpen((value) => !value)}
               className={[
                 "group flex h-11 w-full",
@@ -2067,7 +2102,7 @@ export default function DashboardSidebar({
                 "items-center gap-3",
                 "overflow-hidden",
                 "rounded-xl px-1.5",
-                "transition-[background-color,transform]",
+                "transition-colors",
                 "duration-200",
                 "active:scale-[0.97]",
                 "motion-reduce:transition-none",
@@ -2084,11 +2119,8 @@ export default function DashboardSidebar({
                   className={[
                     "h-8 w-8 shrink-0",
                     "select-none",
-                    "rounded-full object-cover",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
+                    "rounded-lg object-cover",
+                    "transition-none",
                   ].join(" ")}
                   onError={() => setAvatarLoadFailed(true)}
                 />
@@ -2098,12 +2130,9 @@ export default function DashboardSidebar({
                     "flex h-8 w-8 shrink-0",
                     "select-none",
                     "items-center justify-center",
-                    "rounded-full",
+                    "rounded-lg",
                     "text-[10px] font-semibold",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
+                    "transition-none",
                     t.avatar,
                   ].join(" ")}
                 >
@@ -2111,17 +2140,25 @@ export default function DashboardSidebar({
                 </span>
               )}
 
-              <span
-                className={[
-                  "min-w-0 flex-1",
-                  "select-none",
-                  "truncate text-left",
-                  "text-[13px] font-medium",
-                  t.title,
-                  labelClass,
-                ].join(" ")}
-              >
-                {account.name}
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span
+                  className={[
+                    "truncate text-[13px] font-medium",
+                    labelClass,
+                    t.title,
+                  ].join(" ")}
+                >
+                  {account.organization}
+                </span>
+                <span
+                  className={[
+                    "truncate text-[11px]",
+                    labelClass,
+                    t.muted,
+                  ].join(" ")}
+                >
+                  {account.plan}
+                </span>
               </span>
             </button>
           </div>
