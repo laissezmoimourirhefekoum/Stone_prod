@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
 import PageTransition from "../components/PageTransition";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -20,9 +22,6 @@ import {
   GoogleCalendarIcon,
   CanvaIcon,
 } from "../components/IntegrationIcons";
-
-/** Largeur réservée à la sidebar (68px + 16px d'inset + gap). */
-const SIDEBAR_OFFSET = 104;
 
 function SearchIcon() {
   return (
@@ -389,6 +388,9 @@ export default function Integrations() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
 
+  // Largeur dynamique de la sidebar (identique à la Home et Channels).
+  const sidebarOffset = useSidebarOffset();
+
   // Recherche & filtre de la grille d'intégrations.
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Toutes");
@@ -443,8 +445,16 @@ export default function Integrations() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* pl-[104px] clears the sidebar's collapsed width (68px + 16px inset + gap). */}
-      <div className="pl-[104px]">
+      {/* Le padding-left suit l'ouverture/fermeture de la sidebar, avec
+          la même animation que la Home et Channels. */}
+      <div
+        className={[
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
+        style={{ paddingLeft: sidebarOffset }}
+      >
         <PageTransition>
           {/* pb-[96px] réserve la place de la BottomBar. */}
           <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
@@ -603,12 +613,12 @@ export default function Integrations() {
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
       />
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={SIDEBAR_OFFSET}
+        offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         query={bottomQuery}
