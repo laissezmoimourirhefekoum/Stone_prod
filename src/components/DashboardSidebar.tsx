@@ -8,7 +8,6 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { createPortal } from "react-dom";
 
 import type { ReactNode } from "react";
 
@@ -132,11 +131,6 @@ type ThemeTokens = {
   upgrade: string;
   badge: string;
   ring: string;
-  tip: string;
-  bar: string;
-  cta: string;
-  track: string;
-  fill: string;
 };
 
 type ToggleOrigin = {
@@ -160,25 +154,10 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Keyframes + global UI guards + typographie
+   Keyframes + global UI guards
 ============================================================================ */
 
-const FONT_STACK =
-  '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
-
 const SIDEBAR_KEYFRAMES = `
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
-
-#app-sidebar,
-#app-sidebar button,
-#account-menu,
-#account-menu button {
-  font-family: ${FONT_STACK};
-  letter-spacing: -0.01em;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 @keyframes sbMenuIn {
   from {
     opacity: 0;
@@ -203,28 +182,12 @@ const SIDEBAR_KEYFRAMES = `
   }
 }
 
-@keyframes sbTipIn {
-  from {
-    opacity: 0;
-    transform: translate(-4px, -50%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(0, -50%);
-  }
-}
-
 .sb-menu {
   animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 .sb-item {
   animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-tip {
-  animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 #app-sidebar button,
@@ -249,80 +212,18 @@ const SIDEBAR_KEYFRAMES = `
 
 @media (prefers-reduced-motion: reduce) {
   .sb-menu,
-  .sb-item,
-  .sb-tip {
+  .sb-item {
     animation: none;
   }
 }
 `;
 
 /* ============================================================================
-   Tooltip (sidebar réduite) — rendu dans body pour ne pas être rogné
-============================================================================ */
-
-function RailTip({
-  label,
-  enabled,
-  tipClass,
-  children,
-}: {
-  label: string;
-  enabled: boolean;
-  tipClass: string;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  const show = () => {
-    if (!enabled || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    setPos({ top: rect.top + rect.height / 2, left: rect.right + 12 });
-  };
-
-  const hide = () => setPos(null);
-
-  useEffect(() => {
-    if (!enabled) setPos(null);
-  }, [enabled]);
-
-  return (
-    <div
-      ref={ref}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-    >
-      {children}
-
-      {pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <span
-            role="tooltip"
-            style={{ top: pos.top, left: pos.left, fontFamily: FONT_STACK }}
-            className={[
-              "sb-tip pointer-events-none fixed z-[60]",
-              "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-              "text-[12px] font-medium shadow-lg",
-              tipClass,
-            ].join(" ")}
-          >
-            {label}
-          </span>,
-          document.body
-        )}
-    </div>
-  );
-}
-
-/* ============================================================================
    Icons
 ============================================================================ */
 
 function Svg({
-  className = "h-[15px] w-[15px]",
+  className = "h-4 w-4",
   children,
 }: IconProps & {
   children: ReactNode;
@@ -419,6 +320,15 @@ function HelpIcon(props: IconProps) {
   );
 }
 
+function LightbulbIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
+    </Svg>
+  );
+}
+
 function AppsIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -457,7 +367,7 @@ function BoltIcon(props: IconProps) {
 }
 
 function ChevronIcon({
-  className = "h-3 w-3",
+  className = "h-3.5 w-3.5",
   collapsed,
 }: IconProps & {
   collapsed: boolean;
@@ -485,19 +395,13 @@ function ChevronDownIcon(props: IconProps) {
   );
 }
 
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
-
 /* ============================================================================
    Navigation data
 ============================================================================ */
 
 const navSections: NavSection[] = [
   {
-    label: "Workspace",
+    label: "General",
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
@@ -517,7 +421,6 @@ const defaultAccount = {
   avatarUrl: undefined as string | undefined,
 };
 
-/* « Create » vit maintenant dans le bouton principal « New post ». */
 const menuGroups: MenuItem[][] = [
   [
     { label: "Settings", icon: SettingsIcon, route: "settings" },
@@ -526,8 +429,9 @@ const menuGroups: MenuItem[][] = [
     { label: "Help & Support", icon: HelpIcon, route: "faq" },
   ],
   [
+    { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
     { label: "Integrations", icon: AppsIcon, route: "integrations" },
-    { label: "Beta Features", icon: BetaIcon, badge: "Beta" },
+    { label: "Beta Features", icon: BetaIcon },
   ],
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
 ];
@@ -593,112 +497,98 @@ function NavItemViewImpl({
 
   return (
     <div>
-      <RailTip label={item.label} enabled={isCollapsed} tipClass={t.tip}>
-        <button
-          type="button"
-          aria-label={item.label}
-          aria-current={isActive ? "page" : undefined}
-          aria-expanded={hasChildren ? isOpen : undefined}
-          onClick={onClick}
+      <button
+        type="button"
+        aria-label={item.label}
+        aria-current={isActive ? "page" : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        title={isCollapsed ? item.label : undefined}
+        onClick={onClick}
+        className={[
+          "group relative flex h-10 w-full",
+          "select-none",
+          "items-center gap-3 overflow-hidden",
+          "rounded-xl px-3",
+          "text-[13px] font-medium",
+          "transition-[background-color,color,transform]",
+          "duration-200",
+          "active:scale-[0.97]",
+          "motion-reduce:transition-none",
+          "motion-reduce:active:scale-100",
+          focus,
+          isActive ? t.navActive : t.navIdle,
+        ].join(" ")}
+      >
+        <span
           className={[
-            "group relative flex h-9 w-full",
+            "relative flex shrink-0",
             "select-none",
-            "items-center gap-3 overflow-hidden",
-            "rounded-xl px-3",
-            "text-[12.5px]",
-            isActive ? "font-semibold" : "font-medium",
-            "transition-[background-color,color,transform]",
-            "duration-200",
-            "active:scale-[0.97]",
+            "transition-transform duration-200",
+            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+            "group-hover:scale-110",
             "motion-reduce:transition-none",
-            "motion-reduce:active:scale-100",
-            focus,
-            isActive ? t.navActive : t.navIdle,
+            "motion-reduce:group-hover:scale-100",
           ].join(" ")}
         >
-          {/* Barre d'état actif */}
-          <span
-            aria-hidden="true"
-            className={[
-              "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full",
-              "transition-[opacity,transform] duration-200",
-              "motion-reduce:transition-none",
-              t.bar,
-              isActive ? "scale-y-100 opacity-100" : "scale-y-50 opacity-0",
-            ].join(" ")}
-          />
-
-          <span
-            className={[
-              "relative flex shrink-0",
-              "select-none",
-              "transition-transform duration-200",
-              "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-              "group-hover:scale-110",
-              "motion-reduce:transition-none",
-              "motion-reduce:group-hover:scale-100",
-            ].join(" ")}
-          >
-            <Icon className="h-[18px] w-[18px]" />
-
-            {item.badge && (
-              <span
-                aria-hidden="true"
-                className={[
-                  "absolute -right-0.5 -top-0.5",
-                  "h-2 w-2 rounded-full",
-                  "select-none",
-                  "bg-[#ff5ec4] ring-2",
-                  t.dotRing,
-                  isCollapsed
-                    ? "opacity-100 delay-150 duration-200"
-                    : "opacity-0 duration-100",
-                ].join(" ")}
-              />
-            )}
-          </span>
-
-          <span
-            className={["flex-1 select-none text-left", labelClass].join(" ")}
-            style={labelStyle}
-          >
-            {item.label}
-          </span>
+          <Icon className="h-5 w-5" />
 
           {item.badge && (
             <span
-              style={labelStyle}
+              aria-hidden="true"
               className={[
+                "absolute -right-0.5 -top-0.5",
+                "h-2 w-2 rounded-full",
                 "select-none",
-                "rounded-md px-1.5 py-0.5",
-                "text-[11px] font-medium",
-                t.count,
-                labelClass,
+                "bg-[#ff5ec4] ring-2",
+                t.dotRing,
+                isCollapsed
+                  ? "opacity-100 delay-150 duration-200"
+                  : "opacity-0 duration-100",
               ].join(" ")}
-            >
-              <span aria-hidden="true">{item.badge}</span>
-              <span className="sr-only">{item.badge} en attente</span>
-            </span>
+            />
           )}
+        </span>
 
-          {hasChildren && (
-            <span
-              className={["flex shrink-0 select-none", labelClass].join(" ")}
-              style={labelStyle}
-            >
-              <ChevronDownIcon
-                className={[
-                  "h-3.5 w-3.5",
-                  "transition-transform duration-300",
-                  "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                  "motion-reduce:transition-none",
-                  isOpen ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </span>
-          )}
-        </button>
-      </RailTip>
+        <span
+          className={["flex-1 select-none text-left", labelClass].join(" ")}
+          style={labelStyle}
+        >
+          {item.label}
+        </span>
+
+        {item.badge && (
+          <span
+            style={labelStyle}
+            className={[
+              "select-none",
+              "rounded-md px-1.5 py-0.5",
+              "text-[11px] font-medium",
+              t.count,
+              labelClass,
+            ].join(" ")}
+          >
+            <span aria-hidden="true">{item.badge}</span>
+            <span className="sr-only">{item.badge} en attente</span>
+          </span>
+        )}
+
+        {hasChildren && (
+          <span
+            className={["flex shrink-0 select-none", labelClass].join(" ")}
+            style={labelStyle}
+          >
+            <ChevronDownIcon
+              className={[
+                "h-4 w-4",
+                "transition-transform duration-300",
+                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "motion-reduce:transition-none",
+                isOpen ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </span>
+        )}
+      </button>
 
       {hasChildren && (
         <div
@@ -736,13 +626,13 @@ function NavItemViewImpl({
                         : "0ms",
                     }}
                     className={[
-                      "flex h-8 w-full",
+                      "flex h-9 w-full",
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
                       "rounded-lg px-2",
-                      "text-left text-[12.5px]",
-                      childActive ? "font-semibold" : "font-medium",
+                      "text-left text-[13px]",
+                      "font-medium",
                       "transition-[background-color,color,opacity,transform]",
                       "duration-300",
                       "ease-[cubic-bezier(0.32,0.72,0,1)]",
@@ -855,6 +745,12 @@ const InsightsIcon = (p: IconProps) => (
   </Svg>
 );
 
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
 const CHANNEL_LINKS: {
   label: string;
   route: string;
@@ -901,7 +797,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-5 w-5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -912,7 +808,7 @@ function ChannelAvatar({
           className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[9px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -920,12 +816,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-3 w-3 items-center justify-center",
-            "rounded-[3px] bg-white text-black ring-2",
+            "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
+            "rounded-[4px] bg-white text-black ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-[7px] w-[7px]" />
+          <NetworkIcon className="h-2 w-2" />
         </span>
       )}
     </span>
@@ -980,22 +876,9 @@ function SidebarChannels({
         ].join(" ")}
       >
         <span
-          className={[
-            "flex select-none items-center gap-1.5 text-[12px] font-medium",
-            t.muted,
-          ].join(" ")}
+          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
         >
           Channels
-          {channels.length > 0 && (
-            <span
-              className={[
-                "rounded-md px-1.5 text-[10.5px] font-semibold leading-4",
-                t.count,
-              ].join(" ")}
-            >
-              {channels.length}
-            </span>
-          )}
         </span>
 
         <span className="flex items-center gap-0.5">
@@ -1007,7 +890,7 @@ function SidebarChannels({
             onClick={onConnect}
             className={headerButton}
           >
-            <PlusIcon className="h-3.5 w-3.5" />
+            <PlusIcon className="h-4 w-4" />
           </button>
         </span>
       </div>
@@ -1022,59 +905,53 @@ function SidebarChannels({
 
           return (
             <div key={channel.key}>
-              <RailTip
-                label={label.replace(/^@/, "")}
-                enabled={isCollapsed}
-                tipClass={t.tip}
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                title={isCollapsed ? label : undefined}
+                onClick={() => {
+                  if (isCollapsed) {
+                    onExpand();
+                    openKey(groupKey);
+                  } else {
+                    toggleKey(groupKey);
+                  }
+                }}
+                className={[
+                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
+                  "rounded-xl px-2.5 text-[13px] font-medium",
+                  "transition-[background-color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none",
+                  focus,
+                  t.navIdle,
+                ].join(" ")}
               >
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-label={label.replace(/^@/, "")}
-                  onClick={() => {
-                    if (isCollapsed) {
-                      onExpand();
-                      openKey(groupKey);
-                    } else {
-                      toggleKey(groupKey);
-                    }
-                  }}
+                <ChannelAvatar
+                  channel={channel}
+                  NetworkIcon={NetworkIcon}
+                  dotRing={t.dotRing}
+                />
+                <span
                   className={[
-                    "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
-                    "rounded-xl px-2.5 text-[12.5px] font-medium",
-                    "transition-[background-color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none",
-                    focus,
-                    t.navIdle,
+                    "min-w-0 flex-1 truncate text-left",
+                    labelClass,
                   ].join(" ")}
                 >
-                  <ChannelAvatar
-                    channel={channel}
-                    NetworkIcon={NetworkIcon}
-                    dotRing={t.dotRing}
-                  />
-                  <span
+                  {label.replace(/^@/, "")}
+                </span>
+                <span className={["flex shrink-0", labelClass].join(" ")}>
+                  <ChevronDownIcon
                     className={[
-                      "min-w-0 flex-1 truncate text-left",
-                      labelClass,
+                      "h-3.5 w-3.5 opacity-50",
+                      "transition-[transform,opacity] duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:opacity-100",
+                      "motion-reduce:transition-none",
+                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
                     ].join(" ")}
-                  >
-                    {label.replace(/^@/, "")}
-                  </span>
-                  <span className={["flex shrink-0", labelClass].join(" ")}>
-                    <ChevronDownIcon
-                      className={[
-                        "h-3 w-3 opacity-50",
-                        "transition-[transform,opacity] duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                        "group-hover:opacity-100",
-                        "motion-reduce:transition-none",
-                        isOpen ? "rotate-0 opacity-100" : "-rotate-90",
-                      ].join(" ")}
-                    />
-                  </span>
-                </button>
-              </RailTip>
+                  />
+                </span>
+              </button>
 
               <div
                 className={[
@@ -1118,9 +995,8 @@ function SidebarChannels({
                             transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
                           }}
                           className={[
-                            "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[12.5px]",
-                            active ? "font-semibold" : "font-medium",
+                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[13px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
@@ -1130,12 +1006,12 @@ function SidebarChannels({
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
-                          <Icon className="h-4 w-4 shrink-0" />
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1158,72 +1034,46 @@ function SidebarChannels({
           type="button"
           onClick={onConnect}
           className={[
-            "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
-            "rounded-xl border border-dashed px-3 text-[12.5px] font-medium",
+            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
+            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
             t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-3.5 w-3.5 shrink-0" />
+          <PlusIcon className="h-4 w-4 shrink-0" />
           Connect a channel
         </button>
       )}
 
       {isCollapsed && (
-        <div className="mt-1">
-          <RailTip label="Connect a channel" enabled tipClass={t.tip}>
-            <button
-              type="button"
-              aria-label="Connect a channel"
-              onClick={onConnect}
-              className={[
-                "flex h-9 w-full select-none items-center gap-3 rounded-xl px-3",
-                "transition-[background-color,transform] duration-200 active:scale-[0.97]",
-                "motion-reduce:transition-none",
-                focus,
-                t.navIdle,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-[18px] w-[18px] shrink-0" />
-            </button>
-          </RailTip>
-        </div>
+        <button
+          type="button"
+          aria-label="Connect a channel"
+          title="Connect a channel"
+          onClick={onConnect}
+          className={[
+            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
+            "motion-reduce:transition-none",
+            focus,
+            t.navIdle,
+          ].join(" ")}
+        >
+          <PlusIcon className="h-5 w-5 shrink-0" />
+        </button>
       )}
     </div>
   );
 }
 
 /* ============================================================================
-   Sidebar memory (état conservé entre les pages, et entre les sessions)
+   Sidebar memory
 ============================================================================ */
 
-const COLLAPSE_STORAGE_KEY = "stone:sidebar-collapsed";
-
-function readStoredCollapsed(): boolean {
-  if (typeof window === "undefined") return true;
-
-  try {
-    const value = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);
-    return value === null ? true : value === "1";
-  } catch {
-    return true;
-  }
-}
-
-function writeStoredCollapsed(value: boolean) {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(COLLAPSE_STORAGE_KEY, value ? "1" : "0");
-  } catch {
-    /* stockage indisponible : on ignore */
-  }
-}
-
 const sidebarMemory = {
-  collapsed: readStoredCollapsed(),
+  collapsed: true,
   openGroup: null as string | null,
   entered: false,
 };
@@ -1239,7 +1089,6 @@ function setSidebarCollapsed(value: boolean) {
   if (sidebarMemory.collapsed === value) return;
 
   sidebarMemory.collapsed = value;
-  writeStoredCollapsed(value);
   sidebarListeners.forEach((listener) => listener());
 }
 
@@ -1594,8 +1443,8 @@ export default function DashboardSidebar({
               "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
             brand: "text-white",
             divider: "bg-white/10",
-            navActive: "bg-white/[0.12] text-white",
-            navIdle: "text-[#d9dcdc] hover:bg-white/[0.07] hover:text-white",
+            navActive: "bg-white/15 text-white",
+            navIdle: "text-white hover:bg-white/10",
             handle:
               "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
             count: "bg-white/10 text-[#d7d7d2]",
@@ -1617,19 +1466,14 @@ export default function DashboardSidebar({
               "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
             badge: "bg-[#4a2f4a] text-[#f0bdf0]",
             ring: "focus-visible:ring-white/30",
-            tip: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef]",
-            bar: "bg-[#ff5ec4]",
-            cta: "bg-white text-[#111111] hover:bg-white/90",
-            track: "bg-white/10",
-            fill: "bg-[#ff5ec4]",
           }
         : {
             aside:
               "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
             brand: "text-[#151515]",
             divider: "bg-black/[0.07]",
-            navActive: "bg-black/[0.07] text-[#151515]",
-            navIdle: "text-[#4a4a47] hover:bg-black/[0.04] hover:text-[#151515]",
+            navActive: "bg-black/[0.06] text-[#151515]",
+            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
             handle:
               "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
             count: "bg-black/[0.05] text-[#3f3f3d]",
@@ -1651,11 +1495,6 @@ export default function DashboardSidebar({
               "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
             badge: "bg-[#f3dcf3] text-[#7a2f7a]",
             ring: "focus-visible:ring-black/20",
-            tip: "border-black/10 bg-[#1a1a1a] text-white",
-            bar: "bg-[#d6249f]",
-            cta: "bg-[#151515] text-white hover:bg-[#2b2b2b]",
-            track: "bg-black/[0.08]",
-            fill: "bg-[#d6249f]",
           },
     [isDark]
   );
@@ -1694,30 +1533,6 @@ export default function DashboardSidebar({
     setIsCollapsed((previous) => !previous);
     setOpenGroup(null);
   }, []);
-
-  /* Raccourci clavier : « [ » ouvre / réduit la sidebar (hors champs de saisie). */
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "[" || event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable ||
-          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      toggleCollapsed();
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggleCollapsed]);
 
   const handleNavigate = useCallback((route: string) => {
     navigate(route);
@@ -1950,11 +1765,6 @@ export default function DashboardSidebar({
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
 
-  const usagePercent =
-    PLAN.maxChannels > 0
-      ? Math.min(100, Math.round((account.channels / PLAN.maxChannels) * 100))
-      : 0;
-
   /* --------------------------------------------------------------------------
      Modal props
   -------------------------------------------------------------------------- */
@@ -1996,7 +1806,7 @@ export default function DashboardSidebar({
         id="app-sidebar"
         className={[
           "relative flex h-full flex-col",
-          "overflow-visible rounded-[28px]",
+          "overflow-visible rounded-[36px]",
           "border px-3 py-5",
           "transition-[width,box-shadow]",
           "duration-[380ms]",
@@ -2012,11 +1822,8 @@ export default function DashboardSidebar({
           type="button"
           aria-expanded={!isCollapsed}
           aria-controls="app-sidebar"
-          aria-keyshortcuts="["
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={
-            isCollapsed ? "Expand sidebar  [" : "Collapse sidebar  ["
-          }
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={toggleCollapsed}
           className={[
             "absolute -right-3 top-[44%]",
@@ -2057,7 +1864,7 @@ export default function DashboardSidebar({
           <span
             className={[
               "select-none",
-              "text-[20px] font-bold",
+              "text-[20px] font-semibold",
               "leading-none tracking-tight",
               labelClass,
             ].join(" ")}
@@ -2066,34 +1873,10 @@ export default function DashboardSidebar({
           </span>
         </div>
 
-        {/* Action principale */}
-        <div className="mt-4">
-          <RailTip label="New post" enabled={isCollapsed} tipClass={t.tip}>
-            <button
-              type="button"
-              aria-label="New post"
-              onClick={() => handleNavigate("create")}
-              className={[
-                "group flex h-9 w-full select-none items-center justify-start gap-2",
-                "overflow-hidden rounded-xl px-3.5",
-                "text-[12.5px] font-semibold",
-                "transition-[background-color,transform] duration-200",
-                "active:scale-[0.97]",
-                "motion-reduce:transition-none motion-reduce:active:scale-100",
-                focus,
-                t.cta,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
-              <span className={labelClass}>New post</span>
-            </button>
-          </RailTip>
-        </div>
-
         {/* Navigation */}
         <nav
           className={[
-            "-mx-1 mt-4 flex min-h-0 flex-1",
+            "-mx-1 mt-5 flex min-h-0 flex-1",
             "flex-col overflow-y-auto",
             "overflow-x-hidden px-1",
             "[scrollbar-width:none]",
@@ -2200,57 +1983,20 @@ export default function DashboardSidebar({
                   className="sb-item px-3.5 pb-3 pt-3.5"
                   style={{ animationDelay: "30ms" }}
                 >
-                  <div className="truncate text-[14px] font-semibold">
-                    {account.name}
-                  </div>
-
-                  <div className={["mt-0.5 truncate text-[11px]", t.muted].join(" ")}>
+                  <div className={["truncate text-[11px]", t.muted].join(" ")}>
                     {account.email}
                   </div>
 
-                  {/* Quota de canaux */}
-                  <div className="mt-3">
-                    <div
-                      className={[
-                        "flex items-center justify-between text-[11px]",
-                        t.muted,
-                      ].join(" ")}
-                    >
-                      <span>{account.plan}</span>
-                      <span className="font-semibold">
-                        {account.channels}/{PLAN.maxChannels} channels
-                      </span>
-                    </div>
+                  <div className="mt-2.5 truncate text-[14px] font-semibold">
+                    {account.name}
+                  </div>
 
-                    <div
-                      role="progressbar"
-                      aria-label="Channels used"
-                      aria-valuemin={0}
-                      aria-valuemax={PLAN.maxChannels}
-                      aria-valuenow={account.channels}
-                      className={[
-                        "mt-1.5 h-1.5 w-full overflow-hidden rounded-full",
-                        t.track,
-                      ].join(" ")}
-                    >
-                      <div
-                        className={[
-                          "h-full rounded-full",
-                          "transition-[width] duration-500",
-                          "motion-reduce:transition-none",
-                          t.fill,
-                        ].join(" ")}
-                        style={{ width: `${usagePercent}%` }}
-                      />
-                    </div>
+                  <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
+                    {account.plan} · {account.channels} channels
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      navigate("pricing");
-                    }}
                     className={[
                       "group mt-3 flex w-full",
                       "select-none",
@@ -2268,7 +2014,7 @@ export default function DashboardSidebar({
                   >
                     <BoltIcon
                       className={[
-                        "h-[15px] w-[15px]",
+                        "h-4 w-4",
                         "transition-transform duration-300",
                         "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                         "group-hover:-rotate-12",
@@ -2276,7 +2022,7 @@ export default function DashboardSidebar({
                         "motion-reduce:transition-none",
                       ].join(" ")}
                     />
-                    Upgrade plan
+                    Upgrade Plan
                   </button>
                 </div>
 
@@ -2317,9 +2063,9 @@ export default function DashboardSidebar({
                             "sb-item group flex",
                             "w-full cursor-pointer",
                             "select-none",
-                            "items-center gap-2.5",
+                            "items-center gap-3",
                             "rounded-[10px]",
-                            "px-2.5 py-1.5",
+                            "px-2.5 py-2",
                             "text-left text-[12.5px]",
                             "font-medium",
                             "transition-[background-color,transform] duration-150",
@@ -2332,7 +2078,7 @@ export default function DashboardSidebar({
                         >
                           <Icon
                             className={[
-                              "h-[15px] w-[15px] shrink-0",
+                              "h-4 w-4 shrink-0",
                               "transition-transform duration-200",
                               "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
                               "group-hover:scale-110",
@@ -2370,101 +2116,78 @@ export default function DashboardSidebar({
             )}
 
             {/* Profile trigger */}
-            <RailTip label={account.name} enabled={isCollapsed && !menuOpen} tipClass={t.tip}>
-              <button
-                ref={triggerRef}
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-controls="account-menu"
-                aria-label="Open account menu"
-                onClick={() => setMenuOpen((value) => !value)}
-                className={[
-                  "group flex h-12 w-full",
-                  "select-none",
-                  "items-center gap-2.5",
-                  "overflow-hidden",
-                  "rounded-xl px-1.5",
-                  "transition-[background-color,transform]",
-                  "duration-200",
-                  "active:scale-[0.97]",
-                  "motion-reduce:transition-none",
-                  focus,
-                  menuOpen ? t.rowOpen : t.row,
-                ].join(" ")}
-              >
-                {showAvatarImage ? (
-                  <img
-                    key={account.avatarUrl}
-                    src={account.avatarUrl}
-                    alt="Profile"
-                    draggable={false}
-                    className={[
-                      "h-8 w-8 shrink-0",
-                      "select-none",
-                      "rounded-full object-cover",
-                      "transition-transform duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:scale-105",
-                      "motion-reduce:transition-none",
-                    ].join(" ")}
-                    onError={() => setAvatarLoadFailed(true)}
-                  />
-                ) : (
-                  <span
-                    className={[
-                      "flex h-8 w-8 shrink-0",
-                      "select-none",
-                      "items-center justify-center",
-                      "rounded-full",
-                      "text-[10px] font-semibold",
-                      "transition-transform duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:scale-105",
-                      "motion-reduce:transition-none",
-                      t.avatar,
-                    ].join(" ")}
-                  >
-                    {account.initials}
-                  </span>
-                )}
-
+            <button
+              ref={triggerRef}
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-controls="account-menu"
+              aria-label="Open account menu"
+              title={isCollapsed ? account.name : undefined}
+              onClick={() => setMenuOpen((value) => !value)}
+              className={[
+                "group flex h-11 w-full",
+                "select-none",
+                "items-center gap-3",
+                "overflow-hidden",
+                "rounded-xl px-1.5",
+                "transition-[background-color,transform]",
+                "duration-200",
+                "active:scale-[0.97]",
+                "motion-reduce:transition-none",
+                focus,
+                menuOpen ? t.rowOpen : t.row,
+              ].join(" ")}
+            >
+              {showAvatarImage ? (
+                <img
+                  key={account.avatarUrl}
+                  src={account.avatarUrl}
+                  alt="Profile"
+                  draggable={false}
+                  className={[
+                    "h-8 w-8 shrink-0",
+                    "select-none",
+                    "rounded-full object-cover",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
+                  ].join(" ")}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : (
                 <span
                   className={[
-                    "flex min-w-0 flex-1 flex-col",
-                    "select-none text-left",
-                    labelClass,
+                    "flex h-8 w-8 shrink-0",
+                    "select-none",
+                    "items-center justify-center",
+                    "rounded-full",
+                    "text-[10px] font-semibold",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
+                    t.avatar,
                   ].join(" ")}
                 >
-                  <span
-                    className={[
-                      "truncate text-[12.5px] font-semibold leading-4",
-                      t.title,
-                    ].join(" ")}
-                  >
-                    {account.name}
-                  </span>
-                  <span
-                    className={["truncate text-[11px] leading-4", t.muted].join(
-                      " "
-                    )}
-                  >
-                    {account.plan}
-                  </span>
+                  {account.initials}
                 </span>
+              )}
 
-                <span className={["flex shrink-0 pr-1", t.muted, labelClass].join(" ")}>
-                  <ChevronDownIcon
-                    className={[
-                      "h-3.5 w-3.5",
-                      "transition-transform duration-300",
-                      "motion-reduce:transition-none",
-                      menuOpen ? "" : "rotate-180",
-                    ].join(" ")}
-                  />
-                </span>
-              </button>
-            </RailTip>
+              <span
+                className={[
+                  "min-w-0 flex-1",
+                  "select-none",
+                  "truncate text-left",
+                  "text-[13px] font-medium",
+                  t.title,
+                  labelClass,
+                ].join(" ")}
+              >
+                {account.name}
+              </span>
+            </button>
           </div>
         </div>
       </aside>
