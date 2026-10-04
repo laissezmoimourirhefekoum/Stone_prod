@@ -13,7 +13,6 @@ import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
-import StreakFlame from "../components/StreakFlame";
 
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 
@@ -333,7 +332,8 @@ function Stat({
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
 
-function Streak({ isDark, streak }: { isDark: boolean; streak: number }) {
+function Streak({ isDark }: { isDark: boolean }) {
+  const streak = 0;
   const today = new Date();
 
   const days = Array.from({ length: 7 }, (_, index) => {
@@ -827,9 +827,6 @@ export default function Home() {
   // Heure partagée (greeting + horloge)
   const [now, setNow] = useState(() => new Date());
 
-  // Valeur du streak (à brancher sur tes vraies données plus tard)
-  const [streakValue, setStreakValue] = useState(0);
-
   const connectedChannels = useConnectedChannels();
 
   // Tous les réseaux connectés sont affichés, YouTube inclus.
@@ -837,24 +834,6 @@ export default function Home() {
     () => connectedChannels,
     [connectedChannels]
   );
-
-  /* ----------------------------------------------------------
-     DEBUG : commande console pour changer le streak
-     Utilisation dans la console : setStreak(15)
-     À SUPPRIMER une fois les tests terminés.
-  ---------------------------------------------------------- */
-
-  useEffect(() => {
-    const w = window as unknown as {
-      setStreak?: (value: number) => void;
-    };
-
-    w.setStreak = (value: number) => setStreakValue(Number(value) || 0);
-
-    return () => {
-      delete w.setStreak;
-    };
-  }, []);
 
   /* ----------------------------------------------------------
      CLOCK TICK
@@ -1005,15 +984,6 @@ export default function Home() {
                   >
                     {fullName || "Welcome"}
                   </h1>
-
-                  {/* -my-2 : évite d'agrandir la hauteur du header */}
-                  <span className="-my-2 flex shrink-0">
-                    <StreakFlame
-                      value={streakValue}
-                      size={44}
-                      isDark={isDark}
-                    />
-                  </span>
                 </div>
               </div>
             </div>
@@ -1081,7 +1051,7 @@ export default function Home() {
                 />
               </div>
 
-              <Streak isDark={isDark} streak={streakValue} />
+              <Streak isDark={isDark} />
             </div>
           </section>
 
