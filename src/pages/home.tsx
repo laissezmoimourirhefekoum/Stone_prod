@@ -13,6 +13,7 @@ import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
+import StreakFlame from "../components/StreakFlame";
 
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 
@@ -975,14 +976,21 @@ export default function Home() {
                   {greeting}
                 </p>
 
-                <h1
-                  className={[
-                    "mt-0.5 text-[22px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  {fullName || "Welcome"}
-                </h1>
+                <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                  <h1
+                    className={[
+                      "truncate text-[22px] font-semibold tracking-[-0.035em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    {fullName || "Welcome"}
+                  </h1>
+
+                  {/* -my-2 : évite d'agrandir la hauteur du header */}
+                  <span className="-my-2 flex shrink-0">
+                    <StreakFlame value={700} size={44} isDark={isDark} />
+                  </span>
+                </div>
               </div>
             </div>
 
