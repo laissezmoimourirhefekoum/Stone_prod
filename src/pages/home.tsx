@@ -15,6 +15,7 @@ import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 
 import {
+  ArrowRight,
   ArrowUpRight,
   CalendarDays,
   ChevronRight,
@@ -106,12 +107,15 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 
 /* ============================================================
    BLOG (à brancher sur ton CMS / ton blog)
+   `image` : chemin ou URL de la vignette (ex. "/images/blog/tiktok.jpg").
+   Si l'image manque ou ne charge pas, un fond neutre est affiché.
 ============================================================ */
 
 type BlogPost = {
   title: string;
-  category: string;
-  readTime: string;
+  label: string;
+  date: string;
+  image?: string;
   url: string;
 };
 
@@ -119,21 +123,31 @@ const BLOG_URL = "#";
 
 const BLOG_POSTS: BlogPost[] = [
   {
-    title: "How often should you post on TikTok in 2026?",
-    category: "Strategy",
-    readTime: "5 min read",
+    title: "The Best Time to Post on TikTok in 2026",
+    label: "Blog post",
+    date: "Jul 20, 2026",
+    image: "/images/blog/best-time-tiktok.jpg",
     url: BLOG_URL,
   },
   {
-    title: "Write captions that people actually finish reading",
-    category: "Writing",
-    readTime: "4 min read",
+    title: "The 11 Best AI Video Editors: I Tested Them All",
+    label: "Blog post",
+    date: "Jul 22, 2026",
+    image: "/images/blog/ai-video-editors.jpg",
     url: BLOG_URL,
   },
   {
-    title: "Reading your insights: the 3 numbers that matter",
-    category: "Analytics",
-    readTime: "6 min read",
+    title: "How to Create a Social Media Content Calendar",
+    label: "Blog post",
+    date: "Jul 24, 2026",
+    image: "/images/blog/content-calendar.jpg",
+    url: BLOG_URL,
+  },
+  {
+    title: "17 Best AI Tools for Social Media Content",
+    label: "Blog post",
+    date: "Aug 3, 2026",
+    image: "/images/blog/ai-tools.jpg",
     url: BLOG_URL,
   },
 ];
@@ -658,29 +672,48 @@ function Panel({
    BLOG
 ============================================================ */
 
+function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div
+        className={[
+          "h-[140px] w-full rounded-xl",
+          isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
+        ].join(" ")}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      draggable={false}
+      onError={() => setFailed(true)}
+      className="h-[140px] w-full rounded-xl object-cover"
+    />
+  );
+}
+
 function BlogSection({ isDark }: { isDark: boolean }) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p
-            className={[
-              "text-[11px] font-semibold",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-          >
-            From the blog
-          </p>
-
-          <p
-            className={[
-              "mt-0.5 text-[10px]",
-              isDark ? "text-neutral-700" : "text-neutral-400",
-            ].join(" ")}
-          >
-            Tips to grow your audience
-          </p>
-        </div>
+        <p
+          className={[
+            "text-[12px] font-semibold",
+            isDark ? "text-neutral-300" : "text-neutral-700",
+          ].join(" ")}
+        >
+          From the Blog
+        </p>
 
         <a
           href={BLOG_URL}
@@ -693,12 +726,12 @@ function BlogSection({ isDark }: { isDark: boolean }) {
               : "text-neutral-500 hover:text-neutral-900",
           ].join(" ")}
         >
-          View all
+          View All Articles
           <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {BLOG_POSTS.map((post) => (
           <a
             key={post.title}
@@ -706,41 +739,51 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             target="_blank"
             rel="noreferrer"
             className={[
-              "group flex min-h-[132px] flex-col justify-between rounded-2xl border p-4 transition",
+              "group flex flex-col rounded-2xl border p-3.5 transition",
               cardClass(isDark),
               isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-neutral-50",
             ].join(" ")}
           >
-            <span
-              className={[
-                "w-fit rounded-md px-2 py-0.5 text-[10px] font-medium",
-                isDark
-                  ? "bg-white/[0.06] text-neutral-300"
-                  : "bg-neutral-100 text-neutral-600",
-              ].join(" ")}
-            >
-              {post.category}
-            </span>
+            <BlogImage src={post.image} isDark={isDark} />
+
+            <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
+              <span
+                className={[
+                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                  isDark
+                    ? "bg-[#16304f] text-[#a9cdf5]"
+                    : "bg-blue-50 text-blue-700",
+                ].join(" ")}
+              >
+                {post.label}
+              </span>
+
+              <span className={["text-[10px]", mutedClass(isDark)].join(" ")}>
+                {post.date}
+              </span>
+            </div>
 
             <h3
               className={[
-                "mt-4 text-[14px] font-semibold leading-snug tracking-[-0.01em]",
+                "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
+                "tracking-[-0.01em]",
                 strongClass(isDark),
               ].join(" ")}
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
             >
               {post.title}
             </h3>
 
-            <div className="mt-4 flex items-center justify-between">
-              <span className={["text-[10px]", mutedClass(isDark)].join(" ")}>
-                {post.readTime}
-              </span>
-
-              <ArrowUpRight
+            <div className="mt-3 flex justify-end px-0.5">
+              <ArrowRight
                 className={[
-                  "h-3.5 w-3.5 transition-transform",
-                  "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
-                  mutedClass(isDark),
+                  "h-4 w-4 transition-transform group-hover:translate-x-0.5",
+                  strongClass(isDark),
                 ].join(" ")}
               />
             </div>
