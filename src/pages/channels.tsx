@@ -98,6 +98,7 @@ type ThemeTokens = {
   title: string;
   muted: string;
   card: string;
+  cardHover: string;
   divider: string;
   connectBtn: string;
   secondaryBtn: string;
@@ -107,6 +108,11 @@ type ThemeTokens = {
   iconBtn: string;
   menu: string;
   menuItem: string;
+  danger: string;
+  ring: string;
+  dashed: string;
+  tile: string;
+  success: string;
 };
 
 /* ============================================================================
@@ -212,20 +218,11 @@ function CloseIcon(props: IconProps) {
   );
 }
 
-function CheckIcon(props: IconProps) {
+function AlertIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="m5 12.5 4.5 4.5L19 7.5" />
-    </Svg>
-  );
-}
-
-function LayersIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
-      <path d="m3 12 9 4.5 9-4.5" />
-      <path d="m3 16.5 9 4.5 9-4.5" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v5M12 16.5v.01" />
     </Svg>
   );
 }
@@ -321,20 +318,20 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
   }, [connection.avatarUrl]);
 
   return (
-    <span className="relative flex h-10 w-10 shrink-0">
+    <span className="relative flex h-12 w-12 shrink-0">
       {showImage ? (
         <img
           src={connection.avatarUrl}
           alt=""
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
-          className="h-10 w-10 rounded-full object-cover"
+          className="h-12 w-12 rounded-full object-cover"
         />
       ) : (
         <span
           className={[
-            "flex h-10 w-10 items-center justify-center rounded-full",
-            "text-[15px] font-semibold",
+            "flex h-12 w-12 items-center justify-center rounded-full",
+            "text-[17px] font-semibold",
             isDark
               ? "bg-white/10 text-white/80"
               : "bg-black/[0.07] text-black/60",
@@ -346,12 +343,12 @@ function Avatar({ channel, connection, isDark }: AvatarProps) {
 
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
+          "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
           "rounded-md bg-white ring-2",
           isDark ? "ring-[#131316]" : "ring-white",
         ].join(" ")}
       >
-        <Icon className="h-3 w-3" size={12} />
+        <Icon className="h-3.5 w-3.5" size={14} />
       </span>
     </span>
   );
@@ -399,9 +396,10 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
         className={[
-          "flex h-8 w-8 items-center justify-center rounded-lg",
+          "flex h-9 w-9 items-center justify-center rounded-lg",
           "transition-colors duration-150 disabled:opacity-50",
           t.iconBtn,
+          t.ring,
         ].join(" ")}
       >
         <DotsIcon className="h-4 w-4" />
@@ -411,8 +409,8 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
         <div
           role="menu"
           className={[
-            "absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden",
-            "rounded-xl border p-1 shadow-lg",
+            "absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden",
+            "rounded-xl border p-1 shadow-xl",
             t.menu,
           ].join(" ")}
         >
@@ -427,6 +425,7 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
               "w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium",
               "transition-colors duration-150",
               t.menuItem,
+              t.danger,
             ].join(" ")}
           >
             Disconnect
@@ -443,25 +442,39 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
 
 type EmptyStateProps = {
   t: ThemeTokens;
-  isDark: boolean;
   onConnect: () => void;
 };
 
-function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
+function EmptyState({ t, onConnect }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
-      <span
-        className={[
-          "flex h-20 w-20 items-center justify-center rounded-full",
-          isDark ? "bg-white/10 text-white/70" : "bg-black/[0.06] text-black/45",
-        ].join(" ")}
-      >
-        <PlusIcon className="h-8 w-8" />
-      </span>
+    <div
+      className={[
+        "mt-4 flex flex-col items-center justify-center gap-6",
+        "rounded-3xl border border-dashed px-6 py-16 text-center",
+        t.dashed,
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-2.5" aria-hidden="true">
+        {CHANNELS.map((channel, index) => {
+          const Icon = channel.icon;
+          return (
+            <span
+              key={channel.key}
+              className={[
+                "flex h-11 w-11 items-center justify-center rounded-xl",
+                "bg-white shadow-sm ring-1 ring-black/10",
+                index % 2 === 0 ? "-translate-y-1" : "translate-y-1",
+              ].join(" ")}
+            >
+              <Icon className="h-5 w-5" size={20} />
+            </span>
+          );
+        })}
+      </div>
 
       <div className="flex flex-col gap-2">
         <h2 className={["text-[19px] font-semibold", t.title].join(" ")}>
-          Connect a channel to get started
+          Connect your first channel
         </h2>
         <p
           className={[
@@ -469,7 +482,8 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
             t.muted,
           ].join(" ")}
         >
-          Once connected, you'll see your channels listed here.
+          Link an account to see it here and manage it from one place. Your{" "}
+          {PLAN.name} plan includes up to {PLAN.maxChannels} channels.
         </p>
       </div>
 
@@ -477,13 +491,16 @@ function EmptyState({ t, isDark, onConnect }: EmptyStateProps) {
         type="button"
         onClick={onConnect}
         className={[
-          "rounded-xl px-6 py-2.5 text-[13.5px] font-semibold",
+          "inline-flex items-center gap-2 rounded-xl px-6 py-2.5",
+          "text-[13.5px] font-semibold",
           "transition-[background-color,transform] duration-150",
           "active:scale-[0.98]",
           t.connectBtn,
+          t.ring,
         ].join(" ")}
       >
-        Connect Channel
+        <PlusIcon className="h-4 w-4" />
+        Connect channel
       </button>
     </div>
   );
@@ -667,7 +684,8 @@ export default function Channels({
             page: "bg-[#050506] text-[#f3f3ef]",
             title: "text-[#f3f3ef]",
             muted: "text-[#99a2a2]",
-            card: "border-white/20 bg-[#131316]",
+            card: "border-white/15 bg-[#131316]",
+            cardHover: "hover:border-white/30",
             divider: "bg-white/10",
             connectBtn: "bg-white text-[#111111] hover:bg-[#e9e9e6]",
             secondaryBtn:
@@ -679,12 +697,18 @@ export default function Channels({
               "text-[#99a2a2] hover:bg-white/[0.07] hover:text-[#f3f3ef]",
             menu: "border-white/10 bg-[#1f2020] text-[#f3f3ef]",
             menuItem: "hover:bg-white/[0.07]",
+            danger: "text-red-400",
+            ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+            dashed: "border-white/15 bg-white/[0.02]",
+            tile: "border-white/10 bg-[#131316]",
+            success: "bg-green-400",
           }
         : {
             page: "bg-[#faf9f7] text-[#151515]",
             title: "text-[#151515]",
             muted: "text-[#71706d]",
-            card: "border-black/[0.12] bg-white",
+            card: "border-black/[0.1] bg-white",
+            cardHover: "hover:border-black/25",
             divider: "bg-black/[0.07]",
             connectBtn: "bg-[#151515] text-white hover:bg-[#2a2a2a]",
             secondaryBtn:
@@ -696,6 +720,11 @@ export default function Channels({
               "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
             menu: "border-black/10 bg-white text-[#151515]",
             menuItem: "hover:bg-black/[0.05]",
+            danger: "text-red-700",
+            ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
+            dashed: "border-black/20 bg-black/[0.015]",
+            tile: "border-black/10 bg-white",
+            success: "bg-green-600",
           },
     [isDark]
   );
@@ -901,7 +930,14 @@ export default function Channels({
     console.log("[Stone] Channel settings clicked:", key);
   };
 
+  const openModal = () => {
+    setErrorMessage(null);
+    setShowConnectModal(true);
+  };
+
   const closeModal = () => setShowConnectModal(false);
+
+  const remaining = Math.max(0, PLAN.maxChannels - connectedCount);
 
   return (
     <div
@@ -918,121 +954,150 @@ export default function Channels({
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-3xl">
           {/* Header */}
-          <div className="flex items-center justify-between gap-4">
-            <h1
-              className={[
-                "text-[28px] font-semibold tracking-tight",
-                t.title,
-              ].join(" ")}
-            >
-              Channels
-            </h1>
-          </div>
-
-          {/* Carte du plan */}
-          <section
-            className={[
-              "mt-10 flex items-start gap-3 rounded-2xl border px-6 py-5",
-              t.planCard,
-            ].join(" ")}
-          >
-            <LayersIcon
-              className={["mt-0.5 h-5 w-5 shrink-0", t.title].join(" ")}
-            />
-
-            <div className="flex min-w-0 flex-col items-start gap-1">
-              <h2 className={["text-[16px] font-semibold", t.title].join(" ")}>
-                Get to know your plan
-              </h2>
-              <p className={["text-[14.5px]", t.title].join(" ")}>
-                You are on the {PLAN.name} plan and can connect up to{" "}
-                {PLAN.maxChannels} channels.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleUpgrade}
+          <header className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1
                 className={[
-                  "mt-2 rounded-lg px-4 py-2 text-[13.5px] font-medium",
-                  "transition-colors duration-150",
-                  t.secondaryBtn,
+                  "text-[30px] font-semibold leading-tight tracking-tight",
+                  t.title,
                 ].join(" ")}
               >
-                Upgrade Plan
-              </button>
+                Channels
+              </h1>
+              <p className={["mt-1 text-[14.5px]", t.muted].join(" ")}>
+                Manage the accounts you publish to.
+              </p>
             </div>
-          </section>
-
-          {/* Compteur + bouton */}
-          <div className="mt-10 flex items-center justify-between gap-4">
-            <h2 className={["text-[18px] font-semibold", t.title].join(" ")}>
-              {connectedCount}/{PLAN.maxChannels} Channels connected
-            </h2>
 
             <button
               type="button"
-              onClick={() => {
-                setErrorMessage(null);
-                setShowConnectModal(true);
-              }}
+              onClick={openModal}
               className={[
-                "shrink-0 rounded-xl px-5 py-2.5 text-[14px] font-semibold",
+                "inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5",
+                "text-[14px] font-semibold",
                 "transition-[background-color,transform] duration-150",
                 "active:scale-[0.98]",
                 t.connectBtn,
+                t.ring,
               ].join(" ")}
             >
-              Connect Channel
+              <PlusIcon className="h-4 w-4" />
+              Connect channel
             </button>
-          </div>
+          </header>
+
+          {/* Plan + utilisation */}
+          <section
+            aria-label="Plan usage"
+            className={[
+              "mt-8 flex flex-wrap items-center justify-between gap-x-8 gap-y-4",
+              "rounded-2xl border px-6 py-5",
+              t.planCard,
+            ].join(" ")}
+          >
+            <div className="min-w-[220px] flex-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className={["text-[15px] font-semibold", t.title].join(" ")}>
+                  {PLAN.name} plan
+                </h2>
+                <span
+                  className={["text-[13px] tabular-nums", t.muted].join(" ")}
+                >
+                  {connectedCount} of {PLAN.maxChannels} channels used
+                </span>
+              </div>
+
+              <div
+                className="mt-3 flex gap-1.5"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={PLAN.maxChannels}
+                aria-valuenow={connectedCount}
+                aria-label="Channels used"
+              >
+                {Array.from({ length: PLAN.maxChannels }, (_, i) => (
+                  <span
+                    key={i}
+                    className={[
+                      "h-1.5 flex-1 rounded-full transition-colors duration-300",
+                      i < connectedCount ? t.progressOn : t.progressOff,
+                    ].join(" ")}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleUpgrade}
+              className={[
+                "shrink-0 rounded-lg px-4 py-2 text-[13.5px] font-medium",
+                "transition-colors duration-150",
+                t.secondaryBtn,
+                t.ring,
+              ].join(" ")}
+            >
+              Upgrade plan
+            </button>
+          </section>
 
           {/* Erreur (page) — masquée si le modal est ouvert, il l'affiche lui-même */}
           {errorMessage && !showConnectModal && (
             <div
               role="alert"
               className={[
-                "mt-4 flex items-start justify-between gap-3",
-                "rounded-xl border px-4 py-3 text-[13px]",
+                "mt-4 flex items-start gap-3",
+                "rounded-xl border px-4 py-3 text-[13px] leading-relaxed",
                 isDark
                   ? "border-red-400/30 bg-red-500/10 text-red-300"
                   : "border-red-300 bg-red-50 text-red-700",
               ].join(" ")}
             >
-              <span>{errorMessage}</span>
+              <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="flex-1">{errorMessage}</span>
 
               <button
                 type="button"
                 aria-label="Dismiss"
                 onClick={() => setErrorMessage(null)}
+                className={["rounded-md p-0.5", t.ring].join(" ")}
               >
                 <CloseIcon className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* Contenu */}
+          {/* Liste */}
+          <div className="mt-10 flex items-baseline justify-between gap-4">
+            <h2 className={["text-[18px] font-semibold", t.title].join(" ")}>
+              Connected channels
+            </h2>
+            {connectedCount > 0 && (
+              <span className={["text-[13px] tabular-nums", t.muted].join(" ")}>
+                {connectedCount}/{PLAN.maxChannels}
+              </span>
+            )}
+          </div>
+
           {connectedCount === 0 ? (
-            <EmptyState
-              t={t}
-              isDark={isDark}
-              onConnect={() => setShowConnectModal(true)}
-            />
+            <EmptyState t={t} onConnect={openModal} />
           ) : (
-            <div className="mt-4 flex flex-col gap-3">
+            <ul className="mt-4 flex flex-col gap-3">
               {connectedChannels.map((channel) => {
                 const connection = connections[channel.key];
                 const isPending = pendingKey === channel.key;
 
                 return (
-                  <div
+                  <li
                     key={channel.key}
                     className={[
-                      "flex items-center gap-3",
-                      "rounded-xl border px-4 py-2.5",
+                      "flex items-center gap-4",
+                      "rounded-2xl border px-5 py-4",
                       "transition-colors duration-150",
                       t.card,
+                      t.cardHover,
                     ].join(" ")}
                   >
                     <Avatar
@@ -1041,10 +1106,10 @@ export default function Channels({
                       isDark={isDark}
                     />
 
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span
                         className={[
-                          "truncate text-[14.5px] font-semibold leading-tight",
+                          "truncate text-[15px] font-semibold leading-tight",
                           t.title,
                         ].join(" ")}
                         title={connection.handle || channel.name}
@@ -1052,14 +1117,26 @@ export default function Channels({
                         {connection.handle || channel.name}
                       </span>
                       <span
-                        className={[
-                          "truncate text-[13px]",
-                          t.muted,
-                        ].join(" ")}
+                        className={["truncate text-[13px]", t.muted].join(" ")}
                       >
                         {isPending ? "Updating..." : channel.accountLabel}
                       </span>
                     </div>
+
+                    <span
+                      className={[
+                        "hidden items-center gap-2 text-[13px] sm:flex",
+                        t.muted,
+                      ].join(" ")}
+                    >
+                      <span
+                        className={["h-2 w-2 rounded-full", t.success].join(
+                          " "
+                        )}
+                        aria-hidden="true"
+                      />
+                      Connected
+                    </span>
 
                     <div className="flex shrink-0 items-center gap-1">
                       <button
@@ -1069,9 +1146,10 @@ export default function Channels({
                         disabled={isPending}
                         onClick={() => handleSettings(channel.key)}
                         className={[
-                          "flex h-8 w-8 items-center justify-center rounded-lg",
+                          "flex h-9 w-9 items-center justify-center rounded-lg",
                           "transition-colors duration-150 disabled:opacity-50",
                           t.iconBtn,
+                          t.ring,
                         ].join(" ")}
                       >
                         <GearIcon className="h-4 w-4" />
@@ -1083,10 +1161,50 @@ export default function Channels({
                         onDisconnect={() => handleToggle(channel.key)}
                       />
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+
+              {/* Emplacement libre */}
+              {remaining > 0 && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={openModal}
+                    className={[
+                      "flex w-full items-center gap-4 rounded-2xl border border-dashed",
+                      "px-5 py-4 text-left transition-colors duration-150",
+                      t.dashed,
+                      t.cardHover,
+                      t.ring,
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border",
+                        t.tile,
+                        t.muted,
+                      ].join(" ")}
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                    </span>
+                    <span className="flex flex-col gap-0.5">
+                      <span
+                        className={["text-[15px] font-semibold", t.title].join(
+                          " "
+                        )}
+                      >
+                        Connect another channel
+                      </span>
+                      <span className={["text-[13px]", t.muted].join(" ")}>
+                        {remaining} {remaining === 1 ? "slot" : "slots"}{" "}
+                        left on your {PLAN.name} plan
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              )}
+            </ul>
           )}
         </div>
       </main>
