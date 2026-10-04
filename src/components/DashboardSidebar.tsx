@@ -366,23 +366,12 @@ function BoltIcon(props: IconProps) {
   );
 }
 
-function ChevronIcon({
-  className = "h-3.5 w-3.5",
-  collapsed,
-}: IconProps & {
-  collapsed: boolean;
-}) {
+/** Icône « panneau latéral » : sert à réduire / ouvrir la sidebar. */
+function SidebarToggleIcon(props: IconProps) {
   return (
-    <Svg
-      className={[
-        className,
-        "transition-transform duration-[380ms]",
-        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-        "motion-reduce:transition-none",
-        collapsed ? "" : "rotate-180",
-      ].join(" ")}
-    >
-      <path d="m9 6 6 6-6 6" />
+    <Svg {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <path d="M9.5 4.5v15" />
     </Svg>
   );
 }
@@ -1817,34 +1806,6 @@ export default function DashboardSidebar({
           isCollapsed ? "w-[68px]" : "w-[200px]",
         ].join(" ")}
       >
-        {/* Collapse button */}
-        <button
-          type="button"
-          aria-expanded={!isCollapsed}
-          aria-controls="app-sidebar"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={toggleCollapsed}
-          className={[
-            "absolute -right-3 top-[44%]",
-            "z-10 flex h-6 w-6",
-            "select-none",
-            "items-center justify-center",
-            "rounded-full border",
-            "backdrop-blur",
-            "transition-[background-color,transform]",
-            "duration-300",
-            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-            "hover:scale-110",
-            "active:scale-90",
-            "motion-reduce:transition-none",
-            focus,
-            t.handle,
-          ].join(" ")}
-        >
-          <ChevronIcon className="h-3 w-3" collapsed={isCollapsed} />
-        </button>
-
         {/* Logo */}
         <div
           className={[
@@ -1959,235 +1920,272 @@ export default function DashboardSidebar({
         </nav>
 
         {/* Account */}
-        <div ref={profileRef} className="mt-3 flex flex-col gap-3">
-          <div className="relative">
-            {/* Account menu */}
-            {menuOpen && (
-              <div
-                id="account-menu"
-                role="menu"
-                aria-label="Account menu"
-                className={[
-                  "sb-menu absolute",
-                  "bottom-full left-[6px]",
-                  "z-50 mb-2 w-[264px]",
-                  "origin-bottom-left",
-                  "overflow-hidden",
-                  "rounded-[16px]",
-                  "border",
-                  t.menu,
-                ].join(" ")}
-              >
-                {/* Account header */}
-                <div
-                  className="sb-item px-3.5 pb-3 pt-3.5"
-                  style={{ animationDelay: "30ms" }}
-                >
-                  <div className={["truncate text-[11px]", t.muted].join(" ")}>
-                    {account.email}
-                  </div>
-
-                  <div className="mt-2.5 truncate text-[14px] font-semibold">
-                    {account.name}
-                  </div>
-
-                  <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
-                    {account.plan} · {account.channels} channels
-                  </div>
-
-                  <button
-                    type="button"
-                    className={[
-                      "group mt-3 flex w-full",
-                      "select-none",
-                      "items-center justify-center",
-                      "gap-2 rounded-[10px]",
-                      "border px-3 py-2",
-                      "text-[12px] font-semibold",
-                      "transition-[background-color,transform]",
-                      "duration-150",
-                      "active:scale-[0.98]",
-                      "motion-reduce:transition-none",
-                      focus,
-                      t.upgrade,
-                    ].join(" ")}
-                  >
-                    <BoltIcon
-                      className={[
-                        "h-4 w-4",
-                        "transition-transform duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                        "group-hover:-rotate-12",
-                        "group-hover:scale-110",
-                        "motion-reduce:transition-none",
-                      ].join(" ")}
-                    />
-                    Upgrade Plan
-                  </button>
-                </div>
-
-                {/* Menu groups */}
-                {menuGroups.map((group, groupIndex) => (
-                  <div
-                    key={group[0]?.label ?? groupIndex}
-                    role="none"
-                    className={["border-t px-1.5 py-1.5", t.menuDivider].join(
-                      " "
-                    )}
-                  >
-                    {group.map((item) => {
-                      const Icon = item.icon;
-                      const delay = 60 + menuItemIndex++ * 25;
-                      const isLogout = item.action === "logout";
-
-                      return (
-                        <button
-                          key={item.label}
-                          type="button"
-                          role="menuitem"
-                          disabled={isLogout && loggingOut}
-                          style={{ animationDelay: `${delay}ms` }}
-                          onClick={() => {
-                            if (isLogout) {
-                              void handleLogout();
-                              return;
-                            }
-
-                            setMenuOpen(false);
-
-                            if (item.route) {
-                              navigate(item.route);
-                            }
-                          }}
-                          className={[
-                            "sb-item group flex",
-                            "w-full cursor-pointer",
-                            "select-none",
-                            "items-center gap-3",
-                            "rounded-[10px]",
-                            "px-2.5 py-2",
-                            "text-left text-[12.5px]",
-                            "font-medium",
-                            "transition-[background-color,transform] duration-150",
-                            "active:scale-[0.98]",
-                            "motion-reduce:transition-none",
-                            "disabled:cursor-wait disabled:opacity-60",
-                            focus,
-                            t.menuItem,
-                          ].join(" ")}
-                        >
-                          <Icon
-                            className={[
-                              "h-4 w-4 shrink-0",
-                              "transition-transform duration-200",
-                              "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                              "group-hover:scale-110",
-                              "motion-reduce:transition-none",
-                              t.menuIcon,
-                            ].join(" ")}
-                          />
-
-                          <span className="flex-1 truncate">
-                            {isLogout && loggingOut
-                              ? "Logging out..."
-                              : item.label}
-                          </span>
-
-                          {item.badge && (
-                            <span
-                              className={[
-                                "select-none",
-                                "rounded-full",
-                                "px-2 py-0.5",
-                                "text-[10px]",
-                                "font-semibold",
-                                t.badge,
-                              ].join(" ")}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Profile trigger */}
+        <div ref={profileRef} className="mt-3">
+          {/*
+            Fermée : l'icône est au-dessus de la photo de profil (colonne).
+            Ouverte : l'icône est à droite, alignée avec le profil (ligne).
+          */}
+          <div
+            className={[
+              "flex gap-1",
+              isCollapsed ? "flex-col" : "flex-row items-center",
+            ].join(" ")}
+          >
+            {/* Toggle sidebar */}
             <button
-              ref={triggerRef}
               type="button"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-controls="account-menu"
-              aria-label="Open account menu"
-              title={isCollapsed ? account.name : undefined}
-              onClick={() => setMenuOpen((value) => !value)}
+              aria-expanded={!isCollapsed}
+              aria-controls="app-sidebar"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={toggleCollapsed}
               className={[
-                "group flex h-11 w-full",
-                "select-none",
-                "items-center gap-3",
-                "overflow-hidden",
-                "rounded-xl px-1.5",
-                "transition-[background-color,transform]",
-                "duration-200",
+                "flex h-10 shrink-0 select-none items-center justify-center",
+                "rounded-xl",
+                "transition-[background-color,transform] duration-200",
                 "active:scale-[0.97]",
                 "motion-reduce:transition-none",
+                "motion-reduce:active:scale-100",
+                isCollapsed ? "order-first w-full" : "order-last w-10",
                 focus,
-                menuOpen ? t.rowOpen : t.row,
+                t.navIdle,
               ].join(" ")}
             >
-              {showAvatarImage ? (
-                <img
-                  key={account.avatarUrl}
-                  src={account.avatarUrl}
-                  alt="Profile"
-                  draggable={false}
+              <SidebarToggleIcon className="h-5 w-5" />
+            </button>
+
+            {/* Profil */}
+            <div className="relative min-w-0 flex-1">
+              {/* Account menu */}
+              {menuOpen && (
+                <div
+                  id="account-menu"
+                  role="menu"
+                  aria-label="Account menu"
                   className={[
-                    "h-8 w-8 shrink-0",
-                    "select-none",
-                    "rounded-full object-cover",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
-                  ].join(" ")}
-                  onError={() => setAvatarLoadFailed(true)}
-                />
-              ) : (
-                <span
-                  className={[
-                    "flex h-8 w-8 shrink-0",
-                    "select-none",
-                    "items-center justify-center",
-                    "rounded-full",
-                    "text-[10px] font-semibold",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
-                    t.avatar,
+                    "sb-menu absolute",
+                    "bottom-full left-[6px]",
+                    "z-50 mb-2 w-[264px]",
+                    "origin-bottom-left",
+                    "overflow-hidden",
+                    "rounded-[16px]",
+                    "border",
+                    t.menu,
                   ].join(" ")}
                 >
-                  {account.initials}
-                </span>
+                  {/* Account header */}
+                  <div
+                    className="sb-item px-3.5 pb-3 pt-3.5"
+                    style={{ animationDelay: "30ms" }}
+                  >
+                    <div
+                      className={["truncate text-[11px]", t.muted].join(" ")}
+                    >
+                      {account.email}
+                    </div>
+
+                    <div className="mt-2.5 truncate text-[14px] font-semibold">
+                      {account.name}
+                    </div>
+
+                    <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
+                      {account.plan} · {account.channels} channels
+                    </div>
+
+                    <button
+                      type="button"
+                      className={[
+                        "group mt-3 flex w-full",
+                        "select-none",
+                        "items-center justify-center",
+                        "gap-2 rounded-[10px]",
+                        "border px-3 py-2",
+                        "text-[12px] font-semibold",
+                        "transition-[background-color,transform]",
+                        "duration-150",
+                        "active:scale-[0.98]",
+                        "motion-reduce:transition-none",
+                        focus,
+                        t.upgrade,
+                      ].join(" ")}
+                    >
+                      <BoltIcon
+                        className={[
+                          "h-4 w-4",
+                          "transition-transform duration-300",
+                          "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                          "group-hover:-rotate-12",
+                          "group-hover:scale-110",
+                          "motion-reduce:transition-none",
+                        ].join(" ")}
+                      />
+                      Upgrade Plan
+                    </button>
+                  </div>
+
+                  {/* Menu groups */}
+                  {menuGroups.map((group, groupIndex) => (
+                    <div
+                      key={group[0]?.label ?? groupIndex}
+                      role="none"
+                      className={["border-t px-1.5 py-1.5", t.menuDivider].join(
+                        " "
+                      )}
+                    >
+                      {group.map((item) => {
+                        const Icon = item.icon;
+                        const delay = 60 + menuItemIndex++ * 25;
+                        const isLogout = item.action === "logout";
+
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            role="menuitem"
+                            disabled={isLogout && loggingOut}
+                            style={{ animationDelay: `${delay}ms` }}
+                            onClick={() => {
+                              if (isLogout) {
+                                void handleLogout();
+                                return;
+                              }
+
+                              setMenuOpen(false);
+
+                              if (item.route) {
+                                navigate(item.route);
+                              }
+                            }}
+                            className={[
+                              "sb-item group flex",
+                              "w-full cursor-pointer",
+                              "select-none",
+                              "items-center gap-3",
+                              "rounded-[10px]",
+                              "px-2.5 py-2",
+                              "text-left text-[12.5px]",
+                              "font-medium",
+                              "transition-[background-color,transform] duration-150",
+                              "active:scale-[0.98]",
+                              "motion-reduce:transition-none",
+                              "disabled:cursor-wait disabled:opacity-60",
+                              focus,
+                              t.menuItem,
+                            ].join(" ")}
+                          >
+                            <Icon
+                              className={[
+                                "h-4 w-4 shrink-0",
+                                "transition-transform duration-200",
+                                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                                "group-hover:scale-110",
+                                "motion-reduce:transition-none",
+                                t.menuIcon,
+                              ].join(" ")}
+                            />
+
+                            <span className="flex-1 truncate">
+                              {isLogout && loggingOut
+                                ? "Logging out..."
+                                : item.label}
+                            </span>
+
+                            {item.badge && (
+                              <span
+                                className={[
+                                  "select-none",
+                                  "rounded-full",
+                                  "px-2 py-0.5",
+                                  "text-[10px]",
+                                  "font-semibold",
+                                  t.badge,
+                                ].join(" ")}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
               )}
 
-              <span
+              {/* Profile trigger */}
+              <button
+                ref={triggerRef}
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-controls="account-menu"
+                aria-label="Open account menu"
+                title={isCollapsed ? account.name : undefined}
+                onClick={() => setMenuOpen((value) => !value)}
                 className={[
-                  "min-w-0 flex-1",
+                  "group flex h-11 w-full",
                   "select-none",
-                  "truncate text-left",
-                  "text-[13px] font-medium",
-                  t.title,
-                  labelClass,
+                  "items-center gap-3",
+                  "overflow-hidden",
+                  "rounded-xl px-1.5",
+                  "transition-[background-color,transform]",
+                  "duration-200",
+                  "active:scale-[0.97]",
+                  "motion-reduce:transition-none",
+                  focus,
+                  menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
               >
-                {account.name}
-              </span>
-            </button>
+                {showAvatarImage ? (
+                  <img
+                    key={account.avatarUrl}
+                    src={account.avatarUrl}
+                    alt="Profile"
+                    draggable={false}
+                    className={[
+                      "h-8 w-8 shrink-0",
+                      "select-none",
+                      "rounded-full object-cover",
+                      "transition-transform duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:scale-105",
+                      "motion-reduce:transition-none",
+                    ].join(" ")}
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
+                ) : (
+                  <span
+                    className={[
+                      "flex h-8 w-8 shrink-0",
+                      "select-none",
+                      "items-center justify-center",
+                      "rounded-full",
+                      "text-[10px] font-semibold",
+                      "transition-transform duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:scale-105",
+                      "motion-reduce:transition-none",
+                      t.avatar,
+                    ].join(" ")}
+                  >
+                    {account.initials}
+                  </span>
+                )}
+
+                <span
+                  className={[
+                    "min-w-0 flex-1",
+                    "select-none",
+                    "truncate text-left",
+                    "text-[13px] font-medium",
+                    t.title,
+                    labelClass,
+                  ].join(" ")}
+                >
+                  {account.name}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
