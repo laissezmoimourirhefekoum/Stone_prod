@@ -209,6 +209,15 @@ const PlusIcon = (p: IconProps) => (
 
 /* ───────── Petits composants ───────── */
 
+/** Logo du réseau dans une pastille blanche (même rendu que sur l'avatar du header). */
+function NetworkBadge({ Icon }: { Icon: IconComponent }) {
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white text-black ring-1 ring-black/10">
+      <Icon className="h-3 w-3" />
+    </span>
+  );
+}
+
 function Menu<T extends string>({
   value,
   options,
@@ -218,7 +227,7 @@ function Menu<T extends string>({
   ghost,
 }: {
   value: T;
-  options: { key: T; label: string }[];
+  options: { key: T; label: string; icon?: ReactNode }[];
   onChange: (k: T) => void;
   icon: ReactNode;
   isDark: boolean;
@@ -238,7 +247,7 @@ function Menu<T extends string>({
           isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
         }`}
       >
-        {icon}
+        {current?.icon ?? icon}
         {current?.label}
         <ChevronDownIcon className="h-4 w-4 opacity-60" />
       </button>
@@ -268,7 +277,7 @@ function Menu<T extends string>({
                     onChange(o.key);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
                     o.key === value
                       ? isDark
                         ? "bg-white/10"
@@ -278,6 +287,7 @@ function Menu<T extends string>({
                       : "hover:bg-black/[0.04]"
                   }`}
                 >
+                  {o.icon}
                   {o.label}
                 </button>
               </li>
@@ -296,6 +306,7 @@ function IconButton({
   ghost,
   isDark,
   className = "h-9 w-9",
+  align = "center",
 }: {
   label: string;
   onClick?: () => void;
@@ -303,19 +314,31 @@ function IconButton({
   ghost: string;
   isDark: boolean;
   className?: string;
+  /** "end" : l'infobulle s'aligne sur le bord droit (boutons proches du bord de l'écran). */
+  align?: "center" | "end";
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-        isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
-      } ${className}`}
-    >
-      {children}
-    </button>
+    <span className="group relative inline-flex shrink-0">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+        } ${className}`}
+      >
+        {children}
+      </button>
+
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 ${
+          isDark ? "bg-neutral-700" : "bg-neutral-900"
+        } ${align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
+      >
+        {label}
+      </span>
+    </span>
   );
 }
 
@@ -359,10 +382,14 @@ export default function Community() {
   const name = label.replace(/^@/, "");
   const NetworkIcon = channel ? getNetworkIcon(channel) : undefined;
 
-  const channelOptions = channels.map((c) => ({
-    key: c.key,
-    label: (c.handle || c.name).replace(/^@/, ""),
-  }));
+  const channelOptions = channels.map((c) => {
+    const Icon = getNetworkIcon(c);
+    return {
+      key: c.key,
+      label: (c.handle || c.name).replace(/^@/, ""),
+      icon: Icon ? <NetworkBadge Icon={Icon} /> : undefined,
+    };
+  });
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
@@ -519,7 +546,7 @@ export default function Community() {
             <IconButton label="Sort and filter" ghost={ghost} isDark={isDark}>
               <FilterIcon className="h-5 w-5" />
             </IconButton>
-            <IconButton label="Mark all as read" ghost={ghost} isDark={isDark}>
+            <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end">
               <CheckCircleIcon className="h-5 w-5" />
             </IconButton>
           </div>
