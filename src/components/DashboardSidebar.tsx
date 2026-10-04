@@ -2094,7 +2094,7 @@ export default function DashboardSidebar({
               aria-expanded={menuOpen}
               aria-controls="account-menu"
               aria-label="Open account menu"
-              title={isCollapsed ? account.organization : undefined}
+              title={isCollapsed ? account.name : undefined}
               onClick={() => setMenuOpen((value) => !value)}
               className={[
                 "group flex h-11 w-full",
@@ -2119,7 +2119,7 @@ export default function DashboardSidebar({
                   className={[
                     "h-8 w-8 shrink-0",
                     "select-none",
-                    "rounded-lg object-cover",
+                    "rounded-full object-cover",
                     "transition-none",
                   ].join(" ")}
                   onError={() => setAvatarLoadFailed(true)}
@@ -2130,7 +2130,7 @@ export default function DashboardSidebar({
                     "flex h-8 w-8 shrink-0",
                     "select-none",
                     "items-center justify-center",
-                    "rounded-lg",
+                    "rounded-full",
                     "text-[10px] font-semibold",
                     "transition-none",
                     t.avatar,
@@ -2148,7 +2148,7 @@ export default function DashboardSidebar({
                     t.title,
                   ].join(" ")}
                 >
-                  {account.organization}
+                  {account.name}
                 </span>
                 <span
                   className={[

@@ -297,7 +297,7 @@ export default function Insights() {
                 src={channel.avatarUrl}
                 alt=""
                 referrerPolicy="no-referrer"
-                className="h-12 w-12 rounded-full object-cover grayscale"
+                className="h-12 w-12 rounded-full object-cover"
               />
             ) : (
               <span className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold ${isDark ? "bg-white text-black" : "bg-black text-white"}`}>
