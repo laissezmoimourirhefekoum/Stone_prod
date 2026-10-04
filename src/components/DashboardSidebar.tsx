@@ -714,7 +714,7 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-/** Canal ciblé par /#/insights?channel=<key> (null si absent). */
+/** Canal ciblé par /#/insights?channel=<key> ou /#/community?channel=<key> (null si absent). */
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -760,7 +760,12 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
-  { label: "Community", route: "community", icon: CommunityIcon },
+  {
+    label: "Community",
+    route: "community",
+    icon: CommunityIcon,
+    perChannel: true,
+  },
   {
     label: "Insights",
     route: "insights",
@@ -769,6 +774,9 @@ const CHANNEL_LINKS: {
     perChannel: true,
   },
 ];
+
+/** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
+const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 function ChannelAvatar({
   channel,
@@ -838,7 +846,7 @@ function SidebarChannels({
   }, [openKeys]);
 
   // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
-  const hashChannel = currentRoute === "insights" ? getHashChannel() : null;
+  const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>

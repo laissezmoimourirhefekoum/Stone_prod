@@ -14,6 +14,7 @@ import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Analytics from "./pages/analytics";
 import Insights from "./pages/Insights";
+import Community from "./pages/Community";
 import Channels from "./pages/channels";
 import Faq from "./pages/Faq";
 import Tos from "./pages/tos";
@@ -344,6 +345,7 @@ const PROTECTED_ROUTES = new Set([
   "create",
   "analytics",
   "insights",
+  "community",
   "integrations",
   "settings",
   "schedule",
@@ -582,6 +584,15 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
         <Insights />
+      </div>
+    );
+  }
+
+  /* Community d'un canal : commentaires et mentions (/#/community?channel=<key>) */
+  if (route === "community") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <Community />
       </div>
     );
   }
