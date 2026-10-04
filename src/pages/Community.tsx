@@ -375,8 +375,8 @@ export default function Community() {
   const line = isDark ? "border-white/10" : "border-black/10";
   const muted = isDark ? "text-neutral-400" : "text-neutral-500";
   const ghost = isDark
-    ? "hover:bg-neutral-700/70 active:bg-neutral-700"
-    : "hover:bg-neutral-200 active:bg-neutral-300";
+    ? "hover:bg-neutral-700/70"
+    : "hover:bg-neutral-200";
   const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
   const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
 
