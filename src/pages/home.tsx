@@ -153,6 +153,19 @@ const BLOG_POSTS: BlogPost[] = [
 ];
 
 /* ============================================================
+   GREETING
+============================================================ */
+
+function getGreeting(date: Date = new Date()): string {
+  const hour = date.getHours();
+
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 18) return "Good afternoon";
+  if (hour >= 18 && hour < 22) return "Good evening";
+  return "Good night";
+}
+
+/* ============================================================
    AVATAR
 ============================================================ */
 
@@ -199,14 +212,13 @@ function GreetingAvatar({
    CLOCK
 ============================================================ */
 
-function ClockDisplay({ isDark }: { isDark: boolean }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(interval);
-  }, []);
-
+function ClockDisplay({
+  isDark,
+  now,
+}: {
+  isDark: boolean;
+  now: Date;
+}) {
   const time = now.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -812,6 +824,9 @@ export default function Home() {
     userProfileCache.profile
   );
 
+  // Heure partagée (greeting + horloge)
+  const [now, setNow] = useState(() => new Date());
+
   const connectedChannels = useConnectedChannels();
 
   // Tous les réseaux connectés sont affichés, YouTube inclus.
@@ -819,6 +834,15 @@ export default function Home() {
     () => connectedChannels,
     [connectedChannels]
   );
+
+  /* ----------------------------------------------------------
+     CLOCK TICK
+  ---------------------------------------------------------- */
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   /* ----------------------------------------------------------
      USER
@@ -853,6 +877,8 @@ export default function Home() {
     `${(user?.first_name || "")[0] || ""}${
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
+
+  const greeting = getGreeting(now);
 
   /* ----------------------------------------------------------
      CREATE POST
@@ -930,7 +956,7 @@ export default function Home() {
                     mutedClass(isDark),
                   ].join(" ")}
                 >
-                  Good to see you
+                  {greeting}
                 </p>
 
                 <h1
@@ -945,7 +971,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-4">
-              <ClockDisplay isDark={isDark} />
+              <ClockDisplay isDark={isDark} now={now} />
             </div>
           </header>
 
