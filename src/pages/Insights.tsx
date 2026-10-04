@@ -277,11 +277,21 @@ function Segmented<T extends string>({
 function Delta({ value, isDark }: { value: number; isDark: boolean }) {
   const text = value === 0 ? "No change" : `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
   const arrow = value === 0 ? "" : value > 0 ? "↑" : "↓";
+  const tone =
+    value > 0
+      ? isDark
+        ? "border-green-400/30 bg-green-400/10 text-green-400"
+        : "border-green-700/25 bg-green-700/10 text-green-700"
+      : value < 0
+      ? isDark
+        ? "border-red-400/30 bg-red-400/10 text-red-400"
+        : "border-red-700/25 bg-red-700/10 text-red-700"
+      : isDark
+      ? "border-white/15 text-neutral-400"
+      : "border-black/15 text-neutral-500";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${
-        isDark ? "border-white/15" : "border-black/15"
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${tone}`}
     >
       {arrow && <span aria-hidden="true">{arrow}</span>}
       {text}
