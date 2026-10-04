@@ -1,6 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
+
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -9,18 +11,27 @@ import {
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
-import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+
+import NewPostModal, {
+  type NewPostPayload,
+} from "../components/Newpostmodal";
+
 import HelpChatButton from "../components/Helpchatbutton";
-import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import BottomBar, {
+  type BottomBarTab,
+} from "../components/Bottombar";
+
 import Folder from "../components/Folder";
 
-import { getCurrentUser, type UserProfile } from "../services/supabase";
+import {
+  getCurrentUser,
+  type UserProfile,
+} from "../services/supabase";
 
 import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  Check,
   ChevronRight,
   Flame,
   Heart,
@@ -88,10 +99,14 @@ const NETWORK_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
+function getNetworkId(
+  channel: ConnectedChannel
+): SocialNetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
 
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
+  const raw = String(
+    c.platform ?? c.network ?? c.provider ?? channel.key
+  )
     .toLowerCase()
     .trim();
 
@@ -107,9 +122,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 }
 
 /* ============================================================
-   BLOG (à brancher sur ton CMS / ton blog)
-   `image` : chemin ou URL de la vignette (ex. "/images/blog/tiktok.jpg").
-   Si l'image manque ou ne charge pas, un fond neutre est affiché.
+   BLOG
 ============================================================ */
 
 type BlogPost = {
@@ -163,6 +176,7 @@ function getGreeting(date: Date = new Date()): string {
   if (hour >= 5 && hour < 12) return "Good morning";
   if (hour >= 12 && hour < 18) return "Good afternoon";
   if (hour >= 18 && hour < 22) return "Good evening";
+
   return "Good night";
 }
 
@@ -201,7 +215,9 @@ function GreetingAvatar({
       className={[
         "flex h-9 w-9 items-center justify-center rounded-full",
         "text-[12px] font-semibold",
-        isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+        isDark
+          ? "bg-white text-black"
+          : "bg-neutral-900 text-white",
       ].join(" ")}
     >
       {initials}
@@ -279,7 +295,9 @@ function Stat({
         "flex min-w-0 items-center gap-3",
         "border-r last:border-r-0",
         "pr-5 last:pr-0",
-        isDark ? "border-white/[0.07]" : "border-black/[0.07]",
+        isDark
+          ? "border-white/[0.07]"
+          : "border-black/[0.07]",
       ].join(" ")}
     >
       <div
@@ -297,7 +315,9 @@ function Stat({
         <p
           className={[
             "truncate text-[10px] font-medium",
-            isDark ? "text-neutral-500" : "text-neutral-400",
+            isDark
+              ? "text-neutral-500"
+              : "text-neutral-400",
           ].join(" ")}
         >
           {label}
@@ -316,7 +336,9 @@ function Stat({
           <span
             className={[
               "text-[9px] font-semibold",
-              positive ? "text-emerald-500" : "text-rose-500",
+              positive
+                ? "text-emerald-500"
+                : "text-rose-500",
             ].join(" ")}
           >
             {change}
@@ -329,113 +351,246 @@ function Stat({
 
 /* ============================================================
    STREAK
-   Dégradé noir -> blanc. Haut sur fond noir (texte blanc),
-   bas sur fond clair (texte noir). Identique en thème clair/sombre.
 ============================================================ */
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
 
 function Streak({ isDark }: { isDark: boolean }) {
-  const streak = 0; // à brancher : nombre de jours consécutifs jusqu'à aujourd'hui
+  const streak = 0;
+  const goal = 7;
+
   const today = new Date();
 
-  // 7 derniers jours, aujourd'hui en dernier
   const days = Array.from({ length: 7 }, (_, index) => {
-    const offset = 6 - index;
     const date = new Date(today);
-    date.setDate(today.getDate() - offset);
+
+    date.setDate(today.getDate() + index);
 
     return {
-      label: WEEKDAYS[date.getDay()],
-      isToday: offset === 0,
-      done: offset < streak,
+      day: WEEKDAYS[date.getDay()],
+      date: date.getDate(),
+      isToday: index === 0,
     };
   });
 
-  const message =
-    streak === 0
-      ? "Publie aujourd'hui pour lancer ta série"
-      : "Continue, ne casse pas la série";
+  const progress = Math.min((streak / goal) * 100, 100);
 
   return (
     <div
       className={[
-        "relative flex min-h-[168px] flex-col justify-between overflow-hidden",
-        "rounded-2xl border p-4",
-        isDark ? "border-white/10" : "border-black/10",
+        "relative min-h-[154px] overflow-hidden rounded-2xl border p-4",
+        "transition-all duration-300",
+        cardClass(isDark),
       ].join(" ")}
-      style={{
-        background:
-          "linear-gradient(180deg, #000000 0%, #0d0d0d 30%, #6b6b6b 62%, #ffffff 100%)",
-      }}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/60">
-            Streak
-          </p>
+      {/* Background gradient */}
+      <div
+        className={[
+          "pointer-events-none absolute inset-0 opacity-100",
+          isDark
+            ? "bg-[radial-gradient(circle_at_100%_0%,rgba(255,255,255,0.09),transparent_45%),linear-gradient(135deg,#0b0b0c_0%,#171719_48%,#303033_100%)]"
+            : "bg-[radial-gradient(circle_at_100%_0%,rgba(0,0,0,0.08),transparent_45%),linear-gradient(135deg,#ffffff_0%,#f1f1f1_48%,#d4d4d4_100%)]",
+        ].join(" ")}
+      />
 
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-[34px] font-bold leading-none tracking-[-0.04em] text-white">
-              {streak}
-            </span>
-            <span className="text-[11px] font-medium text-white/60">
-              {streak > 1 ? "days" : "day"}
-            </span>
-          </div>
+      {/* Subtle glow */}
+      <div
+        className={[
+          "pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-3xl",
+          isDark
+            ? "bg-white/[0.06]"
+            : "bg-black/[0.05]",
+        ].join(" ")}
+      />
 
-          <p className="mt-1.5 max-w-[190px] text-[10px] leading-snug text-white/50">
-            {message}
-          </p>
-        </div>
+      <div className="relative z-10 flex h-full min-h-[122px] flex-col justify-between">
+        {/* TOP */}
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <p
+                className={[
+                  "text-[10px] font-semibold uppercase tracking-[0.14em]",
+                  isDark
+                    ? "text-neutral-400"
+                    : "text-neutral-500",
+                ].join(" ")}
+              >
+                Streak
+              </p>
 
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur">
-          <Flame
-            className={[
-              "h-4 w-4",
-              streak > 0 ? "fill-white text-white" : "text-white/70",
-            ].join(" ")}
-          />
-        </div>
-      </div>
+              <span
+                className={[
+                  "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
+                  isDark
+                    ? "border-white/10 bg-white/[0.06] text-neutral-400"
+                    : "border-black/10 bg-white/50 text-neutral-500",
+                ].join(" ")}
+              >
+                7 day goal
+              </span>
+            </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((day, index) => (
-          <div
-            key={`${day.label}-${index}`}
-            className="flex flex-col items-center gap-1.5"
-          >
-            <span
-              className={[
-                "text-[8px] font-semibold",
-                day.isToday ? "text-black" : "text-black/50",
-              ].join(" ")}
-            >
-              {day.label}
-            </span>
+            <div className="mt-1 flex items-end gap-1.5">
+              <span
+                className={[
+                  "text-[30px] font-bold leading-none tracking-[-0.06em]",
+                  isDark ? "text-white" : "text-neutral-950",
+                ].join(" ")}
+              >
+                {streak}
+              </span>
 
-            <div
-              className={[
-                "flex h-6 w-6 items-center justify-center rounded-full border",
-                day.done
-                  ? "border-black bg-black text-white"
-                  : "border-black/25 bg-white/60",
-                day.isToday
-                  ? "ring-2 ring-black ring-offset-1 ring-offset-white"
-                  : "",
-              ].join(" ")}
-            >
-              {day.done && <Check className="h-3 w-3" strokeWidth={3} />}
+              <span
+                className={[
+                  "mb-0.5 text-[10px] font-medium",
+                  isDark
+                    ? "text-neutral-500"
+                    : "text-neutral-500",
+                ].join(" ")}
+              >
+                days
+              </span>
             </div>
           </div>
-        ))}
+
+          {/* FLAME */}
+          <div
+            className={[
+              "flex h-9 w-9 items-center justify-center rounded-xl border",
+              "backdrop-blur-sm",
+              isDark
+                ? "border-white/10 bg-white/[0.06] text-white"
+                : "border-black/10 bg-white/50 text-neutral-900",
+            ].join(" ")}
+          >
+            <Flame className="h-[17px] w-[17px]" />
+          </div>
+        </div>
+
+        {/* PROGRESS */}
+        <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span
+              className={[
+                "text-[9px] font-medium",
+                isDark
+                  ? "text-neutral-500"
+                  : "text-neutral-500",
+              ].join(" ")}
+            >
+              Weekly progress
+            </span>
+
+            <span
+              className={[
+                "text-[9px] font-semibold",
+                isDark
+                  ? "text-neutral-300"
+                  : "text-neutral-700",
+              ].join(" ")}
+            >
+              {streak}/{goal}
+            </span>
+          </div>
+
+          <div
+            className={[
+              "h-1.5 w-full overflow-hidden rounded-full",
+              isDark
+                ? "bg-white/10"
+                : "bg-black/10",
+            ].join(" ")}
+          >
+            <div
+              className={[
+                "h-full rounded-full transition-all duration-500",
+                isDark
+                  ? "bg-gradient-to-r from-white/30 via-white/70 to-white"
+                  : "bg-gradient-to-r from-neutral-700 via-neutral-900 to-black",
+              ].join(" ")}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* DAYS */}
+        <div className="mt-3 grid grid-cols-7 gap-1.5">
+          {days.map((day, index) => {
+            const completed = index < streak;
+
+            return (
+              <div
+                key={`${day.day}-${index}`}
+                className="flex flex-col items-center gap-1"
+              >
+                <span
+                  className={[
+                    "text-[8px] font-semibold",
+                    day.isToday
+                      ? isDark
+                        ? "text-white"
+                        : "text-black"
+                      : isDark
+                        ? "text-neutral-500"
+                        : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  {day.day}
+                </span>
+
+                <div
+                  className={[
+                    "relative flex h-6 w-6 items-center justify-center rounded-full border",
+                    "transition-all duration-300",
+                    completed
+                      ? isDark
+                        ? "border-white bg-white text-black"
+                        : "border-black bg-black text-white"
+                      : day.isToday
+                        ? isDark
+                          ? "border-white/50 bg-white/[0.08]"
+                          : "border-black/40 bg-black/[0.05]"
+                        : isDark
+                          ? "border-white/10 bg-white/[0.025]"
+                          : "border-black/10 bg-black/[0.025]",
+                  ].join(" ")}
+                >
+                  {completed ? (
+                    <span className="text-[8px] font-bold">✓</span>
+                  ) : (
+                    <span
+                      className={[
+                        "text-[8px] font-medium",
+                        isDark
+                          ? "text-neutral-500"
+                          : "text-neutral-500",
+                      ].join(" ")}
+                    >
+                      {day.date}
+                    </span>
+                  )}
+
+                  {day.isToday && !completed && (
+                    <span
+                      className={[
+                        "absolute -bottom-0.5 h-1 w-1 rounded-full",
+                        isDark ? "bg-white" : "bg-black",
+                      ].join(" ")}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
 /* ============================================================
-   CHANNELS
+   CHANNEL AVATAR
 ============================================================ */
 
 function ChannelAvatar({
@@ -453,11 +608,16 @@ function ChannelAvatar({
     setFailed(false);
   }, [channel.avatarUrl]);
 
-  const label = channel.handle || channel.name || "Channel";
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const label =
+    channel.handle || channel.name || "Channel";
+
+  const initial =
+    label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   const networkId = getNetworkId(channel);
-  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+  const NetworkIcon = networkId
+    ? NETWORK_ICONS[networkId]
+    : null;
 
   return (
     <div
@@ -473,7 +633,9 @@ function ChannelAvatar({
           onError={() => setFailed(true)}
           className={[
             "h-full w-full rounded-full object-cover ring-2",
-            isDark ? "ring-[#141416]" : "ring-white",
+            isDark
+              ? "ring-[#141416]"
+              : "ring-white",
           ].join(" ")}
         />
       ) : (
@@ -495,7 +657,9 @@ function ChannelAvatar({
           className={[
             "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
             "justify-center rounded-full bg-white text-black ring-1",
-            isDark ? "ring-[#141416]" : "ring-white",
+            isDark
+              ? "ring-[#141416]"
+              : "ring-white",
           ].join(" ")}
         >
           <NetworkIcon className="h-2.5 w-2.5" />
@@ -504,6 +668,10 @@ function ChannelAvatar({
     </div>
   );
 }
+
+/* ============================================================
+   CHANNELS
+============================================================ */
 
 function Channels({
   isDark,
@@ -524,13 +692,17 @@ function Channels({
           <div
             className={[
               "flex h-9 w-9 items-center justify-center rounded-xl",
-              isDark ? "bg-white/[0.06]" : "bg-neutral-100",
+              isDark
+                ? "bg-white/[0.06]"
+                : "bg-neutral-100",
             ].join(" ")}
           >
             <Plus
               className={[
                 "h-4 w-4",
-                isDark ? "text-white" : "text-neutral-700",
+                isDark
+                  ? "text-white"
+                  : "text-neutral-700",
               ].join(" ")}
             />
           </div>
@@ -545,7 +717,12 @@ function Channels({
               Connect your first channel
             </p>
 
-            <p className={["mt-0.5 text-[10px]", mutedClass(isDark)].join(" ")}>
+            <p
+              className={[
+                "mt-0.5 text-[10px]",
+                mutedClass(isDark),
+              ].join(" ")}
+            >
               Start publishing to social networks.
             </p>
           </div>
@@ -553,14 +730,16 @@ function Channels({
       ) : (
         <div className="flex items-center gap-3">
           <div className="flex items-center pl-1">
-            {channels.slice(0, 6).map((channel, index) => (
-              <ChannelAvatar
-                key={channel.key}
-                channel={channel}
-                isDark={isDark}
-                overlap={index > 0}
-              />
-            ))}
+            {channels.slice(0, 6).map(
+              (channel, index) => (
+                <ChannelAvatar
+                  key={channel.key}
+                  channel={channel}
+                  isDark={isDark}
+                  overlap={index > 0}
+                />
+              )
+            )}
           </div>
 
           <div>
@@ -571,10 +750,18 @@ function Channels({
               ].join(" ")}
             >
               {channels.length}{" "}
-              {channels.length === 1 ? "channel" : "channels"} connected
+              {channels.length === 1
+                ? "channel"
+                : "channels"}{" "}
+              connected
             </p>
 
-            <p className={["text-[10px]", mutedClass(isDark)].join(" ")}>
+            <p
+              className={[
+                "text-[10px]",
+                mutedClass(isDark),
+              ].join(" ")}
+            >
               Ready to publish
             </p>
           </div>
@@ -600,7 +787,7 @@ function Channels({
 }
 
 /* ============================================================
-   PANEL (Comments / Up Next)
+   PANEL
 ============================================================ */
 
 function Panel({
@@ -616,12 +803,14 @@ function Panel({
   isDark: boolean;
   title: string;
   meta: string;
-  /** Sans handler, le lien « View All » est désactivé. */
   onViewAll?: () => void;
   icon: React.ReactNode;
   line1: string;
   line2: string;
-  action?: { label: string; onClick: () => void };
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }) {
   return (
     <section className="min-w-0">
@@ -629,12 +818,18 @@ function Panel({
         <p
           className={[
             "text-[12px] font-semibold",
-            isDark ? "text-neutral-300" : "text-neutral-700",
+            isDark
+              ? "text-neutral-300"
+              : "text-neutral-700",
           ].join(" ")}
         >
           {title}
+
           <span
-            className={["ml-1.5 font-normal", mutedClass(isDark)].join(" ")}
+            className={[
+              "ml-1.5 font-normal",
+              mutedClass(isDark),
+            ].join(" ")}
           >
             · {meta}
           </span>
@@ -659,7 +854,8 @@ function Panel({
 
       <div
         className={[
-          "flex min-h-[190px] flex-col items-center justify-center gap-1 rounded-2xl border px-4 py-6 text-center",
+          "flex min-h-[190px] flex-col items-center justify-center",
+          "gap-1 rounded-2xl border px-4 py-6 text-center",
           isDark
             ? "border-white/[0.07] bg-white/[0.03]"
             : "border-black/[0.06] bg-neutral-50",
@@ -676,10 +872,21 @@ function Panel({
           {icon}
         </div>
 
-        <p className={["text-[12px]", strongClass(isDark)].join(" ")}>
+        <p
+          className={[
+            "text-[12px]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
           {line1}
         </p>
-        <p className={["text-[12px]", strongClass(isDark)].join(" ")}>
+
+        <p
+          className={[
+            "text-[12px]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
           {line2}
         </p>
 
@@ -705,10 +912,16 @@ function Panel({
 }
 
 /* ============================================================
-   BLOG
+   BLOG IMAGE
 ============================================================ */
 
-function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
+function BlogImage({
+  src,
+  isDark,
+}: {
+  src?: string;
+  isDark: boolean;
+}) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -720,7 +933,9 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
       <div
         className={[
           "h-[140px] w-full rounded-xl",
-          isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
+          isDark
+            ? "bg-white/[0.06]"
+            : "bg-neutral-200/70",
         ].join(" ")}
       />
     );
@@ -738,14 +953,24 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
   );
 }
 
-function BlogSection({ isDark }: { isDark: boolean }) {
+/* ============================================================
+   BLOG SECTION
+============================================================ */
+
+function BlogSection({
+  isDark,
+}: {
+  isDark: boolean;
+}) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
         <p
           className={[
             "text-[12px] font-semibold",
-            isDark ? "text-neutral-300" : "text-neutral-700",
+            isDark
+              ? "text-neutral-300"
+              : "text-neutral-700",
           ].join(" ")}
         >
           From the Blog
@@ -777,10 +1002,15 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             className={[
               "group flex flex-col rounded-2xl border p-3.5 transition",
               cardClass(isDark),
-              isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-neutral-50",
+              isDark
+                ? "hover:bg-[#1a1a1d]"
+                : "hover:bg-neutral-50",
             ].join(" ")}
           >
-            <BlogImage src={post.image} isDark={isDark} />
+            <BlogImage
+              src={post.image}
+              isDark={isDark}
+            />
 
             <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
@@ -794,7 +1024,12 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                 {post.label}
               </span>
 
-              <span className={["text-[10px]", mutedClass(isDark)].join(" ")}>
+              <span
+                className={[
+                  "text-[10px]",
+                  mutedClass(isDark),
+                ].join(" ")}
+              >
                 {post.date}
               </span>
             </div>
@@ -841,30 +1076,38 @@ export default function Home() {
   const sidebarOffset = useSidebarOffset();
 
   const [query, setQuery] = useState("");
-  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
-  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] =
+    useState(false);
+  const [isFolderOpen, setIsFolderOpen] =
+    useState(false);
 
-  const [user, setUser] = useState<UserProfile | null>(
-    userProfileCache.profile
+  const [user, setUser] =
+    useState<UserProfile | null>(
+      userProfileCache.profile
+    );
+
+  const [now, setNow] = useState(
+    () => new Date()
   );
 
-  // Heure partagée (greeting + horloge)
-  const [now, setNow] = useState(() => new Date());
+  const connectedChannels =
+    useConnectedChannels();
 
-  const connectedChannels = useConnectedChannels();
-
-  // Tous les réseaux connectés sont affichés, YouTube inclus.
   const homeConnectedChannels = useMemo(
     () => connectedChannels,
     [connectedChannels]
   );
 
   /* ----------------------------------------------------------
-     CLOCK TICK
+     CLOCK
   ---------------------------------------------------------- */
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
+    const interval = setInterval(
+      () => setNow(new Date()),
+      15000
+    );
+
     return () => clearInterval(interval);
   }, []);
 
@@ -877,14 +1120,20 @@ export default function Home() {
 
     async function loadUser() {
       try {
-        const userData = await getCurrentUser();
+        const userData =
+          await getCurrentUser();
 
         if (mounted && userData) {
-          userProfileCache.profile = userData;
+          userProfileCache.profile =
+            userData;
+
           setUser(userData);
         }
       } catch (error) {
-        console.error("Error loading user on Home:", error);
+        console.error(
+          "Error loading user on Home:",
+          error
+        );
       }
     }
 
@@ -895,7 +1144,10 @@ export default function Home() {
     };
   }, []);
 
-  const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+  const fullName =
+    `${user?.first_name || ""} ${
+      user?.last_name || ""
+    }`.trim();
 
   const initials =
     `${(user?.first_name || "")[0] || ""}${
@@ -908,22 +1160,28 @@ export default function Home() {
      CREATE POST
   ---------------------------------------------------------- */
 
-  const handleCreatePost = async (payload: NewPostPayload) => {
-    console.log("Nouveau post à envoyer :", payload);
+  const handleCreatePost = async (
+    payload: NewPostPayload
+  ) => {
+    console.log(
+      "Nouveau post à envoyer :",
+      payload
+    );
   };
 
   /* ----------------------------------------------------------
-     COMMUNITY (View All des commentaires)
-     Ouvre la page Community sur le premier canal connecté.
-     Sans canal connecté, on ouvre la page sans paramètre.
+     COMMUNITY
   ---------------------------------------------------------- */
 
   const handleViewAllComments = () => {
-    const first = homeConnectedChannels[0];
+    const first =
+      homeConnectedChannels[0];
 
     navigate(
       first
-        ? `community?channel=${encodeURIComponent(first.key)}`
+        ? `community?channel=${encodeURIComponent(
+            first.key
+          )}`
         : "community"
     );
   };
@@ -932,7 +1190,9 @@ export default function Home() {
      BOTTOM BAR
   ---------------------------------------------------------- */
 
-  const handleBottomBarChange = (id: BottomBarTab) => {
+  const handleBottomBarChange = (
+    id: BottomBarTab
+  ) => {
     switch (id) {
       case "add":
         setIsFolderOpen(false);
@@ -940,7 +1200,9 @@ export default function Home() {
         break;
 
       case "files":
-        setIsFolderOpen((open) => !open);
+        setIsFolderOpen(
+          (open) => !open
+        );
         break;
 
       default:
@@ -957,13 +1219,14 @@ export default function Home() {
       className={[
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
-        isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]",
+        isDark
+          ? "bg-[#09090a]"
+          : "bg-[#f5f3ef]",
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
-      {/* CONTENT (scrollable : la barre du bas reste fixe) */}
-
+      {/* CONTENT */}
       <div
         className={[
           "h-full overflow-y-auto overflow-x-hidden",
@@ -972,10 +1235,20 @@ export default function Home() {
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        style={{
+          paddingLeft: sidebarOffset,
+        }}
       >
-        <div className="mx-auto flex w-full max-w-[1280px] flex-col px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
-          {/* HEADER */}
+        <div
+          className={[
+            "mx-auto flex w-full max-w-[1280px]",
+            "flex-col px-[clamp(18px,3vw,40px)]",
+            "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+          ].join(" ")}
+        >
+          {/* ==================================================
+              HEADER
+          ================================================== */}
 
           <header className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -998,7 +1271,8 @@ export default function Home() {
                 <div className="mt-0.5 flex min-w-0 items-center gap-2">
                   <h1
                     className={[
-                      "truncate text-[22px] font-semibold tracking-[-0.035em]",
+                      "truncate text-[22px] font-semibold",
+                      "tracking-[-0.035em]",
                       strongClass(isDark),
                     ].join(" ")}
                   >
@@ -1009,18 +1283,25 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-4">
-              <ClockDisplay isDark={isDark} now={now} />
+              <ClockDisplay
+                isDark={isDark}
+                now={now}
+              />
             </div>
           </header>
 
-          {/* OVERVIEW */}
+          {/* ==================================================
+              OVERVIEW
+          ================================================== */}
 
           <section className="mt-7 shrink-0">
             <div className="mb-3">
               <p
                 className={[
                   "text-[11px] font-semibold",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
+                  isDark
+                    ? "text-neutral-500"
+                    : "text-neutral-400",
                 ].join(" ")}
               >
                 Overview
@@ -1029,7 +1310,9 @@ export default function Home() {
               <p
                 className={[
                   "mt-0.5 text-[10px]",
-                  isDark ? "text-neutral-700" : "text-neutral-400",
+                  isDark
+                    ? "text-neutral-700"
+                    : "text-neutral-400",
                 ].join(" ")}
               >
                 Your activity at a glance
@@ -1037,6 +1320,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
+              {/* STATS */}
               <div
                 className={[
                   "grid grid-cols-1 gap-3 rounded-2xl border p-4",
@@ -1049,7 +1333,9 @@ export default function Home() {
                   label="Followers"
                   value="27K"
                   change="-2%"
-                  icon={<Users className="h-4 w-4" />}
+                  icon={
+                    <Users className="h-4 w-4" />
+                  }
                 />
 
                 <Stat
@@ -1057,7 +1343,9 @@ export default function Home() {
                   label="Likes"
                   value="12.4K"
                   change="+16%"
-                  icon={<Heart className="h-4 w-4" />}
+                  icon={
+                    <Heart className="h-4 w-4" />
+                  }
                 />
 
                 <Stat
@@ -1065,15 +1353,20 @@ export default function Home() {
                   label="Comments"
                   value="342"
                   change="+5%"
-                  icon={<MessageCircle className="h-4 w-4" />}
+                  icon={
+                    <MessageCircle className="h-4 w-4" />
+                  }
                 />
               </div>
 
+              {/* STREAK */}
               <Streak isDark={isDark} />
             </div>
           </section>
 
-          {/* CHANNELS */}
+          {/* ==================================================
+              CHANNELS
+          ================================================== */}
 
           <section className="mt-5 shrink-0">
             <div className="mb-3 flex items-center justify-between">
@@ -1081,7 +1374,9 @@ export default function Home() {
                 <p
                   className={[
                     "text-[11px] font-semibold",
-                    isDark ? "text-neutral-500" : "text-neutral-400",
+                    isDark
+                      ? "text-neutral-500"
+                      : "text-neutral-400",
                   ].join(" ")}
                 >
                   Channels
@@ -1090,7 +1385,9 @@ export default function Home() {
                 <p
                   className={[
                     "mt-0.5 text-[10px]",
-                    isDark ? "text-neutral-700" : "text-neutral-400",
+                    isDark
+                      ? "text-neutral-700"
+                      : "text-neutral-400",
                   ].join(" ")}
                 >
                   Your connected accounts
@@ -1099,7 +1396,9 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={() => navigate("channels")}
+                onClick={() =>
+                  navigate("channels")
+                }
                 className={[
                   "text-[10px] font-semibold",
                   isDark
@@ -1111,18 +1410,29 @@ export default function Home() {
               </button>
             </div>
 
-            <Channels isDark={isDark} channels={homeConnectedChannels} />
+            <Channels
+              isDark={isDark}
+              channels={
+                homeConnectedChannels
+              }
+            />
           </section>
 
-          {/* COMMENTS + UP NEXT */}
+          {/* ==================================================
+              COMMENTS + UP NEXT
+          ================================================== */}
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Panel
               isDark={isDark}
               title="Comments"
               meta="0 unanswered"
-              onViewAll={handleViewAllComments}
-              icon={<MessageCircle className="h-5 w-5" />}
+              onViewAll={
+                handleViewAllComments
+              }
+              icon={
+                <MessageCircle className="h-5 w-5" />
+              }
               line1="No comments yet."
               line2="You'll see the latest comments here."
             />
@@ -1131,55 +1441,80 @@ export default function Home() {
               isDark={isDark}
               title="Up Next"
               meta="0 posts scheduled"
-              onViewAll={() => navigate("calendar")}
-              icon={<CalendarDays className="h-5 w-5" />}
+              onViewAll={() =>
+                navigate("calendar")
+              }
+              icon={
+                <CalendarDays className="h-5 w-5" />
+              }
               line1="No posts scheduled yet."
               line2="You'll see upcoming posts here."
               action={{
                 label: "Create Post",
-                onClick: () => setIsNewPostOpen(true),
+                onClick: () =>
+                  setIsNewPostOpen(true),
               }}
             />
           </div>
 
-          {/* FROM THE BLOG */}
+          {/* ==================================================
+              BLOG
+          ================================================== */}
 
           <div className="mt-8">
-            <BlogSection isDark={isDark} />
+            <BlogSection
+              isDark={isDark}
+            />
           </div>
         </div>
       </div>
 
-      {/* FOLDER */}
+      {/* ======================================================
+          FOLDER
+      ====================================================== */}
 
       <Folder
         isOpen={isFolderOpen}
-        onClose={() => setIsFolderOpen(false)}
+        onClose={() =>
+          setIsFolderOpen(false)
+        }
         isDark={isDark}
         offsetLeft={sidebarOffset}
       />
 
-      {/* BOTTOM BAR */}
+      {/* ======================================================
+          BOTTOM BAR
+      ====================================================== */}
 
       <BottomBar
         isDark={isDark}
         offsetLeft={sidebarOffset}
-        active={isFolderOpen ? "files" : null}
-        onChange={handleBottomBarChange}
+        active={
+          isFolderOpen ? "files" : null
+        }
+        onChange={
+          handleBottomBarChange
+        }
         query={query}
         onQueryChange={setQuery}
       />
 
-      {/* NEW POST */}
+      {/* ======================================================
+          NEW POST
+      ====================================================== */}
 
       <NewPostModal
         isOpen={isNewPostOpen}
-        onClose={() => setIsNewPostOpen(false)}
+        onClose={() =>
+          setIsNewPostOpen(false)
+        }
         isDark={isDark}
         onSubmit={handleCreatePost}
       />
 
-      {/* HELP */}
+      {/* ======================================================
+          HELP
+      ====================================================== */}
 
       <HelpChatButton isDark={isDark} />
     </main>
