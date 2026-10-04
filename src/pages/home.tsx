@@ -843,9 +843,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_2fr]">
-                <Streak isDark={isDark} />
-
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
                 <div
                   className={[
                     "grid grid-cols-1 gap-3 rounded-2xl border p-4",
@@ -885,6 +883,8 @@ export default function Home() {
                     }
                   />
                 </div>
+
+                <Streak isDark={isDark} />
               </div>
             </section>
 
