@@ -8,8 +8,8 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -36,9 +36,6 @@ import {
 import ConnectChannelModal, {
   type ConnectChannelModalProps,
 } from "./ConnectChannelModal";
-
-/* Config + services des réseaux : la sidebar est autonome, elle gère
-   elle-même l'état des connexions (comme la page Channels). */
 import {
   CHANNELS,
   PLAN,
@@ -75,36 +72,24 @@ import {
    Types
 ============================================================================ */
 
-type IconProps = {
-  className?: string;
-};
-
+type IconProps = { className?: string };
 type IconComponent = (props: IconProps) => React.ReactElement;
-
-type NavChild = {
-  label: string;
-  route: string;
-};
 
 type NavItem = {
   label: string;
   icon: IconComponent;
-  route?: string;
+  route: string;
   badge?: string;
-  children?: NavChild[];
 };
 
-type NavSection = {
-  label: string;
-  items: NavItem[];
-};
+type NavSection = { label: string; items: NavItem[] };
 
 type MenuItem = {
   label: string;
   icon: IconComponent;
   badge?: string;
   route?: string;
-  action?: "logout" | "toggleTheme";
+  action?: "logout";
 };
 
 type ThemeTokens = {
@@ -113,7 +98,7 @@ type ThemeTokens = {
   divider: string;
   navActive: string;
   navIdle: string;
-  handle: string;
+  bar: string;
   count: string;
   dotRing: string;
   rail: string;
@@ -131,16 +116,13 @@ type ThemeTokens = {
   upgrade: string;
   badge: string;
   ring: string;
+  kbd: string;
+  meter: string;
+  meterFill: string;
 };
 
-type ToggleOrigin = {
-  x: number;
-  y: number;
-};
+type ToggleThemeFn = (origin?: { x: number; y: number }) => void;
 
-type ToggleThemeFn = (origin?: ToggleOrigin) => void;
-
-/** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
 type StatusResponse = {
   connected: boolean;
   account:
@@ -154,67 +136,31 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Keyframes + global UI guards
+   Keyframes + guards
 ============================================================================ */
 
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
-
-@keyframes sbItemIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes sbTipIn {
+  from { opacity: 0; transform: translate(-4px, -50%); }
+  to   { opacity: 1; transform: translate(0, -50%); }
 }
-
-.sb-menu {
-  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-item {
-  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
+.sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.sb-tip  { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 
 #app-sidebar button,
-#app-sidebar [role="menuitem"],
-#app-sidebar [role="button"],
 #app-sidebar svg,
 #app-sidebar img {
   -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-#app-sidebar button::selection,
-#app-sidebar button *::selection,
-#app-sidebar svg::selection,
-#app-sidebar svg *::selection {
-  background: transparent;
-  color: inherit;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu,
-  .sb-item {
-    animation: none;
-  }
+  .sb-menu, .sb-tip { animation: none; }
 }
 `;
 
@@ -225,16 +171,14 @@ const SIDEBAR_KEYFRAMES = `
 function Svg({
   className = "h-4 w-4",
   children,
-}: IconProps & {
-  children: ReactNode;
-}) {
+}: IconProps & { children: ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={["select-none", className].join(" ")}
+      className={className}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -244,154 +188,159 @@ function Svg({
   );
 }
 
-function OverviewIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M4 12.5 12 5l8 7.5" />
-      <path d="M6 10.5V18h12v-7.5" />
-    </Svg>
-  );
-}
-
-function CalendarIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-      <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-    </Svg>
-  );
-}
-
-function AnalyticsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M5 18V9" />
-      <path d="M12 18V5" />
-      <path d="M19 18v-7" />
-      <path d="M3 20h18" />
-    </Svg>
-  );
-}
-
-function TemplatesIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-      <path d="M8 10h8M8 14h8" />
-    </Svg>
-  );
-}
-
-function SettingsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </Svg>
-  );
-}
-
-function ChannelsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="7.5" cy="7.5" r="2.5" />
-      <circle cx="16.5" cy="7.5" r="2.5" />
-      <circle cx="7.5" cy="16.5" r="2.5" />
-      <circle cx="16.5" cy="16.5" r="2.5" />
-    </Svg>
-  );
-}
-
-function BillingIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
-    </Svg>
-  );
-}
-
-function HelpIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
-    </Svg>
-  );
-}
-
-function LightbulbIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M9 18h6M10 21h4" />
-      <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
-    </Svg>
-  );
-}
-
-function AppsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
-      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
-      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
-      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-    </Svg>
-  );
-}
-
-function BetaIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
-      <path d="M8 15h8" />
-    </Svg>
-  );
-}
-
-function LogoutIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
-      <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
-    </Svg>
-  );
-}
-
-function BoltIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
-    </Svg>
-  );
-}
-
-function ChevronIcon({
-  className = "h-3.5 w-3.5",
+const OverviewIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 12.5 12 5l8 7.5" />
+    <path d="M6 10.5V18h12v-7.5" />
+  </Svg>
+);
+const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
+  </Svg>
+);
+const AnalyticsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+  </Svg>
+);
+const TemplatesIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+    <path d="M8 10h8M8 14h8" />
+  </Svg>
+);
+const SettingsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </Svg>
+);
+const ChannelsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="7.5" cy="7.5" r="2.5" />
+    <circle cx="16.5" cy="7.5" r="2.5" />
+    <circle cx="7.5" cy="16.5" r="2.5" />
+    <circle cx="16.5" cy="16.5" r="2.5" />
+  </Svg>
+);
+const BillingIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
+  </Svg>
+);
+const HelpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
+  </Svg>
+);
+const LightbulbIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 18h6M10 21h4" />
+    <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
+  </Svg>
+);
+const AppsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+  </Svg>
+);
+const BetaIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
+    <path d="M8 15h8" />
+  </Svg>
+);
+const LogoutIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
+    <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
+  </Svg>
+);
+const BoltIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
+  </Svg>
+);
+const PanelIcon = ({
+  className,
   collapsed,
-}: IconProps & {
-  collapsed: boolean;
-}) {
-  return (
-    <Svg
-      className={[
-        className,
-        "transition-transform duration-[380ms]",
-        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-        "motion-reduce:transition-none",
-        collapsed ? "" : "rotate-180",
-      ].join(" ")}
-    >
-      <path d="m9 6 6 6-6 6" />
-    </Svg>
-  );
-}
+}: IconProps & { collapsed: boolean }) => (
+  <Svg className={className}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+    <path d="M9.5 4.5v15" />
+    <path d={collapsed ? "m13.5 10 2 2-2 2" : "m15.5 10-2 2 2 2"} />
+  </Svg>
+);
+const ChevronDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Svg>
+);
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+const PublishIcon = CalendarIcon;
+const CommunityIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
+    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
+  </Svg>
+);
+const InsightsIcon = AnalyticsIcon;
 
-function ChevronDownIcon(props: IconProps) {
+/* ============================================================================
+   Tooltip (portail → jamais coupé par overflow, utile quand la sidebar est réduite)
+============================================================================ */
+
+function Tooltip({
+  label,
+  enabled,
+  children,
+}: {
+  label: string;
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+
+  const show = (e: React.SyntheticEvent<HTMLElement>) => {
+    if (!enabled) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setPos({ x: r.right + 12, y: r.top + r.height / 2 });
+  };
+  const hide = () => setPos(null);
+
   return (
-    <Svg {...props}>
-      <path d="m6 9 6 6 6-6" />
-    </Svg>
+    <div
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      onClick={hide}
+    >
+      {children}
+      {enabled &&
+        pos &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{ left: pos.x, top: pos.y }}
+            className="sb-tip pointer-events-none fixed z-[60] whitespace-nowrap rounded-lg bg-neutral-900 px-2.5 py-1.5 text-[12px] font-medium text-white shadow-lg ring-1 ring-white/10"
+          >
+            {label}
+          </span>,
+          document.body
+        )}
+    </div>
   );
 }
 
@@ -401,7 +350,7 @@ function ChevronDownIcon(props: IconProps) {
 
 const navSections: NavSection[] = [
   {
-    label: "General",
+    label: "Workspace",
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
@@ -442,224 +391,88 @@ const menuGroups: MenuItem[][] = [
 
 type NavItemViewProps = {
   item: NavItem;
-  index: number;
-  currentRoute: string;
+  active: boolean;
   isCollapsed: boolean;
-  isOpen: boolean;
   labelClass: string;
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
-  onToggleGroup: (label: string) => void;
-  onExpandAndOpen: (label: string) => void;
 };
 
-function NavItemViewImpl({
+const NavItemView = memo(function NavItemView({
   item,
-  index,
-  currentRoute,
+  active,
   isCollapsed,
-  isOpen,
   labelClass,
   focus,
   t,
   onNavigate,
-  onToggleGroup,
-  onExpandAndOpen,
 }: NavItemViewProps) {
   const Icon = item.icon;
 
-  const hasChildren = Boolean(item.children?.length);
-
-  const labelStyle = {
-    transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
-  };
-
-  const isActive =
-    (item.route !== undefined && item.route === currentRoute) ||
-    Boolean(item.children?.some((child) => child.route === currentRoute));
-
-  const onClick = () => {
-    if (!hasChildren) {
-      if (item.route) {
-        onNavigate(item.route);
-      }
-      return;
-    }
-
-    if (isCollapsed) {
-      onExpandAndOpen(item.label);
-      return;
-    }
-
-    onToggleGroup(item.label);
-  };
-
   return (
-    <div>
+    <Tooltip label={item.label} enabled={isCollapsed}>
       <button
         type="button"
         aria-label={item.label}
-        aria-current={isActive ? "page" : undefined}
-        aria-expanded={hasChildren ? isOpen : undefined}
-        title={isCollapsed ? item.label : undefined}
-        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+        onClick={() => onNavigate(item.route)}
         className={[
-          "group relative flex h-10 w-full",
-          "select-none",
-          "items-center gap-3 overflow-hidden",
-          "rounded-xl px-3",
-          "text-[13px] font-medium",
-          "transition-[background-color,color,transform]",
-          "duration-200",
-          "active:scale-[0.97]",
-          "motion-reduce:transition-none",
-          "motion-reduce:active:scale-100",
+          "group relative flex h-10 w-full items-center gap-3 overflow-hidden",
+          "rounded-xl px-3 text-[13px] font-medium",
+          "transition-[background-color,color,transform] duration-150",
+          "active:scale-[0.98] motion-reduce:transition-none",
           focus,
-          isActive ? t.navActive : t.navIdle,
+          active ? t.navActive : t.navIdle,
         ].join(" ")}
       >
+        {/* Indicateur de page active */}
         <span
+          aria-hidden="true"
           className={[
-            "relative flex shrink-0",
-            "select-none",
-            "transition-transform duration-200",
-            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-            "group-hover:scale-110",
-            "motion-reduce:transition-none",
-            "motion-reduce:group-hover:scale-100",
+            "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full",
+            "transition-opacity duration-200",
+            t.bar,
+            active ? "opacity-100" : "opacity-0",
           ].join(" ")}
-        >
-          <Icon className="h-5 w-5" />
+        />
 
+        <span className="relative flex shrink-0">
+          <Icon className="h-[18px] w-[18px]" />
           {item.badge && (
             <span
               aria-hidden="true"
               className={[
-                "absolute -right-0.5 -top-0.5",
-                "h-2 w-2 rounded-full",
-                "select-none",
-                "bg-[#ff5ec4] ring-2",
+                "absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#ff5ec4] ring-2",
                 t.dotRing,
-                isCollapsed
-                  ? "opacity-100 delay-150 duration-200"
-                  : "opacity-0 duration-100",
+                isCollapsed ? "opacity-100" : "opacity-0",
               ].join(" ")}
             />
           )}
         </span>
 
-        <span
-          className={["flex-1 select-none text-left", labelClass].join(" ")}
-          style={labelStyle}
-        >
+        <span className={["flex-1 text-left", labelClass].join(" ")}>
           {item.label}
         </span>
 
         {item.badge && (
           <span
-            style={labelStyle}
             className={[
-              "select-none",
-              "rounded-md px-1.5 py-0.5",
-              "text-[11px] font-medium",
+              "rounded-md px-1.5 py-0.5 text-[11px] font-medium",
               t.count,
               labelClass,
             ].join(" ")}
           >
-            <span aria-hidden="true">{item.badge}</span>
-            <span className="sr-only">{item.badge} en attente</span>
-          </span>
-        )}
-
-        {hasChildren && (
-          <span
-            className={["flex shrink-0 select-none", labelClass].join(" ")}
-            style={labelStyle}
-          >
-            <ChevronDownIcon
-              className={[
-                "h-4 w-4",
-                "transition-transform duration-300",
-                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                "motion-reduce:transition-none",
-                isOpen ? "rotate-180" : "",
-              ].join(" ")}
-            />
+            {item.badge}
           </span>
         )}
       </button>
-
-      {hasChildren && (
-        <div
-          className={[
-            "grid",
-            "transition-[grid-template-rows]",
-            "duration-300",
-            "ease-[cubic-bezier(0.4,0,0.2,1)]",
-            "motion-reduce:transition-none",
-            isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          ].join(" ")}
-        >
-          <div className="overflow-hidden">
-            <div
-              className={[
-                "ml-[22px] mt-1 flex",
-                "flex-col gap-0.5",
-                "border-l pl-[13px]",
-                t.rail,
-              ].join(" ")}
-            >
-              {item.children!.map((child, childIndex) => {
-                const childActive = child.route === currentRoute;
-
-                return (
-                  <button
-                    key={child.route}
-                    type="button"
-                    tabIndex={isOpen ? 0 : -1}
-                    aria-current={childActive ? "page" : undefined}
-                    onClick={() => onNavigate(child.route)}
-                    style={{
-                      transitionDelay: isOpen
-                        ? `${80 + childIndex * 45}ms`
-                        : "0ms",
-                    }}
-                    className={[
-                      "flex h-9 w-full",
-                      "select-none",
-                      "items-center",
-                      "whitespace-nowrap",
-                      "rounded-lg px-2",
-                      "text-left text-[13px]",
-                      "font-medium",
-                      "transition-[background-color,color,opacity,transform]",
-                      "duration-300",
-                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
-                      "motion-reduce:transition-none",
-                      isOpen
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-2 opacity-0",
-                      focus,
-                      childActive ? t.subActive : t.sub,
-                    ].join(" ")}
-                  >
-                    {child.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </Tooltip>
   );
-}
-
-const NavItemView = memo(NavItemViewImpl);
+});
 
 /* ============================================================================
-   Section Channels (réseaux connectés)
+   Channels
 ============================================================================ */
 
 type NetworkKey =
@@ -671,18 +484,6 @@ type NetworkKey =
   | "youtube"
   | "pinterest"
   | "threads";
-
-type SidebarChannelsProps = {
-  channels: ConnectedChannel[];
-  isCollapsed: boolean;
-  currentRoute: string;
-  labelClass: string;
-  focus: string;
-  t: ThemeTokens;
-  onNavigate: (route: string) => void;
-  onExpand: () => void;
-  onConnect: () => void;
-};
 
 const channelsMemory = { open: [] as string[] };
 
@@ -714,68 +515,27 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-/** Canal ciblé par /#/insights?channel=<key> ou /#/community?channel=<key> (null si absent). */
+/** Canal ciblé par /#/insights?channel=<key> ou /#/community?channel=<key>. */
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
-
   const hash = window.location.hash;
   const queryIndex = hash.indexOf("?");
   if (queryIndex === -1) return null;
-
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
-
-const PublishIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-  </Svg>
-);
-
-const CommunityIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
-    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
-  </Svg>
-);
-
-const InsightsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
-  </Svg>
-);
-
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
 
 const CHANNEL_LINKS: {
   label: string;
   route: string;
   icon: IconComponent;
   badge?: string;
-  /** Le lien porte le canal : /#/<route>?channel=<key> */
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
-  {
-    label: "Community",
-    route: "community",
-    icon: CommunityIcon,
-    perChannel: true,
-  },
-  {
-    label: "Insights",
-    route: "insights",
-    icon: InsightsIcon,
-    badge: "New",
-    perChannel: true,
-  },
+  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
+  { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New", perChannel: true },
 ];
 
-/** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 function ChannelAvatar({
@@ -797,7 +557,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+    <span className="relative h-7 w-7 shrink-0 transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -805,10 +565,10 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full select-none rounded-full object-cover"
+          className="h-full w-full rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[11px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -816,17 +576,29 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-[4px] bg-white text-black ring-2",
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center",
+            "rounded-full bg-white text-black ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-2 w-2" />
+          <NetworkIcon className="h-2.5 w-2.5" />
         </span>
       )}
     </span>
   );
 }
+
+type SidebarChannelsProps = {
+  channels: ConnectedChannel[];
+  isCollapsed: boolean;
+  currentRoute: string;
+  labelClass: string;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+  onExpand: () => void;
+  onConnect: () => void;
+};
 
 function SidebarChannels({
   channels,
@@ -845,8 +617,18 @@ function SidebarChannels({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
-  // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
+
+  // Le canal de la page courante s'ouvre tout seul : on sait toujours « où on est ».
+  const activeChannelKey = CHANNEL_ROUTES.has(currentRoute)
+    ? hashChannel ?? channels[0]?.key ?? null
+    : null;
+
+  useEffect(() => {
+    if (!activeChannelKey) return;
+    const key = `channel:${activeChannelKey}`;
+    setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  }, [activeChannelKey]);
 
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
@@ -856,132 +638,120 @@ function SidebarChannels({
   const openKey = (key: string) =>
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
-  const headerButton = [
-    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
-    "transition-colors duration-150 motion-reduce:transition-none",
-    t.menuIcon,
-    focus,
-    t.row,
-  ].join(" ");
-
   return (
     <div>
+      {/* En-tête de section */}
       <div
         aria-hidden={isCollapsed}
         className={[
           "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
-          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
+          "transition-[height,margin,opacity] duration-300 motion-reduce:transition-none",
+          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1 h-6 opacity-100 delay-100",
         ].join(" ")}
       >
-        <span
-          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
-        >
+        <span className={["text-[12px] font-medium", t.muted].join(" ")}>
           Channels
+          {channels.length > 0 && (
+            <span className="ml-1.5 tabular-nums opacity-70">
+              {channels.length}
+            </span>
+          )}
         </span>
 
-        <span className="flex items-center gap-0.5">
-          <button
-            type="button"
-            tabIndex={isCollapsed ? -1 : 0}
-            aria-label="Connect a channel"
-            title="Connect a channel"
-            onClick={onConnect}
-            className={headerButton}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </span>
+        <button
+          type="button"
+          tabIndex={isCollapsed ? -1 : 0}
+          aria-label="Connect a channel"
+          title="Connect a channel"
+          onClick={onConnect}
+          className={[
+            "flex h-6 w-6 items-center justify-center rounded-md",
+            "transition-colors duration-150 motion-reduce:transition-none",
+            t.menuIcon,
+            focus,
+            t.row,
+          ].join(" ")}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
-          const label = channel.handle || channel.name;
+          const label = (channel.handle || channel.name).replace(/^@/, "");
           const groupKey = `channel:${channel.key}`;
           const isOpen = openKeys.includes(groupKey) && !isCollapsed;
+          const isCurrent = activeChannelKey === channel.key;
 
           return (
             <div key={channel.key}>
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                title={isCollapsed ? label : undefined}
-                onClick={() => {
-                  if (isCollapsed) {
-                    onExpand();
-                    openKey(groupKey);
-                  } else {
-                    toggleKey(groupKey);
-                  }
-                }}
-                className={[
-                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
-                  "rounded-xl px-2.5 text-[13px] font-medium",
-                  "transition-[background-color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none",
-                  focus,
-                  t.navIdle,
-                ].join(" ")}
-              >
-                <ChannelAvatar
-                  channel={channel}
-                  NetworkIcon={NetworkIcon}
-                  dotRing={t.dotRing}
-                />
-                <span
+              <Tooltip label={label} enabled={isCollapsed}>
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-label={label}
+                  onClick={() => {
+                    if (isCollapsed) {
+                      onExpand();
+                      openKey(groupKey);
+                    } else {
+                      toggleKey(groupKey);
+                    }
+                  }}
                   className={[
-                    "min-w-0 flex-1 truncate text-left",
-                    labelClass,
+                    "group flex h-10 w-full items-center gap-3 overflow-hidden",
+                    "rounded-xl px-2.5 text-[13px] font-medium",
+                    "transition-[background-color,transform] duration-150",
+                    "active:scale-[0.98] motion-reduce:transition-none",
+                    focus,
+                    isCurrent && !isOpen ? t.navActive : t.navIdle,
                   ].join(" ")}
                 >
-                  {label.replace(/^@/, "")}
-                </span>
-                <span className={["flex shrink-0", labelClass].join(" ")}>
-                  <ChevronDownIcon
-                    className={[
-                      "h-3.5 w-3.5 opacity-50",
-                      "transition-[transform,opacity] duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:opacity-100",
-                      "motion-reduce:transition-none",
-                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
-                    ].join(" ")}
+                  <ChannelAvatar
+                    channel={channel}
+                    NetworkIcon={NetworkIcon}
+                    dotRing={t.dotRing}
                   />
-                </span>
-              </button>
+                  <span
+                    className={["min-w-0 flex-1 truncate text-left", labelClass].join(" ")}
+                  >
+                    {label}
+                  </span>
+                  <span className={["flex shrink-0", labelClass].join(" ")}>
+                    <ChevronDownIcon
+                      className={[
+                        "h-3.5 w-3.5 opacity-50 group-hover:opacity-100",
+                        "transition-[transform,opacity] duration-200 motion-reduce:transition-none",
+                        isOpen ? "rotate-0" : "-rotate-90",
+                      ].join(" ")}
+                    />
+                  </span>
+                </button>
+              </Tooltip>
 
               <div
                 className={[
-                  "grid transition-[grid-template-rows] duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                  "grid transition-[grid-template-rows] duration-250 motion-reduce:transition-none",
                   isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
                 ].join(" ")}
               >
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      "ml-[22px] mt-0.5 flex flex-col gap-0.5 border-l pl-2.5",
                       t.rail,
                     ].join(" ")}
                   >
-                    {CHANNEL_LINKS.map((link, i) => {
+                    {CHANNEL_LINKS.map((link) => {
                       const Icon = link.icon;
-
                       const target = link.perChannel
-                        ? `${link.route}?channel=${encodeURIComponent(
-                            channel.key
-                          )}`
+                        ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
                         : link.route;
 
-                      // Un lien "par canal" n'est actif que pour le canal ouvert.
                       const active = link.perChannel
-                        ? link.route === currentRoute &&
-                          (hashChannel === null
-                            ? channels[0]?.key === channel.key
-                            : hashChannel === channel.key)
+                        ? link.route === currentRoute && activeChannelKey === channel.key
                         : link.route === currentRoute;
 
                       return (
@@ -991,27 +761,20 @@ function SidebarChannels({
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
                           onClick={() => onNavigate(target)}
-                          style={{
-                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
-                          }}
                           className={[
-                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "flex h-9 w-full items-center gap-2.5 whitespace-nowrap",
                             "rounded-lg px-2 text-left text-[13px] font-medium",
-                            "transition-[background-color,color,opacity,transform] duration-300",
-                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-                            isOpen
-                              ? "translate-x-0 opacity-100"
-                              : "-translate-x-2 opacity-0",
+                            "transition-[background-color,color] duration-150 motion-reduce:transition-none",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <Icon className="h-4 w-4 shrink-0" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1029,66 +792,87 @@ function SidebarChannels({
         })}
       </div>
 
+      {/* État vide : une vraie invitation à agir */}
       {channels.length === 0 && !isCollapsed && (
         <button
           type="button"
           onClick={onConnect}
           className={[
-            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
-            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
-            "transition-colors duration-150 motion-reduce:transition-none",
+            "mt-1 flex w-full flex-col items-start gap-0.5 rounded-xl border border-dashed px-3 py-3",
+            "text-left transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
             t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-4 w-4 shrink-0" />
-          Connect a channel
+          <span className="flex items-center gap-2 text-[13px] font-medium">
+            <PlusIcon className="h-4 w-4" />
+            Connect a channel
+          </span>
+          <span className={["text-[12px] leading-4", t.muted].join(" ")}>
+            Link an account to start publishing.
+          </span>
         </button>
       )}
 
       {isCollapsed && (
-        <button
-          type="button"
-          aria-label="Connect a channel"
-          title="Connect a channel"
-          onClick={onConnect}
-          className={[
-            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
-            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
-            "motion-reduce:transition-none",
-            focus,
-            t.navIdle,
-          ].join(" ")}
-        >
-          <PlusIcon className="h-5 w-5 shrink-0" />
-        </button>
+        <div className="mt-1">
+          <Tooltip label="Connect a channel" enabled>
+            <button
+              type="button"
+              aria-label="Connect a channel"
+              onClick={onConnect}
+              className={[
+                "flex h-10 w-full items-center justify-center rounded-xl",
+                "transition-[background-color,transform] duration-150 active:scale-[0.98]",
+                "motion-reduce:transition-none",
+                focus,
+                t.navIdle,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-[18px] w-[18px]" />
+            </button>
+          </Tooltip>
+        </div>
       )}
     </div>
   );
 }
 
 /* ============================================================================
-   Sidebar memory
+   Sidebar memory (état partagé + persistance de l'état réduit)
 ============================================================================ */
 
+const COLLAPSE_KEY = "stone:sidebar-collapsed";
+
+function readStoredCollapsed(): boolean {
+  try {
+    const v = window.localStorage.getItem(COLLAPSE_KEY);
+    return v === null ? true : v === "1";
+  } catch {
+    return true;
+  }
+}
+
 const sidebarMemory = {
-  collapsed: true,
-  openGroup: null as string | null,
+  collapsed: typeof window === "undefined" ? true : readStoredCollapsed(),
   entered: false,
 };
 
-/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
-   plus sa marge gauche (16px) et un espace de respiration. */
-export const SIDEBAR_COLLAPSED_OFFSET = 104;
-export const SIDEBAR_EXPANDED_OFFSET = 232;
+/* Largeur + marge gauche (12px) + respiration (16px). */
+export const SIDEBAR_COLLAPSED_OFFSET = 100;
+export const SIDEBAR_EXPANDED_OFFSET = 276;
 
 const sidebarListeners = new Set<() => void>();
 
 function setSidebarCollapsed(value: boolean) {
   if (sidebarMemory.collapsed === value) return;
-
   sidebarMemory.collapsed = value;
+  try {
+    window.localStorage.setItem(COLLAPSE_KEY, value ? "1" : "0");
+  } catch {
+    /* stockage indisponible : on ignore */
+  }
   sidebarListeners.forEach((listener) => listener());
 }
 
@@ -1106,24 +890,20 @@ export function useSidebarOffset(): number {
     () => sidebarMemory.collapsed,
     () => true
   );
-
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
 
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
+const userProfileCache = { profile: null as UserProfile | null };
 
 function resetSidebarModuleState() {
   userProfileCache.profile = null;
   setSidebarCollapsed(true);
-  sidebarMemory.openGroup = null;
   sidebarMemory.entered = false;
   channelsMemory.open = [];
 }
 
 /* ============================================================================
-   Channel-connections helpers (self-contained modal)
+   Channel-connections helpers
 ============================================================================ */
 
 const initialConnections: ConnectionState = {
@@ -1156,21 +936,21 @@ function mockHandleFor(key: ChannelKey): string {
     pinterest: "",
     threads: "@ronan.studio",
   };
-
   return handles[key];
 }
 
 function toConnection(status: StatusResponse): Connection {
   if (!status.connected) return { connected: false };
-
   const account = status.account;
-
   return {
     connected: true,
     handle: account?.display_name ?? undefined,
     avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
   };
 }
+
+const isMac =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
 
 /* ============================================================================
    Sidebar
@@ -1181,9 +961,7 @@ type DashboardSidebarProps = {
   onToggleTheme?: ToggleThemeFn;
 };
 
-export default function DashboardSidebar({
-  theme: themeProp,
-}: DashboardSidebarProps) {
+export default function DashboardSidebar({ theme: themeProp }: DashboardSidebarProps) {
   const themeContext = useTheme();
   const theme = themeProp ?? themeContext.theme;
   const isDark = theme === "dark";
@@ -1195,9 +973,6 @@ export default function DashboardSidebar({
   const userId = user?.id ?? null;
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
-  const [openGroup, setOpenGroup] = useState<string | null>(
-    sidebarMemory.openGroup
-  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(sidebarMemory.entered);
@@ -1207,14 +982,11 @@ export default function DashboardSidebar({
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  /* ── Channel connections (self-contained) ── */
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
-
     const tiktok = readCache(userId, "tiktok");
     const pinterest = readCache(userId, "pinterest");
     const youtube = readCache(userId, "youtube");
-
     return {
       ...initialConnections,
       ...(tiktok ? { tiktok: tiktok.connection } : {}),
@@ -1225,24 +997,19 @@ export default function DashboardSidebar({
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
 
-  const tiktokBusy = useRef(false);
-  const pinterestBusy = useRef(false);
-  const youtubeBusy = useRef(false);
+  const busy = useRef<Record<string, boolean>>({});
 
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  /* --------------------------------------------------------------------------
-     Load profile
-  -------------------------------------------------------------------------- */
-
+  /* ── Profil ── */
   useEffect(() => {
     let mounted = true;
 
-    const loadUserProfile = async () => {
+    (async () => {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUserProfile(userData);
@@ -1251,19 +1018,14 @@ export default function DashboardSidebar({
       } catch (error) {
         console.error("Error loading user profile in sidebar:", error);
       }
-    };
-
-    loadUserProfile();
+    })();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  /* --------------------------------------------------------------------------
-     Sync channel statuses (cache + backend), + parse OAuth return
-  -------------------------------------------------------------------------- */
-
+  /* ── Statuts des canaux (cache + backend) + retour OAuth ── */
   useEffect(() => {
     if (!userId) return;
 
@@ -1284,23 +1046,14 @@ export default function DashboardSidebar({
       youtube: params.has("youtube") || Boolean(youtubeError),
     };
 
-    if (tiktokError) {
-      setConnectError(`Unable to connect to TikTok. ${tiktokError}`);
-    }
-    if (pinterestError) {
-      setConnectError(`Unable to connect to Pinterest. ${pinterestError}`);
-    }
-    if (youtubeError) {
-      setConnectError(`Unable to connect to YouTube. ${youtubeError}`);
-    }
+    if (tiktokError) setConnectError(`Unable to connect to TikTok. ${tiktokError}`);
+    if (pinterestError) setConnectError(`Unable to connect to Pinterest. ${pinterestError}`);
+    if (youtubeError) setConnectError(`Unable to connect to YouTube. ${youtubeError}`);
 
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
 
-    // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
-    // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
-    // et ne doivent pas être polluées par un replaceState.)
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -1334,11 +1087,7 @@ export default function DashboardSidebar({
       const cached = justReturned ? null : readCache(userId, provider);
 
       if (cached) {
-        setConnections((current) => ({
-          ...current,
-          [provider]: cached.connection,
-        }));
-
+        setConnections((current) => ({ ...current, [provider]: cached.connection }));
         if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
       }
 
@@ -1349,16 +1098,10 @@ export default function DashboardSidebar({
 
           const connection = toConnection(status);
 
-          if (connection.connected) {
-            writeCache(userId, connection, provider);
-          } else {
-            clearCache(userId, provider);
-          }
+          if (connection.connected) writeCache(userId, connection, provider);
+          else clearCache(userId, provider);
 
-          setConnections((current) => ({
-            ...current,
-            [provider]: connection,
-          }));
+          setConnections((current) => ({ ...current, [provider]: connection }));
         } catch (error) {
           console.warn(`[Stone] Could not load ${provider} status:`, error);
         }
@@ -1374,178 +1117,170 @@ export default function DashboardSidebar({
     };
   }, [userId]);
 
-  /* --------------------------------------------------------------------------
-     Sidebar entrance
-  -------------------------------------------------------------------------- */
-
+  /* ── Entrée ── */
   useEffect(() => {
-    if (sidebarMemory.entered) {
-      return;
-    }
-
+    if (sidebarMemory.entered) return;
     const id = requestAnimationFrame(() => {
       sidebarMemory.entered = true;
       setHasMounted(true);
     });
-
     return () => cancelAnimationFrame(id);
   }, []);
 
-  /* --------------------------------------------------------------------------
-     Persist sidebar state
-  -------------------------------------------------------------------------- */
-
+  /* ── Persistance de l'état réduit ── */
   useEffect(() => {
     setSidebarCollapsed(isCollapsed);
-    sidebarMemory.openGroup = openGroup;
-  }, [isCollapsed, openGroup]);
+  }, [isCollapsed]);
 
-  /* --------------------------------------------------------------------------
-     Account menu events
-  -------------------------------------------------------------------------- */
-
+  /* ── Raccourci clavier : Ctrl/⌘ + B ── */
   useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        const el = e.target as HTMLElement | null;
+        if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) {
+          return;
+        }
+        e.preventDefault();
+        setMenuOpen(false);
+        setIsCollapsed((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /* ── Le menu se ferme à chaque navigation ── */
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [currentRoute]);
+
+  /* ── Menu compte : clic extérieur, Échap, flèches ── */
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    // Focus sur le premier élément pour une navigation clavier immédiate.
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
 
     const onPointerDown = (event: MouseEvent) => {
-      if (!profileRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (!profileRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
         triggerRef.current?.focus();
+        return;
+      }
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const items = Array.from(
+          menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []
+        );
+        if (!items.length) return;
+        event.preventDefault();
+
+        const i = items.indexOf(document.activeElement as HTMLElement);
+        const next =
+          event.key === "ArrowDown"
+            ? items[(i + 1) % items.length]
+            : items[(i - 1 + items.length) % items.length];
+        next.focus();
       }
     };
 
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
 
-  /* --------------------------------------------------------------------------
-     Theme tokens
-  -------------------------------------------------------------------------- */
-
+  /* ── Tokens de thème ── */
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
-            aside:
-              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
+            aside: "border-white/[0.08] bg-[#0c0c0e] shadow-[0_12px_40px_rgba(0,0,0,0.55)]",
             brand: "text-white",
-            divider: "bg-white/10",
-            navActive: "bg-white/15 text-white",
-            navIdle: "text-white hover:bg-white/10",
-            handle:
-              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
+            divider: "bg-white/[0.08]",
+            navActive: "bg-violet-400/15 text-white",
+            navIdle: "text-[#c9c9c5] hover:bg-white/[0.06] hover:text-white",
+            bar: "bg-violet-400",
             count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#050506]",
+            dotRing: "ring-[#0c0c0e]",
             rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
-            subActive: "bg-white/[0.08] text-white",
+            sub: "text-[#9a9a96] hover:bg-white/[0.06] hover:text-white",
+            subActive: "bg-violet-400/15 text-white",
             row: "hover:bg-white/10",
             rowOpen: "bg-white/10",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
+            avatar: "bg-[#ecebe6] text-[#111]",
             title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
-            menuItem:
-              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
-            menuIcon: "text-[#a9aeae]",
-            upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
-            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
-            ring: "focus-visible:ring-white/30",
+            muted: "text-[#8e8e8a]",
+            menu: "border-white/10 bg-[#18181b] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
+            menuDivider: "border-white/[0.08]",
+            menuItem: "text-[#ecece8] hover:bg-white/[0.07] focus-visible:bg-white/[0.07]",
+            menuIcon: "text-[#a2a29e]",
+            upgrade: "border-violet-400/30 bg-violet-400/10 text-violet-200 hover:bg-violet-400/20",
+            badge: "bg-violet-400/20 text-violet-200",
+            ring: "focus-visible:ring-violet-300/50",
+            kbd: "border-white/15 text-[#a2a29e]",
+            meter: "bg-white/10",
+            meterFill: "bg-violet-400",
           }
         : {
-            aside:
-              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
+            aside: "border-black/[0.08] bg-white shadow-[0_12px_40px_rgba(20,20,40,0.10)]",
             brand: "text-[#151515]",
             divider: "bg-black/[0.07]",
-            navActive: "bg-black/[0.06] text-[#151515]",
-            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
-            handle:
-              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
+            navActive: "bg-violet-600/10 text-violet-800",
+            navIdle: "text-[#43433f] hover:bg-black/[0.045] hover:text-[#151515]",
+            bar: "bg-violet-600",
             count: "bg-black/[0.05] text-[#3f3f3d]",
             dotRing: "ring-white",
-            rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
-            subActive: "bg-black/[0.06] text-[#151515]",
-            row: "hover:bg-black/[0.04]",
-            rowOpen: "bg-black/[0.04]",
+            rail: "border-black/[0.09]",
+            sub: "text-[#73726e] hover:bg-black/[0.045] hover:text-[#151515]",
+            subActive: "bg-violet-600/10 text-violet-800",
+            row: "hover:bg-black/[0.045]",
+            rowOpen: "bg-black/[0.05]",
             avatar: "bg-[#1d1d1d] text-white",
             title: "text-[#1b1b1a]",
-            muted: "text-[#71706d]",
-            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
+            muted: "text-[#73726e]",
+            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.14)]",
             menuDivider: "border-black/[0.07]",
-            menuItem:
-              "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
+            menuItem: "text-[#1f1f1e] hover:bg-black/[0.045] focus-visible:bg-black/[0.045]",
             menuIcon: "text-[#6b6a67]",
-            upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
-            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
-            ring: "focus-visible:ring-black/20",
+            upgrade: "border-violet-600/20 bg-violet-600/[0.07] text-violet-800 hover:bg-violet-600/[0.12]",
+            badge: "bg-violet-600/10 text-violet-800",
+            ring: "focus-visible:ring-violet-500/40",
+            kbd: "border-black/15 text-[#73726e]",
+            meter: "bg-black/[0.08]",
+            meterFill: "bg-violet-600",
           },
     [isDark]
   );
 
-  const focus = [
-    "focus-visible:outline-none",
-    "focus-visible:ring-2",
-    t.ring,
-  ].join(" ");
-
-  /* --------------------------------------------------------------------------
-     Label animation
-  -------------------------------------------------------------------------- */
+  const focus = ["focus-visible:outline-none", "focus-visible:ring-2", t.ring].join(" ");
 
   const labelClass = useMemo(
     () =>
       [
-        "select-none",
-        "whitespace-nowrap",
-        "transition-[opacity,transform]",
-        "ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "whitespace-nowrap transition-[opacity,transform] ease-[cubic-bezier(0.4,0,0.2,1)]",
         "motion-reduce:transition-none",
         isCollapsed
-          ? "-translate-x-1 opacity-0 duration-150"
-          : "translate-x-0 opacity-100 duration-300",
+          ? "-translate-x-1 opacity-0 duration-100"
+          : "translate-x-0 opacity-100 duration-250 delay-75",
       ].join(" "),
     [isCollapsed]
   );
 
-  /* --------------------------------------------------------------------------
-     Sidebar actions
-  -------------------------------------------------------------------------- */
-
+  /* ── Actions ── */
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
-    setIsCollapsed((previous) => !previous);
-    setOpenGroup(null);
+    setIsCollapsed((v) => !v);
   }, []);
 
-  const handleNavigate = useCallback((route: string) => {
-    navigate(route);
-  }, []);
+  const handleNavigate = useCallback((route: string) => navigate(route), []);
 
-  const handleToggleGroup = useCallback((label: string) => {
-    setOpenGroup((current) => (current === label ? null : label));
-  }, []);
-
-  /**
-   * Ouvre toujours le modal « Connect a New Channel » (le même composant que
-   * sur /channels). La sidebar ne redirige pas vers /channels.
-   */
   const openConnect = useCallback(() => {
     setMenuOpen(false);
     setConnectError(null);
@@ -1554,129 +1289,68 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  const handleExpandAndOpen = useCallback((label: string) => {
-    setIsCollapsed(false);
-    setOpenGroup(label);
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Channel connect handlers (self-contained)
-  -------------------------------------------------------------------------- */
-
+  /* ── Connexions OAuth (logique commune aux 3 réseaux réels) ── */
   const limitReached =
-    Object.values(connections).filter((c) => c.connected).length >=
-    PLAN.maxChannels;
+    Object.values(connections).filter((c) => c.connected).length >= PLAN.maxChannels;
 
-  const handleTikTokToggle = async () => {
-    if (tiktokBusy.current) return;
-    tiktokBusy.current = true;
+  const runOAuthToggle = async (
+    key: "tiktok" | "pinterest" | "youtube",
+    name: string,
+    disconnect: () => Promise<unknown>,
+    login: () => Promise<unknown>,
+    manualConnect?: () => Promise<Connection | null>
+  ) => {
+    if (busy.current[key]) return;
+    busy.current[key] = true;
 
-    setPendingKey("tiktok");
+    setPendingKey(key);
     let redirecting = false;
 
     try {
-      if (connections.tiktok.connected) {
-        await disconnectTikTok();
-        if (userId) clearCache(userId, "tiktok");
-        setConnections((current) => ({
-          ...current,
-          tiktok: { connected: false },
-        }));
+      if (connections[key].connected) {
+        await disconnect();
+        if (userId) clearCache(userId, key);
+        setConnections((c) => ({ ...c, [key]: { connected: false } }));
+      } else if (manualConnect) {
+        const connection = await manualConnect();
+        if (connection) {
+          if (userId) writeCache(userId, connection, key);
+          setConnections((c) => ({ ...c, [key]: connection }));
+        }
       } else {
-        await startTikTokLogin();
+        await login();
         redirecting = true;
       }
     } catch (error) {
-      console.error("[Stone] TikTok OAuth error:", error);
-      setConnectError(formatOAuthError("TikTok", error));
+      console.error(`[Stone] ${name} OAuth error:`, error);
+      setConnectError(formatOAuthError(name, error));
     } finally {
       if (!redirecting) {
         setPendingKey(null);
-        tiktokBusy.current = false;
+        busy.current[key] = false;
       }
     }
   };
 
-  const handlePinterestToggle = async () => {
-    if (pinterestBusy.current) return;
-    pinterestBusy.current = true;
+  const pinterestManual =
+    import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
+      ? async (): Promise<Connection | null> => {
+          const token = window.prompt(
+            "Pinterest access token (généré dans le portail développeur) :"
+          );
+          if (!token?.trim()) return null;
 
-    setPendingKey("pinterest");
-    let redirecting = false;
-
-    try {
-      if (connections.pinterest.connected) {
-        await disconnectPinterest();
-        if (userId) clearCache(userId, "pinterest");
-        setConnections((current) => ({
-          ...current,
-          pinterest: { connected: false },
-        }));
-      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
-        const token = window.prompt(
-          "Pinterest access token (généré dans le portail développeur) :"
-        );
-
-        if (!token?.trim()) return;
-
-        const account = await connectPinterestWithToken(token.trim());
-
-        const connection: Connection = {
-          connected: true,
-          handle: account?.display_name ?? undefined,
-          avatarUrl: account?.avatar_url ?? undefined,
-        };
-
-        if (userId) writeCache(userId, connection, "pinterest");
-        setConnections((current) => ({ ...current, pinterest: connection }));
-      } else {
-        await startPinterestLogin();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error("[Stone] Pinterest OAuth error:", error);
-      setConnectError(formatOAuthError("Pinterest", error));
-    } finally {
-      if (!redirecting) {
-        setPendingKey(null);
-        pinterestBusy.current = false;
-      }
-    }
-  };
-
-  const handleYouTubeToggle = async () => {
-    if (youtubeBusy.current) return;
-    youtubeBusy.current = true;
-
-    setPendingKey("youtube");
-    let redirecting = false;
-
-    try {
-      if (connections.youtube.connected) {
-        await disconnectYouTube();
-        if (userId) clearCache(userId, "youtube");
-        setConnections((current) => ({
-          ...current,
-          youtube: { connected: false },
-        }));
-      } else {
-        await startYouTubeLogin();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error("[Stone] YouTube OAuth error:", error);
-      setConnectError(formatOAuthError("YouTube", error));
-    } finally {
-      if (!redirecting) {
-        setPendingKey(null);
-        youtubeBusy.current = false;
-      }
-    }
-  };
+          const account = await connectPinterestWithToken(token.trim());
+          return {
+            connected: true,
+            handle: account?.display_name ?? undefined,
+            avatarUrl: account?.avatar_url ?? undefined,
+          };
+        }
+      : undefined;
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
     setPendingKey(key);
-
     window.setTimeout(() => {
       setConnections((current) => ({
         ...current,
@@ -1699,31 +1373,25 @@ export default function DashboardSidebar({
     }
 
     if (key === "tiktok") {
-      void handleTikTokToggle();
-      return;
+      void runOAuthToggle("tiktok", "TikTok", disconnectTikTok, startTikTokLogin);
+    } else if (key === "pinterest") {
+      void runOAuthToggle(
+        "pinterest",
+        "Pinterest",
+        disconnectPinterest,
+        startPinterestLogin,
+        pinterestManual
+      );
+    } else if (key === "youtube") {
+      void runOAuthToggle("youtube", "YouTube", disconnectYouTube, startYouTubeLogin);
+    } else {
+      handlePlaceholderToggle(key);
     }
-
-    if (key === "pinterest") {
-      void handlePinterestToggle();
-      return;
-    }
-
-    if (key === "youtube") {
-      void handleYouTubeToggle();
-      return;
-    }
-
-    handlePlaceholderToggle(key);
   };
 
-  /* --------------------------------------------------------------------------
-     Logout
-  -------------------------------------------------------------------------- */
-
+  /* ── Logout ── */
   const handleLogout = useCallback(async () => {
-    if (loggingOut) {
-      return;
-    }
+    if (loggingOut) return;
 
     setMenuOpen(false);
     setLoggingOut(true);
@@ -1738,19 +1406,11 @@ export default function DashboardSidebar({
     }
   }, [loggingOut]);
 
-  /* --------------------------------------------------------------------------
-     Account data
-  -------------------------------------------------------------------------- */
-
-  let itemIndex = 0;
-  let menuItemIndex = 0;
-
+  /* ── Données du compte ── */
   const account = userProfile
     ? {
         name:
-          `${userProfile.first_name || ""} ${
-            userProfile.last_name || ""
-          }`.trim() || "User",
+          `${userProfile.first_name || ""} ${userProfile.last_name || ""}`.trim() || "User",
         initials:
           `${(userProfile.first_name || "")[0] || ""}${
             (userProfile.last_name || "")[0] || ""
@@ -1764,15 +1424,9 @@ export default function DashboardSidebar({
     : { ...defaultAccount, channels: connectedChannels.length };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
+  const usage = Math.min(100, (account.channels / Math.max(1, PLAN.maxChannels)) * 100);
 
-  /* --------------------------------------------------------------------------
-     Modal props
-  -------------------------------------------------------------------------- */
-
-  const channelConnectProps: Omit<
-    ConnectChannelModalProps,
-    "isDark" | "onClose"
-  > = {
+  const channelConnectProps: Omit<ConnectChannelModalProps, "isDark" | "onClose"> = {
     channels: CHANNELS,
     connections,
     pendingKey,
@@ -1783,6 +1437,8 @@ export default function DashboardSidebar({
     onToggle: handleToggle,
   };
 
+  let menuItemIndex = 0;
+
   /* ==========================================================================
      Render
   ========================================================================== */
@@ -1790,14 +1446,10 @@ export default function DashboardSidebar({
   return (
     <div
       className={[
-        "fixed inset-y-8 left-4 z-20",
-        "transition-[opacity,transform]",
-        "duration-500",
-        "ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "fixed inset-y-3 left-3 z-20",
+        "transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
         "motion-reduce:transition-none",
-        hasMounted
-          ? "translate-x-0 opacity-100"
-          : "-translate-x-6 opacity-0",
+        hasMounted ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0",
       ].join(" ")}
     >
       <style>{SIDEBAR_KEYFRAMES}</style>
@@ -1805,69 +1457,23 @@ export default function DashboardSidebar({
       <aside
         id="app-sidebar"
         className={[
-          "relative flex h-full flex-col",
-          "overflow-visible rounded-[36px]",
-          "border px-3 py-5",
-          "transition-[width,box-shadow]",
-          "duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "relative flex h-full flex-col overflow-visible rounded-3xl border px-3 pb-3 pt-4",
+          "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
-          "will-change-[width]",
           t.aside,
-          isCollapsed ? "w-[68px]" : "w-[200px]",
+          isCollapsed ? "w-[72px]" : "w-[248px]",
         ].join(" ")}
       >
-        {/* Collapse button */}
-        <button
-          type="button"
-          aria-expanded={!isCollapsed}
-          aria-controls="app-sidebar"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={toggleCollapsed}
-          className={[
-            "absolute -right-3 top-[44%]",
-            "z-10 flex h-6 w-6",
-            "select-none",
-            "items-center justify-center",
-            "rounded-full border",
-            "backdrop-blur",
-            "transition-[background-color,transform]",
-            "duration-300",
-            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-            "hover:scale-110",
-            "active:scale-90",
-            "motion-reduce:transition-none",
-            focus,
-            t.handle,
-          ].join(" ")}
-        >
-          <ChevronIcon className="h-3 w-3" collapsed={isCollapsed} />
-        </button>
-
         {/* Logo */}
-        <div
-          className={[
-            "flex items-center gap-2",
-            "select-none",
-            "overflow-hidden px-1.5",
-            t.brand,
-          ].join(" ")}
-        >
+        <div className={["flex h-10 items-center gap-2.5 overflow-hidden px-2", t.brand].join(" ")}>
           <img
             src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
             alt="Stone logo"
             draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
+            className="h-8 w-7 shrink-0 object-contain"
           />
-
           <span
-            className={[
-              "select-none",
-              "text-[20px] font-semibold",
-              "leading-none tracking-tight",
-              labelClass,
-            ].join(" ")}
+            className={["text-[18px] font-semibold leading-none tracking-tight", labelClass].join(" ")}
           >
             Stone
           </span>
@@ -1875,73 +1481,40 @@ export default function DashboardSidebar({
 
         {/* Navigation */}
         <nav
-          className={[
-            "-mx-1 mt-5 flex min-h-0 flex-1",
-            "flex-col overflow-y-auto",
-            "overflow-x-hidden px-1",
-            "[scrollbar-width:none]",
-            "[&::-webkit-scrollbar]:hidden",
-          ].join(" ")}
+          className="-mx-1 mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Main"
         >
-          {navSections.map((section, sectionIndex) => (
-            <div
-              key={section.label}
-              className={sectionIndex === 0 ? "" : "mt-3"}
-            >
-              {sectionIndex > 0 && (
-                <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-              )}
-
+          {navSections.map((section) => (
+            <div key={section.label}>
               <div
+                aria-hidden={isCollapsed}
                 className={[
-                  "select-none",
-                  "overflow-hidden",
-                  "whitespace-nowrap",
-                  "px-3 text-[12px]",
-                  "font-medium leading-4",
-                  "transition-[height,margin,opacity,transform]",
-                  "duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "motion-reduce:transition-none",
+                  "overflow-hidden whitespace-nowrap px-3 text-[12px] font-medium leading-4",
+                  "transition-[height,margin,opacity] duration-300 motion-reduce:transition-none",
                   t.muted,
-                  isCollapsed
-                    ? "mb-0 h-0 -translate-x-1 opacity-0"
-                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-100",
+                  isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1 h-4 opacity-100 delay-100",
                 ].join(" ")}
               >
                 {section.label}
               </div>
 
-              <div className="flex flex-col gap-1">
-                {section.items.map((item) => {
-                  const hasChildren = Boolean(item.children?.length);
-
-                  const isOpen =
-                    hasChildren && openGroup === item.label && !isCollapsed;
-
-                  return (
-                    <NavItemView
-                      key={item.label}
-                      index={itemIndex++}
-                      item={item}
-                      currentRoute={currentRoute}
-                      isCollapsed={isCollapsed}
-                      isOpen={isOpen}
-                      labelClass={labelClass}
-                      focus={focus}
-                      t={t}
-                      onNavigate={handleNavigate}
-                      onToggleGroup={handleToggleGroup}
-                      onExpandAndOpen={handleExpandAndOpen}
-                    />
-                  );
-                })}
+              <div className="flex flex-col gap-0.5">
+                {section.items.map((item) => (
+                  <NavItemView
+                    key={item.label}
+                    item={item}
+                    active={item.route === currentRoute}
+                    isCollapsed={isCollapsed}
+                    labelClass={labelClass}
+                    focus={focus}
+                    t={t}
+                    onNavigate={handleNavigate}
+                  />
+                ))}
               </div>
             </div>
           ))}
 
-          {/* Channels */}
           <div className="mt-3">
             <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
             <SidebarChannels
@@ -1958,87 +1531,113 @@ export default function DashboardSidebar({
           </div>
         </nav>
 
-        {/* Account */}
-        <div ref={profileRef} className="mt-3 flex flex-col gap-3">
+        {/* Bas de sidebar : réduire + compte */}
+        <div ref={profileRef} className="mt-3 flex flex-col gap-1">
+          <div className={["mx-1 mb-1 h-px", t.divider].join(" ")} />
+
+          {/* Bouton réduire / agrandir, découvrable et avec son raccourci */}
+          <Tooltip
+            label={`Expand sidebar  ${isMac ? "⌘" : "Ctrl"}+B`}
+            enabled={isCollapsed}
+          >
+            <button
+              type="button"
+              aria-expanded={!isCollapsed}
+              aria-controls="app-sidebar"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={toggleCollapsed}
+              className={[
+                "group flex h-9 w-full items-center gap-3 overflow-hidden rounded-xl px-3",
+                "text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.navIdle,
+              ].join(" ")}
+            >
+              <PanelIcon className="h-[18px] w-[18px] shrink-0" collapsed={isCollapsed} />
+              <span className={["flex-1 text-left", labelClass].join(" ")}>Collapse</span>
+              <kbd
+                className={[
+                  "rounded border px-1.5 py-px font-sans text-[10px] font-medium",
+                  t.kbd,
+                  labelClass,
+                ].join(" ")}
+              >
+                {isMac ? "⌘" : "Ctrl"} B
+              </kbd>
+            </button>
+          </Tooltip>
+
           <div className="relative">
-            {/* Account menu */}
             {menuOpen && (
               <div
+                ref={menuRef}
                 id="account-menu"
                 role="menu"
                 aria-label="Account menu"
                 className={[
-                  "sb-menu absolute",
-                  "bottom-full left-[6px]",
-                  "z-50 mb-2 w-[264px]",
-                  "origin-bottom-left",
-                  "overflow-hidden",
-                  "rounded-[16px]",
-                  "border",
+                  "sb-menu absolute bottom-full left-0 z-50 mb-2 w-[264px]",
+                  "origin-bottom-left overflow-hidden rounded-2xl border",
                   t.menu,
                 ].join(" ")}
               >
-                {/* Account header */}
-                <div
-                  className="sb-item px-3.5 pb-3 pt-3.5"
-                  style={{ animationDelay: "30ms" }}
-                >
-                  <div className={["truncate text-[11px]", t.muted].join(" ")}>
+                {/* En-tête : qui + où j'en suis sur mon plan */}
+                <div className="px-3.5 pb-3 pt-3.5">
+                  <div className="truncate text-[14px] font-semibold">{account.name}</div>
+                  <div className={["truncate text-[12px]", t.muted].join(" ")}>
                     {account.email}
                   </div>
 
-                  <div className="mt-2.5 truncate text-[14px] font-semibold">
-                    {account.name}
-                  </div>
-
-                  <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
-                    {account.plan} · {account.channels} channels
+                  <div className="mt-3">
+                    <div className="flex items-baseline justify-between text-[12px]">
+                      <span className={t.muted}>{account.plan}</span>
+                      <span className="tabular-nums font-medium">
+                        {account.channels}/{PLAN.maxChannels} channels
+                      </span>
+                    </div>
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={PLAN.maxChannels}
+                      aria-valuenow={account.channels}
+                      aria-label="Channels used"
+                      className={["mt-1.5 h-1.5 overflow-hidden rounded-full", t.meter].join(" ")}
+                    >
+                      <div
+                        className={["h-full rounded-full transition-[width] duration-500", t.meterFill].join(" ")}
+                        style={{ width: `${usage}%` }}
+                      />
+                    </div>
                   </div>
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("pricing");
+                    }}
                     className={[
-                      "group mt-3 flex w-full",
-                      "select-none",
-                      "items-center justify-center",
-                      "gap-2 rounded-[10px]",
-                      "border px-3 py-2",
-                      "text-[12px] font-semibold",
-                      "transition-[background-color,transform]",
-                      "duration-150",
-                      "active:scale-[0.98]",
-                      "motion-reduce:transition-none",
+                      "group mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2",
+                      "text-[12px] font-semibold transition-[background-color,transform] duration-150",
+                      "active:scale-[0.98] motion-reduce:transition-none",
                       focus,
                       t.upgrade,
                     ].join(" ")}
                   >
-                    <BoltIcon
-                      className={[
-                        "h-4 w-4",
-                        "transition-transform duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                        "group-hover:-rotate-12",
-                        "group-hover:scale-110",
-                        "motion-reduce:transition-none",
-                      ].join(" ")}
-                    />
-                    Upgrade Plan
+                    <BoltIcon className="h-4 w-4 transition-transform duration-200 group-hover:-rotate-12" />
+                    Upgrade plan
                   </button>
                 </div>
 
-                {/* Menu groups */}
                 {menuGroups.map((group, groupIndex) => (
                   <div
                     key={group[0]?.label ?? groupIndex}
                     role="none"
-                    className={["border-t px-1.5 py-1.5", t.menuDivider].join(
-                      " "
-                    )}
+                    className={["border-t px-1.5 py-1.5", t.menuDivider].join(" ")}
                   >
                     {group.map((item) => {
                       const Icon = item.icon;
-                      const delay = 60 + menuItemIndex++ * 25;
                       const isLogout = item.action === "logout";
+                      menuItemIndex++;
 
                       return (
                         <button
@@ -2046,61 +1645,31 @@ export default function DashboardSidebar({
                           type="button"
                           role="menuitem"
                           disabled={isLogout && loggingOut}
-                          style={{ animationDelay: `${delay}ms` }}
                           onClick={() => {
                             if (isLogout) {
                               void handleLogout();
                               return;
                             }
-
                             setMenuOpen(false);
-
-                            if (item.route) {
-                              navigate(item.route);
-                            }
+                            if (item.route) navigate(item.route);
                           }}
                           className={[
-                            "sb-item group flex",
-                            "w-full cursor-pointer",
-                            "select-none",
-                            "items-center gap-3",
-                            "rounded-[10px]",
-                            "px-2.5 py-2",
-                            "text-left text-[12.5px]",
-                            "font-medium",
-                            "transition-[background-color,transform] duration-150",
-                            "active:scale-[0.98]",
-                            "motion-reduce:transition-none",
+                            "group flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2",
+                            "text-left text-[13px] font-medium",
+                            "transition-colors duration-150 motion-reduce:transition-none",
                             "disabled:cursor-wait disabled:opacity-60",
                             focus,
                             t.menuItem,
                           ].join(" ")}
                         >
-                          <Icon
-                            className={[
-                              "h-4 w-4 shrink-0",
-                              "transition-transform duration-200",
-                              "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                              "group-hover:scale-110",
-                              "motion-reduce:transition-none",
-                              t.menuIcon,
-                            ].join(" ")}
-                          />
-
+                          <Icon className={["h-4 w-4 shrink-0", t.menuIcon].join(" ")} />
                           <span className="flex-1 truncate">
-                            {isLogout && loggingOut
-                              ? "Logging out..."
-                              : item.label}
+                            {isLogout && loggingOut ? "Logging out…" : item.label}
                           </span>
-
                           {item.badge && (
                             <span
                               className={[
-                                "select-none",
-                                "rounded-full",
-                                "px-2 py-0.5",
-                                "text-[10px]",
-                                "font-semibold",
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -2115,7 +1684,7 @@ export default function DashboardSidebar({
               </div>
             )}
 
-            {/* Profile trigger */}
+            {/* Carte profil */}
             <button
               ref={triggerRef}
               type="button"
@@ -2124,17 +1693,11 @@ export default function DashboardSidebar({
               aria-controls="account-menu"
               aria-label="Open account menu"
               title={isCollapsed ? account.name : undefined}
-              onClick={() => setMenuOpen((value) => !value)}
+              onClick={() => setMenuOpen((v) => !v)}
               className={[
-                "group flex h-11 w-full",
-                "select-none",
-                "items-center gap-3",
-                "overflow-hidden",
-                "rounded-xl px-1.5",
-                "transition-[background-color,transform]",
-                "duration-200",
-                "active:scale-[0.97]",
-                "motion-reduce:transition-none",
+                "group flex h-12 w-full items-center gap-3 overflow-hidden rounded-xl px-2",
+                "transition-[background-color,transform] duration-150",
+                "active:scale-[0.98] motion-reduce:transition-none",
                 focus,
                 menuOpen ? t.rowOpen : t.row,
               ].join(" ")}
@@ -2145,29 +1708,14 @@ export default function DashboardSidebar({
                   src={account.avatarUrl}
                   alt="Profile"
                   draggable={false}
-                  className={[
-                    "h-8 w-8 shrink-0",
-                    "select-none",
-                    "rounded-full object-cover",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
-                  ].join(" ")}
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
                   onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
                 <span
                   className={[
-                    "flex h-8 w-8 shrink-0",
-                    "select-none",
-                    "items-center justify-center",
-                    "rounded-full",
-                    "text-[10px] font-semibold",
-                    "transition-transform duration-300",
-                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                    "group-hover:scale-105",
-                    "motion-reduce:transition-none",
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    "text-[11px] font-semibold",
                     t.avatar,
                   ].join(" ")}
                 >
@@ -2175,30 +1723,30 @@ export default function DashboardSidebar({
                 </span>
               )}
 
-              <span
-                className={[
-                  "min-w-0 flex-1",
-                  "select-none",
-                  "truncate text-left",
-                  "text-[13px] font-medium",
-                  t.title,
-                  labelClass,
-                ].join(" ")}
-              >
-                {account.name}
+              <span className={["min-w-0 flex-1 text-left", labelClass].join(" ")}>
+                <span className={["block truncate text-[13px] font-medium leading-4", t.title].join(" ")}>
+                  {account.name}
+                </span>
+                <span className={["block truncate text-[11px] leading-4", t.muted].join(" ")}>
+                  {account.plan}
+                </span>
               </span>
+
+              <ChevronDownIcon
+                className={[
+                  "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                  t.muted,
+                  labelClass,
+                  menuOpen ? "" : "rotate-180",
+                ].join(" ")}
+              />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* ConnectChannelModal fait lui-même son createPortal(document.body). */}
       {connectOpen && (
-        <ConnectChannelModal
-          {...channelConnectProps}
-          isDark={isDark}
-          onClose={closeConnect}
-        />
+        <ConnectChannelModal {...channelConnectProps} isDark={isDark} onClose={closeConnect} />
       )}
     </div>
   );
