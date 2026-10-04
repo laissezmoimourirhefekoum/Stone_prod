@@ -37,6 +37,8 @@ import ConnectChannelModal, {
   type ConnectChannelModalProps,
 } from "./ConnectChannelModal";
 
+/* Config + services des réseaux : la sidebar est autonome, elle gère
+   elle-même l'état des connexions (comme la page Channels). */
 import {
   CHANNELS,
   PLAN,
@@ -73,10 +75,16 @@ import {
    Types
 ============================================================================ */
 
-type IconProps = { className?: string };
+type IconProps = {
+  className?: string;
+};
+
 type IconComponent = (props: IconProps) => React.ReactElement;
 
-type NavChild = { label: string; route: string };
+type NavChild = {
+  label: string;
+  route: string;
+};
 
 type NavItem = {
   label: string;
@@ -86,7 +94,10 @@ type NavItem = {
   children?: NavChild[];
 };
 
-type NavSection = { label: string; items: NavItem[] };
+type NavSection = {
+  label: string;
+  items: NavItem[];
+};
 
 type MenuItem = {
   label: string;
@@ -122,7 +133,11 @@ type ThemeTokens = {
   ring: string;
 };
 
-type ToggleOrigin = { x: number; y: number };
+type ToggleOrigin = {
+  x: number;
+  y: number;
+};
+
 type ToggleThemeFn = (origin?: ToggleOrigin) => void;
 
 /** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
@@ -139,49 +154,87 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Motion — une seule animation : l'ouverture du menu compte
+   Keyframes + global UI guards
 ============================================================================ */
-
-const ACTIVE_BAR =
-  "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[2px] before:-translate-y-1/2 before:rounded-full before:bg-current";
 
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.sb-menu { animation: sbMenuIn 140ms ease-out both; }
+@keyframes sbItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sb-menu {
+  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.sb-item {
+  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
 
 #app-sidebar button,
 #app-sidebar [role="menuitem"],
+#app-sidebar [role="button"],
 #app-sidebar svg,
 #app-sidebar img {
   -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+#app-sidebar button::selection,
+#app-sidebar button *::selection,
+#app-sidebar svg::selection,
+#app-sidebar svg *::selection {
+  background: transparent;
+  color: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu { animation: none; }
+  .sb-menu,
+  .sb-item {
+    animation: none;
+  }
 }
 `;
 
 /* ============================================================================
-   Icons (trait fin, 1.6)
+   Icons
 ============================================================================ */
 
 function Svg({
   className = "h-4 w-4",
   children,
-}: IconProps & { children: ReactNode }) {
+}: IconProps & {
+  children: ReactNode;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={className}
+      className={["select-none", className].join(" ")}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -305,15 +358,27 @@ function LogoutIcon(props: IconProps) {
   );
 }
 
+function BoltIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
+    </Svg>
+  );
+}
+
 function ChevronIcon({
   className = "h-3.5 w-3.5",
   collapsed,
-}: IconProps & { collapsed: boolean }) {
+}: IconProps & {
+  collapsed: boolean;
+}) {
   return (
     <Svg
       className={[
         className,
-        "transition-transform duration-200 motion-reduce:transition-none",
+        "transition-transform duration-[380ms]",
+        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+        "motion-reduce:transition-none",
         collapsed ? "" : "rotate-180",
       ].join(" ")}
     >
@@ -329,12 +394,6 @@ function ChevronDownIcon(props: IconProps) {
     </Svg>
   );
 }
-
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
 
 /* ============================================================================
    Navigation data
@@ -383,6 +442,7 @@ const menuGroups: MenuItem[][] = [
 
 type NavItemViewProps = {
   item: NavItem;
+  index: number;
   currentRoute: string;
   isCollapsed: boolean;
   isOpen: boolean;
@@ -396,6 +456,7 @@ type NavItemViewProps = {
 
 function NavItemViewImpl({
   item,
+  index,
   currentRoute,
   isCollapsed,
   isOpen,
@@ -407,7 +468,12 @@ function NavItemViewImpl({
   onExpandAndOpen,
 }: NavItemViewProps) {
   const Icon = item.icon;
+
   const hasChildren = Boolean(item.children?.length);
+
+  const labelStyle = {
+    transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
+  };
 
   const isActive =
     (item.route !== undefined && item.route === currentRoute) ||
@@ -415,7 +481,9 @@ function NavItemViewImpl({
 
   const onClick = () => {
     if (!hasChildren) {
-      if (item.route) onNavigate(item.route);
+      if (item.route) {
+        onNavigate(item.route);
+      }
       return;
     }
 
@@ -437,47 +505,98 @@ function NavItemViewImpl({
         title={isCollapsed ? item.label : undefined}
         onClick={onClick}
         className={[
-          "relative flex h-9 w-full items-center gap-3 overflow-hidden rounded-md px-3",
+          "group relative flex h-10 w-full",
+          "select-none",
+          "items-center gap-3 overflow-hidden",
+          "rounded-xl px-3",
           "text-[13px] font-medium",
-          "transition-colors duration-150 motion-reduce:transition-none",
+          "transition-[background-color,color,transform]",
+          "duration-200",
+          "active:scale-[0.97]",
+          "motion-reduce:transition-none",
+          "motion-reduce:active:scale-100",
           focus,
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
-        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <span
+          className={[
+            "relative flex shrink-0",
+            "select-none",
+            "transition-transform duration-200",
+            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+            "group-hover:scale-110",
+            "motion-reduce:transition-none",
+            "motion-reduce:group-hover:scale-100",
+          ].join(" ")}
+        >
+          <Icon className="h-5 w-5" />
 
-        <span className={["flex-1 text-left", labelClass].join(" ")}>
+          {item.badge && (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute -right-0.5 -top-0.5",
+                "h-2 w-2 rounded-full",
+                "select-none",
+                "bg-[#ff5ec4] ring-2",
+                t.dotRing,
+                isCollapsed
+                  ? "opacity-100 delay-150 duration-200"
+                  : "opacity-0 duration-100",
+              ].join(" ")}
+            />
+          )}
+        </span>
+
+        <span
+          className={["flex-1 select-none text-left", labelClass].join(" ")}
+          style={labelStyle}
+        >
           {item.label}
         </span>
 
         {item.badge && (
           <span
+            style={labelStyle}
             className={[
-              "rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+              "select-none",
+              "rounded-md px-1.5 py-0.5",
+              "text-[11px] font-medium",
               t.count,
               labelClass,
             ].join(" ")}
           >
-            {item.badge}
+            <span aria-hidden="true">{item.badge}</span>
+            <span className="sr-only">{item.badge} en attente</span>
           </span>
         )}
 
         {hasChildren && (
-          <ChevronDownIcon
-            className={[
-              "h-4 w-4 shrink-0 transition-transform duration-200",
-              "motion-reduce:transition-none",
-              labelClass,
-              isOpen ? "rotate-180" : "",
-            ].join(" ")}
-          />
+          <span
+            className={["flex shrink-0 select-none", labelClass].join(" ")}
+            style={labelStyle}
+          >
+            <ChevronDownIcon
+              className={[
+                "h-4 w-4",
+                "transition-transform duration-300",
+                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "motion-reduce:transition-none",
+                isOpen ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </span>
         )}
       </button>
 
       {hasChildren && (
         <div
           className={[
-            "grid transition-[grid-template-rows] duration-200",
+            "grid",
+            "transition-[grid-template-rows]",
+            "duration-300",
+            "ease-[cubic-bezier(0.4,0,0.2,1)]",
             "motion-reduce:transition-none",
             isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           ].join(" ")}
@@ -485,11 +604,13 @@ function NavItemViewImpl({
           <div className="overflow-hidden">
             <div
               className={[
-                "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                "ml-[22px] mt-1 flex",
+                "flex-col gap-0.5",
+                "border-l pl-[13px]",
                 t.rail,
               ].join(" ")}
             >
-              {item.children!.map((child) => {
+              {item.children!.map((child, childIndex) => {
                 const childActive = child.route === currentRoute;
 
                 return (
@@ -499,10 +620,26 @@ function NavItemViewImpl({
                     tabIndex={isOpen ? 0 : -1}
                     aria-current={childActive ? "page" : undefined}
                     onClick={() => onNavigate(child.route)}
+                    style={{
+                      transitionDelay: isOpen
+                        ? `${80 + childIndex * 45}ms`
+                        : "0ms",
+                    }}
                     className={[
-                      "flex h-8 w-full items-center whitespace-nowrap rounded-md px-2",
-                      "text-left text-[13px] font-medium",
-                      "transition-colors duration-150 motion-reduce:transition-none",
+                      "flex h-9 w-full",
+                      "select-none",
+                      "items-center",
+                      "whitespace-nowrap",
+                      "rounded-lg px-2",
+                      "text-left text-[13px]",
+                      "font-medium",
+                      "transition-[background-color,color,opacity,transform]",
+                      "duration-300",
+                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      "motion-reduce:transition-none",
+                      isOpen
+                        ? "translate-x-0 opacity-100"
+                        : "-translate-x-2 opacity-0",
                       focus,
                       childActive ? t.subActive : t.sub,
                     ].join(" ")}
@@ -588,16 +725,54 @@ function getHashChannel(): string | null {
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
 
+const PublishIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
+  </Svg>
+);
+
+const CommunityIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
+    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
+  </Svg>
+);
+
+const InsightsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+  </Svg>
+);
+
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
 const CHANNEL_LINKS: {
   label: string;
   route: string;
+  icon: IconComponent;
   badge?: string;
   /** Le lien porte le canal : /#/<route>?channel=<key> */
   perChannel?: boolean;
 }[] = [
-  { label: "Publish", route: "schedule" },
-  { label: "Community", route: "community", perChannel: true },
-  { label: "Insights", route: "insights", badge: "New", perChannel: true },
+  { label: "Publish", route: "schedule", icon: PublishIcon },
+  {
+    label: "Community",
+    route: "community",
+    icon: CommunityIcon,
+    perChannel: true,
+  },
+  {
+    label: "Insights",
+    route: "insights",
+    icon: InsightsIcon,
+    badge: "New",
+    perChannel: true,
+  },
 ];
 
 /** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
@@ -622,7 +797,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-6 w-6 shrink-0">
+    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -630,10 +805,10 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-full object-cover"
+          className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-500/30 text-[10px] font-semibold">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -681,40 +856,46 @@ function SidebarChannels({
   const openKey = (key: string) =>
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
+  const headerButton = [
+    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
+    "transition-colors duration-150 motion-reduce:transition-none",
+    t.menuIcon,
+    focus,
+    t.row,
+  ].join(" ");
+
   return (
     <div>
-      {/* En-tête : label + ajout */}
       <div
         aria-hidden={isCollapsed}
         className={[
           "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
-          "transition-[height,margin,opacity] duration-200 motion-reduce:transition-none",
-          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1 h-6 opacity-100",
+          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
         ].join(" ")}
       >
-        <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+        <span
+          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
+        >
           Channels
         </span>
 
-        <button
-          type="button"
-          tabIndex={isCollapsed ? -1 : 0}
-          aria-label="Connect a channel"
-          title="Connect a channel"
-          onClick={onConnect}
-          className={[
-            "flex h-6 w-6 items-center justify-center rounded-md",
-            "transition-colors duration-150 motion-reduce:transition-none",
-            t.menuIcon,
-            t.row,
-            focus,
-          ].join(" ")}
-        >
-          <PlusIcon className="h-4 w-4" />
-        </button>
+        <span className="flex items-center gap-0.5">
+          <button
+            type="button"
+            tabIndex={isCollapsed ? -1 : 0}
+            aria-label="Connect a channel"
+            title="Connect a channel"
+            onClick={onConnect}
+            className={headerButton}
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </span>
       </div>
 
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
@@ -737,9 +918,10 @@ function SidebarChannels({
                   }
                 }}
                 className={[
-                  "flex h-9 w-full items-center gap-3 overflow-hidden rounded-lg px-2.5",
-                  "text-[13px] font-medium",
-                  "transition-colors duration-150 motion-reduce:transition-none",
+                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
+                  "rounded-xl px-2.5 text-[13px] font-medium",
+                  "transition-[background-color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none",
                   focus,
                   t.navIdle,
                 ].join(" ")}
@@ -757,20 +939,24 @@ function SidebarChannels({
                 >
                   {label.replace(/^@/, "")}
                 </span>
-                <ChevronDownIcon
-                  className={[
-                    "h-3.5 w-3.5 shrink-0 opacity-50",
-                    "transition-transform duration-200 motion-reduce:transition-none",
-                    labelClass,
-                    isOpen ? "rotate-0" : "-rotate-90",
-                  ].join(" ")}
-                />
+                <span className={["flex shrink-0", labelClass].join(" ")}>
+                  <ChevronDownIcon
+                    className={[
+                      "h-3.5 w-3.5 opacity-50",
+                      "transition-[transform,opacity] duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:opacity-100",
+                      "motion-reduce:transition-none",
+                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
+                    ].join(" ")}
+                  />
+                </span>
               </button>
 
               <div
                 className={[
-                  "grid transition-[grid-template-rows] duration-200",
-                  "motion-reduce:transition-none",
+                  "grid transition-[grid-template-rows] duration-300",
+                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
                   isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
                 ].join(" ")}
               >
@@ -781,7 +967,9 @@ function SidebarChannels({
                       t.rail,
                     ].join(" ")}
                   >
-                    {CHANNEL_LINKS.map((link) => {
+                    {CHANNEL_LINKS.map((link, i) => {
+                      const Icon = link.icon;
+
                       const target = link.perChannel
                         ? `${link.route}?channel=${encodeURIComponent(
                             channel.key
@@ -803,20 +991,29 @@ function SidebarChannels({
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
                           onClick={() => onNavigate(target)}
+                          style={{
+                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
+                          }}
                           className={[
-                            "flex h-8 w-full items-center gap-2 whitespace-nowrap rounded-md px-2",
-                            "text-left text-[13px] font-medium",
-                            "transition-colors duration-150 motion-reduce:transition-none",
+                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[13px] font-medium",
+                            "transition-[background-color,color,opacity,transform] duration-300",
+                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+                            isOpen
+                              ? "translate-x-0 opacity-100"
+                              : "-translate-x-2 opacity-0",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
-                              className={["text-[11px] font-medium", t.badge].join(
-                                " "
-                              )}
+                              className={[
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                t.badge,
+                              ].join(" ")}
                             >
                               {link.badge}
                             </span>
@@ -837,8 +1034,8 @@ function SidebarChannels({
           type="button"
           onClick={onConnect}
           className={[
-            "flex h-9 w-full items-center gap-3 whitespace-nowrap rounded-lg",
-            "border border-dashed px-3 text-[13px] font-medium",
+            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
+            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
@@ -857,13 +1054,14 @@ function SidebarChannels({
           title="Connect a channel"
           onClick={onConnect}
           className={[
-            "mt-0.5 flex h-9 w-full items-center gap-3 rounded-lg px-3",
-            "transition-colors duration-150 motion-reduce:transition-none",
+            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
+            "motion-reduce:transition-none",
             focus,
             t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-[18px] w-[18px] shrink-0" />
+          <PlusIcon className="h-5 w-5 shrink-0" />
         </button>
       )}
     </div>
@@ -871,30 +1069,11 @@ function SidebarChannels({
 }
 
 /* ============================================================================
-   Sidebar memory (l'état réduit/ouvert est conservé entre les visites)
+   Sidebar memory
 ============================================================================ */
 
-const COLLAPSED_STORAGE_KEY = "stone:sidebar-collapsed";
-
-function readStoredCollapsed(): boolean {
-  try {
-    const stored = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
-    return stored === null ? true : stored === "1";
-  } catch {
-    return true;
-  }
-}
-
-function storeCollapsed(value: boolean) {
-  try {
-    window.localStorage.setItem(COLLAPSED_STORAGE_KEY, value ? "1" : "0");
-  } catch {
-    /* stockage indisponible : on ignore */
-  }
-}
-
 const sidebarMemory = {
-  collapsed: typeof window === "undefined" ? true : readStoredCollapsed(),
+  collapsed: true,
   openGroup: null as string | null,
   entered: false,
 };
@@ -910,7 +1089,6 @@ function setSidebarCollapsed(value: boolean) {
   if (sidebarMemory.collapsed === value) return;
 
   sidebarMemory.collapsed = value;
-  storeCollapsed(value);
   sidebarListeners.forEach((listener) => listener());
 }
 
@@ -1201,7 +1379,9 @@ export default function DashboardSidebar({
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (sidebarMemory.entered) return;
+    if (sidebarMemory.entered) {
+      return;
+    }
 
     const id = requestAnimationFrame(() => {
       sidebarMemory.entered = true;
@@ -1225,7 +1405,9 @@ export default function DashboardSidebar({
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen) {
+      return;
+    }
 
     const onPointerDown = (event: MouseEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) {
@@ -1250,68 +1432,68 @@ export default function DashboardSidebar({
   }, [menuOpen]);
 
   /* --------------------------------------------------------------------------
-     Theme tokens — neutres, sans ombre portée, hiérarchie par la couleur du texte
+     Theme tokens
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
-            aside: "border-white/[0.07] bg-[#09090b]",
+            aside:
+              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
             brand: "text-white",
-            divider: "bg-white/[0.08]",
-            navActive: `text-white ${ACTIVE_BAR}`,
-            navIdle:
-              "text-neutral-500 hover:text-white",
+            divider: "bg-white/10",
+            navActive: "bg-white/15 text-white",
+            navIdle: "text-white hover:bg-white/10",
             handle:
-              "border-white/[0.1] bg-[#09090b] text-neutral-400 hover:text-white",
-            count: "bg-white/[0.08] text-neutral-300",
-            dotRing: "ring-[#09090b]",
-            rail: "border-white/[0.07]",
-            sub: "text-neutral-500 hover:text-white",
-            subActive: "font-semibold text-white",
-            row: "hover:bg-white/[0.06]",
-            rowOpen: "bg-white/[0.06]",
-            avatar: "bg-white/[0.12] text-white",
-            title: "text-neutral-200",
-            muted: "text-neutral-500",
-            menu: "border-white/[0.08] bg-[#131314] text-neutral-100",
-            menuDivider: "border-white/[0.08]",
+              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
+            count: "bg-white/10 text-[#d7d7d2]",
+            dotRing: "ring-[#050506]",
+            rail: "border-white/10",
+            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
+            subActive: "bg-white/[0.08] text-white",
+            row: "hover:bg-white/10",
+            rowOpen: "bg-white/10",
+            avatar: "bg-[#f0f0ed] text-[#111111]",
+            title: "text-[#f3f3ef]",
+            muted: "text-[#99a2a2]",
+            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
+            menuDivider: "border-white/10",
             menuItem:
-              "text-neutral-300 hover:bg-white/[0.06] hover:text-white focus-visible:bg-white/[0.06]",
-            menuIcon: "text-neutral-500",
+              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
+            menuIcon: "text-[#a9aeae]",
             upgrade:
-              "border-white/[0.1] text-neutral-200 hover:bg-white/[0.06]",
-            badge: "text-neutral-400",
+              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
+            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
             ring: "focus-visible:ring-white/30",
           }
         : {
-            aside: "border-black/[0.07] bg-[#fafafa]",
-            brand: "text-neutral-900",
-            divider: "bg-black/[0.06]",
-            navActive: `text-neutral-900 ${ACTIVE_BAR}`,
-            navIdle:
-              "text-neutral-500 hover:text-neutral-900",
+            aside:
+              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
+            brand: "text-[#151515]",
+            divider: "bg-black/[0.07]",
+            navActive: "bg-black/[0.06] text-[#151515]",
+            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
             handle:
-              "border-black/[0.1] bg-[#fafafa] text-neutral-500 hover:text-neutral-900",
-            count: "bg-black/[0.05] text-neutral-600",
-            dotRing: "ring-[#fafafa]",
+              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
+            count: "bg-black/[0.05] text-[#3f3f3d]",
+            dotRing: "ring-white",
             rail: "border-black/[0.08]",
-            sub: "text-neutral-500 hover:text-neutral-900",
-            subActive: "font-semibold text-neutral-900",
+            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
+            subActive: "bg-black/[0.06] text-[#151515]",
             row: "hover:bg-black/[0.04]",
             rowOpen: "bg-black/[0.04]",
-            avatar: "bg-neutral-900 text-white",
-            title: "text-neutral-800",
-            muted: "text-neutral-400",
-            menu: "border-black/[0.08] bg-white text-neutral-900 shadow-[0_8px_24px_rgba(0,0,0,0.06)]",
-            menuDivider: "border-black/[0.06]",
+            avatar: "bg-[#1d1d1d] text-white",
+            title: "text-[#1b1b1a]",
+            muted: "text-[#71706d]",
+            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
+            menuDivider: "border-black/[0.07]",
             menuItem:
-              "text-neutral-700 hover:bg-black/[0.04] hover:text-neutral-900 focus-visible:bg-black/[0.04]",
-            menuIcon: "text-neutral-400",
+              "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
+            menuIcon: "text-[#6b6a67]",
             upgrade:
-              "border-black/[0.1] text-neutral-800 hover:bg-black/[0.04]",
-            badge: "text-neutral-500",
+              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
+            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
             ring: "focus-visible:ring-black/20",
           },
     [isDark]
@@ -1324,14 +1506,20 @@ export default function DashboardSidebar({
   ].join(" ");
 
   /* --------------------------------------------------------------------------
-     Label animation (simple fondu, sans décalage)
+     Label animation
   -------------------------------------------------------------------------- */
 
   const labelClass = useMemo(
     () =>
       [
-        "whitespace-nowrap transition-opacity motion-reduce:transition-none",
-        isCollapsed ? "opacity-0 duration-100" : "opacity-100 duration-200",
+        "select-none",
+        "whitespace-nowrap",
+        "transition-[opacity,transform]",
+        "ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "motion-reduce:transition-none",
+        isCollapsed
+          ? "-translate-x-1 opacity-0 duration-150"
+          : "translate-x-0 opacity-100 duration-300",
       ].join(" "),
     [isCollapsed]
   );
@@ -1533,7 +1721,9 @@ export default function DashboardSidebar({
   -------------------------------------------------------------------------- */
 
   const handleLogout = useCallback(async () => {
-    if (loggingOut) return;
+    if (loggingOut) {
+      return;
+    }
 
     setMenuOpen(false);
     setLoggingOut(true);
@@ -1551,6 +1741,9 @@ export default function DashboardSidebar({
   /* --------------------------------------------------------------------------
      Account data
   -------------------------------------------------------------------------- */
+
+  let itemIndex = 0;
+  let menuItemIndex = 0;
 
   const account = userProfile
     ? {
@@ -1597,9 +1790,14 @@ export default function DashboardSidebar({
   return (
     <div
       className={[
-        "fixed inset-y-0 left-0 z-20",
-        "transition-opacity duration-300 motion-reduce:transition-none",
-        hasMounted ? "opacity-100" : "opacity-0",
+        "fixed inset-y-8 left-4 z-20",
+        "transition-[opacity,transform]",
+        "duration-500",
+        "ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "motion-reduce:transition-none",
+        hasMounted
+          ? "translate-x-0 opacity-100"
+          : "-translate-x-6 opacity-0",
       ].join(" ")}
     >
       <style>{SIDEBAR_KEYFRAMES}</style>
@@ -1607,8 +1805,14 @@ export default function DashboardSidebar({
       <aside
         id="app-sidebar"
         className={[
-          "relative flex h-full flex-col overflow-visible border-r px-3 py-6",
-          "transition-[width] duration-300 ease-out motion-reduce:transition-none",
+          "relative flex h-full flex-col",
+          "overflow-visible rounded-[36px]",
+          "border px-3 py-5",
+          "transition-[width,box-shadow]",
+          "duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+          "will-change-[width]",
           t.aside,
           isCollapsed ? "w-[68px]" : "w-[200px]",
         ].join(" ")}
@@ -1622,9 +1826,18 @@ export default function DashboardSidebar({
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={toggleCollapsed}
           className={[
-            "absolute -right-3 top-[44%] z-10 flex h-6 w-6 items-center justify-center",
+            "absolute -right-3 top-[44%]",
+            "z-10 flex h-6 w-6",
+            "select-none",
+            "items-center justify-center",
             "rounded-full border",
-            "transition-colors duration-150 motion-reduce:transition-none",
+            "backdrop-blur",
+            "transition-[background-color,transform]",
+            "duration-300",
+            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+            "hover:scale-110",
+            "active:scale-90",
+            "motion-reduce:transition-none",
             focus,
             t.handle,
           ].join(" ")}
@@ -1635,7 +1848,9 @@ export default function DashboardSidebar({
         {/* Logo */}
         <div
           className={[
-            "flex items-center gap-2 overflow-hidden px-1.5",
+            "flex items-center gap-2",
+            "select-none",
+            "overflow-hidden px-1.5",
             t.brand,
           ].join(" ")}
         >
@@ -1643,12 +1858,14 @@ export default function DashboardSidebar({
             src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
             alt="Stone logo"
             draggable={false}
-            className="h-8 w-7 shrink-0 object-contain"
+            className="h-9 w-8 shrink-0 select-none object-contain"
           />
 
           <span
             className={[
-              "text-[18px] font-semibold leading-none tracking-tight",
+              "select-none",
+              "text-[20px] font-semibold",
+              "leading-none tracking-tight",
               labelClass,
             ].join(" ")}
           >
@@ -1659,29 +1876,44 @@ export default function DashboardSidebar({
         {/* Navigation */}
         <nav
           className={[
-            "-mx-1 mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-1",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "-mx-1 mt-5 flex min-h-0 flex-1",
+            "flex-col overflow-y-auto",
+            "overflow-x-hidden px-1",
+            "[scrollbar-width:none]",
+            "[&::-webkit-scrollbar]:hidden",
           ].join(" ")}
           aria-label="Main"
         >
           {navSections.map((section, sectionIndex) => (
-            <div key={section.label} className={sectionIndex === 0 ? "" : "mt-3"}>
+            <div
+              key={section.label}
+              className={sectionIndex === 0 ? "" : "mt-3"}
+            >
               {sectionIndex > 0 && (
                 <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
               )}
 
               <div
                 className={[
-                  "overflow-hidden whitespace-nowrap px-3 text-[12px] font-medium leading-4",
-                  "transition-[height,margin,opacity] duration-200 motion-reduce:transition-none",
+                  "select-none",
+                  "overflow-hidden",
+                  "whitespace-nowrap",
+                  "px-3 text-[12px]",
+                  "font-medium leading-4",
+                  "transition-[height,margin,opacity,transform]",
+                  "duration-300",
+                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  "motion-reduce:transition-none",
                   t.muted,
-                  isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1 h-4 opacity-100",
+                  isCollapsed
+                    ? "mb-0 h-0 -translate-x-1 opacity-0"
+                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-100",
                 ].join(" ")}
               >
                 {section.label}
               </div>
 
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 {section.items.map((item) => {
                   const hasChildren = Boolean(item.children?.length);
 
@@ -1691,6 +1923,7 @@ export default function DashboardSidebar({
                   return (
                     <NavItemView
                       key={item.label}
+                      index={itemIndex++}
                       item={item}
                       currentRoute={currentRoute}
                       isCollapsed={isCollapsed}
@@ -1726,45 +1959,70 @@ export default function DashboardSidebar({
         </nav>
 
         {/* Account */}
-        <div ref={profileRef} className="mt-3">
+        <div ref={profileRef} className="mt-3 flex flex-col gap-3">
           <div className="relative">
+            {/* Account menu */}
             {menuOpen && (
               <div
                 id="account-menu"
                 role="menu"
                 aria-label="Account menu"
                 className={[
-                  "sb-menu absolute bottom-full left-[6px] z-50 mb-2 w-[248px]",
-                  "origin-bottom-left overflow-hidden rounded-xl border",
+                  "sb-menu absolute",
+                  "bottom-full left-[6px]",
+                  "z-50 mb-2 w-[264px]",
+                  "origin-bottom-left",
+                  "overflow-hidden",
+                  "rounded-[16px]",
+                  "border",
                   t.menu,
                 ].join(" ")}
               >
                 {/* Account header */}
-                <div className="px-3.5 pb-3 pt-3.5">
-                  <div className="truncate text-[14px] font-semibold">
-                    {account.name}
-                  </div>
-
-                  <div className={["truncate text-[12px]", t.muted].join(" ")}>
+                <div
+                  className="sb-item px-3.5 pb-3 pt-3.5"
+                  style={{ animationDelay: "30ms" }}
+                >
+                  <div className={["truncate text-[11px]", t.muted].join(" ")}>
                     {account.email}
                   </div>
 
-                  <div className={["mt-2 text-[12px]", t.muted].join(" ")}>
-                    {account.plan}, {account.channels}{" "}
-                    {account.channels === 1 ? "channel" : "channels"}
+                  <div className="mt-2.5 truncate text-[14px] font-semibold">
+                    {account.name}
+                  </div>
+
+                  <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
+                    {account.plan} · {account.channels} channels
                   </div>
 
                   <button
                     type="button"
                     className={[
-                      "mt-3 flex w-full items-center justify-center rounded-lg border px-3 py-1.5",
-                      "text-[12px] font-medium",
-                      "transition-colors duration-150 motion-reduce:transition-none",
+                      "group mt-3 flex w-full",
+                      "select-none",
+                      "items-center justify-center",
+                      "gap-2 rounded-[10px]",
+                      "border px-3 py-2",
+                      "text-[12px] font-semibold",
+                      "transition-[background-color,transform]",
+                      "duration-150",
+                      "active:scale-[0.98]",
+                      "motion-reduce:transition-none",
                       focus,
                       t.upgrade,
                     ].join(" ")}
                   >
-                    Upgrade plan
+                    <BoltIcon
+                      className={[
+                        "h-4 w-4",
+                        "transition-transform duration-300",
+                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                        "group-hover:-rotate-12",
+                        "group-hover:scale-110",
+                        "motion-reduce:transition-none",
+                      ].join(" ")}
+                    />
+                    Upgrade Plan
                   </button>
                 </div>
 
@@ -1773,10 +2031,13 @@ export default function DashboardSidebar({
                   <div
                     key={group[0]?.label ?? groupIndex}
                     role="none"
-                    className={["border-t p-1.5", t.menuDivider].join(" ")}
+                    className={["border-t px-1.5 py-1.5", t.menuDivider].join(
+                      " "
+                    )}
                   >
                     {group.map((item) => {
                       const Icon = item.icon;
+                      const delay = 60 + menuItemIndex++ * 25;
                       const isLogout = item.action === "logout";
 
                       return (
@@ -1785,6 +2046,7 @@ export default function DashboardSidebar({
                           type="button"
                           role="menuitem"
                           disabled={isLogout && loggingOut}
+                          style={{ animationDelay: `${delay}ms` }}
                           onClick={() => {
                             if (isLogout) {
                               void handleLogout();
@@ -1793,19 +2055,36 @@ export default function DashboardSidebar({
 
                             setMenuOpen(false);
 
-                            if (item.route) navigate(item.route);
+                            if (item.route) {
+                              navigate(item.route);
+                            }
                           }}
                           className={[
-                            "flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5",
-                            "text-left text-[13px] font-medium",
-                            "transition-colors duration-150 motion-reduce:transition-none",
+                            "sb-item group flex",
+                            "w-full cursor-pointer",
+                            "select-none",
+                            "items-center gap-3",
+                            "rounded-[10px]",
+                            "px-2.5 py-2",
+                            "text-left text-[12.5px]",
+                            "font-medium",
+                            "transition-[background-color,transform] duration-150",
+                            "active:scale-[0.98]",
+                            "motion-reduce:transition-none",
                             "disabled:cursor-wait disabled:opacity-60",
                             focus,
                             t.menuItem,
                           ].join(" ")}
                         >
                           <Icon
-                            className={["h-4 w-4 shrink-0", t.menuIcon].join(" ")}
+                            className={[
+                              "h-4 w-4 shrink-0",
+                              "transition-transform duration-200",
+                              "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                              "group-hover:scale-110",
+                              "motion-reduce:transition-none",
+                              t.menuIcon,
+                            ].join(" ")}
                           />
 
                           <span className="flex-1 truncate">
@@ -1816,9 +2095,14 @@ export default function DashboardSidebar({
 
                           {item.badge && (
                             <span
-                              className={["text-[11px] font-medium", t.badge].join(
-                                " "
-                              )}
+                              className={[
+                                "select-none",
+                                "rounded-full",
+                                "px-2 py-0.5",
+                                "text-[10px]",
+                                "font-semibold",
+                                t.badge,
+                              ].join(" ")}
                             >
                               {item.badge}
                             </span>
@@ -1842,8 +2126,15 @@ export default function DashboardSidebar({
               title={isCollapsed ? account.name : undefined}
               onClick={() => setMenuOpen((value) => !value)}
               className={[
-                "flex h-11 w-full items-center gap-3 overflow-hidden rounded-lg px-1.5",
-                "transition-colors duration-150 motion-reduce:transition-none",
+                "group flex h-11 w-full",
+                "select-none",
+                "items-center gap-3",
+                "overflow-hidden",
+                "rounded-xl px-1.5",
+                "transition-[background-color,transform]",
+                "duration-200",
+                "active:scale-[0.97]",
+                "motion-reduce:transition-none",
                 focus,
                 menuOpen ? t.rowOpen : t.row,
               ].join(" ")}
@@ -1854,14 +2145,29 @@ export default function DashboardSidebar({
                   src={account.avatarUrl}
                   alt="Profile"
                   draggable={false}
-                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  className={[
+                    "h-8 w-8 shrink-0",
+                    "select-none",
+                    "rounded-full object-cover",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
+                  ].join(" ")}
                   onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
                 <span
                   className={[
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    "flex h-8 w-8 shrink-0",
+                    "select-none",
+                    "items-center justify-center",
+                    "rounded-full",
                     "text-[10px] font-semibold",
+                    "transition-transform duration-300",
+                    "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                    "group-hover:scale-105",
+                    "motion-reduce:transition-none",
                     t.avatar,
                   ].join(" ")}
                 >
@@ -1871,7 +2177,10 @@ export default function DashboardSidebar({
 
               <span
                 className={[
-                  "min-w-0 flex-1 truncate text-left text-[13px] font-medium",
+                  "min-w-0 flex-1",
+                  "select-none",
+                  "truncate text-left",
+                  "text-[13px] font-medium",
                   t.title,
                   labelClass,
                 ].join(" ")}
