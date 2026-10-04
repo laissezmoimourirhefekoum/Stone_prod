@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿
+import { useEffect, useMemo, useState } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
@@ -386,7 +387,7 @@ function Streak({ isDark }: { isDark: boolean }) {
       {/* Background gradient */}
       <div
         className={[
-          "pointer-events-none absolute inset-0 opacity-100",
+          "pointer-events-none absolute inset-0",
           isDark
             ? "bg-[radial-gradient(circle_at_100%_0%,rgba(255,255,255,0.09),transparent_45%),linear-gradient(135deg,#0b0b0c_0%,#171719_48%,#303033_100%)]"
             : "bg-[radial-gradient(circle_at_100%_0%,rgba(0,0,0,0.08),transparent_45%),linear-gradient(135deg,#ffffff_0%,#f1f1f1_48%,#d4d4d4_100%)]",
@@ -419,23 +420,26 @@ function Streak({ isDark }: { isDark: boolean }) {
                 Streak
               </p>
 
-              <span
+              <button
+                type="button"
                 className={[
-                  "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
+                  "text-[9px] font-medium transition-colors",
                   isDark
-                    ? "border-white/10 bg-white/[0.06] text-neutral-400"
-                    : "border-black/10 bg-white/50 text-neutral-500",
+                    ? "text-neutral-500 hover:text-white"
+                    : "text-neutral-500 hover:text-black",
                 ].join(" ")}
               >
-                7 day goal
-              </span>
+                No goals yet · Set goals
+              </button>
             </div>
 
             <div className="mt-1 flex items-end gap-1.5">
               <span
                 className={[
                   "text-[30px] font-bold leading-none tracking-[-0.06em]",
-                  isDark ? "text-white" : "text-neutral-950",
+                  isDark
+                    ? "text-white"
+                    : "text-neutral-950",
                 ].join(" ")}
               >
                 {streak}
@@ -509,7 +513,9 @@ function Streak({ isDark }: { isDark: boolean }) {
                   ? "bg-gradient-to-r from-white/30 via-white/70 to-white"
                   : "bg-gradient-to-r from-neutral-700 via-neutral-900 to-black",
               ].join(" ")}
-              style={{ width: `${progress}%` }}
+              style={{
+                width: `${progress}%`,
+              }}
             />
           </div>
         </div>
@@ -557,7 +563,9 @@ function Streak({ isDark }: { isDark: boolean }) {
                   ].join(" ")}
                 >
                   {completed ? (
-                    <span className="text-[8px] font-bold">✓</span>
+                    <span className="text-[8px] font-bold">
+                      ✓
+                    </span>
                   ) : (
                     <span
                       className={[
@@ -575,7 +583,9 @@ function Streak({ isDark }: { isDark: boolean }) {
                     <span
                       className={[
                         "absolute -bottom-0.5 h-1 w-1 rounded-full",
-                        isDark ? "bg-white" : "bg-black",
+                        isDark
+                          ? "bg-white"
+                          : "bg-black",
                       ].join(" ")}
                     />
                   )}
@@ -612,9 +622,11 @@ function ChannelAvatar({
     channel.handle || channel.name || "Channel";
 
   const initial =
-    label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+    label.replace(/^@/, "").charAt(0).toUpperCase() ||
+    "?";
 
   const networkId = getNetworkId(channel);
+
   const NetworkIcon = networkId
     ? NETWORK_ICONS[networkId]
     : null;
@@ -622,7 +634,9 @@ function ChannelAvatar({
   return (
     <div
       className="relative h-9 w-9 shrink-0"
-      style={{ marginLeft: overlap ? -8 : 0 }}
+      style={{
+        marginLeft: overlap ? -8 : 0,
+      }}
       title={label}
     >
       {channel.avatarUrl && !failed ? (
@@ -779,7 +793,10 @@ function Channels({
             : "text-neutral-900 hover:bg-neutral-100",
         ].join(" ")}
       >
-        {channels.length === 0 ? "Connect" : "Manage"}
+        {channels.length === 0
+          ? "Connect"
+          : "Manage"}
+
         <ArrowUpRight className="h-3 w-3" />
       </button>
     </div>
@@ -1226,7 +1243,6 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* CONTENT */}
       <div
         className={[
           "h-full overflow-y-auto overflow-x-hidden",
@@ -1246,9 +1262,7 @@ export default function Home() {
             "pb-[120px] pt-[clamp(18px,3vw,30px)]",
           ].join(" ")}
         >
-          {/* ==================================================
-              HEADER
-          ================================================== */}
+          {/* HEADER */}
 
           <header className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1282,17 +1296,13 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <ClockDisplay
-                isDark={isDark}
-                now={now}
-              />
-            </div>
+            <ClockDisplay
+              isDark={isDark}
+              now={now}
+            />
           </header>
 
-          {/* ==================================================
-              OVERVIEW
-          ================================================== */}
+          {/* OVERVIEW */}
 
           <section className="mt-7 shrink-0">
             <div className="mb-3">
@@ -1320,7 +1330,6 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
-              {/* STATS */}
               <div
                 className={[
                   "grid grid-cols-1 gap-3 rounded-2xl border p-4",
@@ -1359,14 +1368,11 @@ export default function Home() {
                 />
               </div>
 
-              {/* STREAK */}
               <Streak isDark={isDark} />
             </div>
           </section>
 
-          {/* ==================================================
-              CHANNELS
-          ================================================== */}
+          {/* CHANNELS */}
 
           <section className="mt-5 shrink-0">
             <div className="mb-3 flex items-center justify-between">
@@ -1418,9 +1424,7 @@ export default function Home() {
             />
           </section>
 
-          {/* ==================================================
-              COMMENTS + UP NEXT
-          ================================================== */}
+          {/* COMMENTS + UP NEXT */}
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Panel
@@ -1457,9 +1461,7 @@ export default function Home() {
             />
           </div>
 
-          {/* ==================================================
-              BLOG
-          ================================================== */}
+          {/* BLOG */}
 
           <div className="mt-8">
             <BlogSection
@@ -1469,9 +1471,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======================================================
-          FOLDER
-      ====================================================== */}
+      {/* FOLDER */}
 
       <Folder
         isOpen={isFolderOpen}
@@ -1482,9 +1482,7 @@ export default function Home() {
         offsetLeft={sidebarOffset}
       />
 
-      {/* ======================================================
-          BOTTOM BAR
-      ====================================================== */}
+      {/* BOTTOM BAR */}
 
       <BottomBar
         isDark={isDark}
@@ -1499,9 +1497,7 @@ export default function Home() {
         onQueryChange={setQuery}
       />
 
-      {/* ======================================================
-          NEW POST
-      ====================================================== */}
+      {/* NEW POST */}
 
       <NewPostModal
         isOpen={isNewPostOpen}
@@ -1512,11 +1508,10 @@ export default function Home() {
         onSubmit={handleCreatePost}
       />
 
-      {/* ======================================================
-          HELP
-      ====================================================== */}
+      {/* HELP */}
 
       <HelpChatButton isDark={isDark} />
     </main>
   );
 }
+
