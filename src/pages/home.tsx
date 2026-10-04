@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  Check,
   ChevronRight,
   Flame,
   Heart,
@@ -328,81 +329,104 @@ function Stat({
 
 /* ============================================================
    STREAK
+   Dégradé noir -> blanc. Haut sur fond noir (texte blanc),
+   bas sur fond clair (texte noir). Identique en thème clair/sombre.
 ============================================================ */
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
 
 function Streak({ isDark }: { isDark: boolean }) {
-  const streak = 0;
+  const streak = 0; // à brancher : nombre de jours consécutifs jusqu'à aujourd'hui
   const today = new Date();
 
+  // 7 derniers jours, aujourd'hui en dernier
   const days = Array.from({ length: 7 }, (_, index) => {
+    const offset = 6 - index;
     const date = new Date(today);
-    date.setDate(today.getDate() + index);
-    return { day: WEEKDAYS[date.getDay()] };
+    date.setDate(today.getDate() - offset);
+
+    return {
+      label: WEEKDAYS[date.getDay()],
+      isToday: offset === 0,
+      done: offset < streak,
+    };
   });
+
+  const message =
+    streak === 0
+      ? "Publie aujourd'hui pour lancer ta série"
+      : "Continue, ne casse pas la série";
 
   return (
     <div
       className={[
-        "flex min-h-[154px] flex-col justify-between rounded-2xl border p-4",
-        cardClass(isDark),
+        "relative flex min-h-[168px] flex-col justify-between overflow-hidden",
+        "rounded-2xl border p-4",
+        isDark ? "border-white/10" : "border-black/10",
       ].join(" ")}
+      style={{
+        background:
+          "linear-gradient(180deg, #000000 0%, #0d0d0d 30%, #6b6b6b 62%, #ffffff 100%)",
+      }}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p
-            className={[
-              "text-[10px] font-medium uppercase tracking-[0.08em]",
-              mutedClass(isDark),
-            ].join(" ")}
-          >
+          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/60">
             Streak
           </p>
 
-          <div className="mt-1 flex items-baseline gap-1">
-            <span
-              className={[
-                "text-[28px] font-bold tracking-[-0.04em]",
-                strongClass(isDark),
-              ].join(" ")}
-            >
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-[34px] font-bold leading-none tracking-[-0.04em] text-white">
               {streak}
             </span>
-
-            <span
-              className={["text-[11px] font-medium", mutedClass(isDark)].join(
-                " "
-              )}
-            >
-              days
+            <span className="text-[11px] font-medium text-white/60">
+              {streak > 1 ? "days" : "day"}
             </span>
           </div>
+
+          <p className="mt-1.5 max-w-[190px] text-[10px] leading-snug text-white/50">
+            {message}
+          </p>
         </div>
 
-        <Flame className={["h-4 w-4", mutedClass(isDark)].join(" ")} />
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 backdrop-blur">
+          <Flame
+            className={[
+              "h-4 w-4",
+              streak > 0 ? "fill-white text-white" : "text-white/70",
+            ].join(" ")}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1">
         {days.map((day, index) => (
           <div
-            key={`${day.day}-${index}`}
+            key={`${day.label}-${index}`}
             className="flex flex-col items-center gap-1.5"
           >
             <span
-              className={["text-[8px] font-semibold", mutedClass(isDark)].join(
-                " "
-              )}
+              className={[
+                "text-[8px] font-semibold",
+                day.isToday ? "text-black" : "text-black/50",
+              ].join(" ")}
             >
-              {day.day}
+              {day.label}
             </span>
 
             <div
               className={[
-                "h-6 w-6 rounded-full border",
-                isDark ? "border-white/20" : "border-black/20",
+                "flex h-6 w-6 items-center justify-center rounded-full border",
+                day.done
+                  ? "border-black bg-black text-white"
+                  : "border-black/25 bg-white/60",
+                day.isToday
+                  ? "ring-2 ring-black ring-offset-1 ring-offset-white"
+                  : "",
               ].join(" ")}
-            />
+            >
+              {day.done && <Check className="h-3 w-3" strokeWidth={3} />}
+            </div>
           </div>
         ))}
       </div>
@@ -938,9 +962,7 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* ======================================================
-          CONTENT (scrollable : la barre du bas reste fixe)
-      ====================================================== */}
+      {/* CONTENT (scrollable : la barre du bas reste fixe) */}
 
       <div
         className={[
@@ -953,9 +975,7 @@ export default function Home() {
         style={{ paddingLeft: sidebarOffset }}
       >
         <div className="mx-auto flex w-full max-w-[1280px] flex-col px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
-          {/* ==================================================
-              HEADER
-          ================================================== */}
+          {/* HEADER */}
 
           <header className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -993,9 +1013,7 @@ export default function Home() {
             </div>
           </header>
 
-          {/* ==================================================
-              OVERVIEW
-          ================================================== */}
+          {/* OVERVIEW */}
 
           <section className="mt-7 shrink-0">
             <div className="mb-3">
@@ -1055,9 +1073,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ==================================================
-              CHANNELS
-          ================================================== */}
+          {/* CHANNELS */}
 
           <section className="mt-5 shrink-0">
             <div className="mb-3 flex items-center justify-between">
@@ -1098,9 +1114,7 @@ export default function Home() {
             <Channels isDark={isDark} channels={homeConnectedChannels} />
           </section>
 
-          {/* ==================================================
-              COMMENTS + UP NEXT
-          ================================================== */}
+          {/* COMMENTS + UP NEXT */}
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Panel
@@ -1128,9 +1142,7 @@ export default function Home() {
             />
           </div>
 
-          {/* ==================================================
-              FROM THE BLOG
-          ================================================== */}
+          {/* FROM THE BLOG */}
 
           <div className="mt-8">
             <BlogSection isDark={isDark} />
@@ -1138,9 +1150,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======================================================
-          FOLDER
-      ====================================================== */}
+      {/* FOLDER */}
 
       <Folder
         isOpen={isFolderOpen}
@@ -1149,9 +1159,7 @@ export default function Home() {
         offsetLeft={sidebarOffset}
       />
 
-      {/* ======================================================
-          BOTTOM BAR
-      ====================================================== */}
+      {/* BOTTOM BAR */}
 
       <BottomBar
         isDark={isDark}
@@ -1162,9 +1170,7 @@ export default function Home() {
         onQueryChange={setQuery}
       />
 
-      {/* ======================================================
-          NEW POST
-      ====================================================== */}
+      {/* NEW POST */}
 
       <NewPostModal
         isOpen={isNewPostOpen}
@@ -1173,9 +1179,7 @@ export default function Home() {
         onSubmit={handleCreatePost}
       />
 
-      {/* ======================================================
-          HELP
-      ====================================================== */}
+      {/* HELP */}
 
       <HelpChatButton isDark={isDark} />
     </main>
