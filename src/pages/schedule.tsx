@@ -700,6 +700,8 @@ export default function Schedule() {
   const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  /* Date/heure préremplies quand le modal est ouvert depuis une case du calendrier. */
+  const [newPostDate, setNewPostDate] = useState<Date | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -817,6 +819,10 @@ export default function Schedule() {
   const nowHour = now.getHours() + now.getMinutes() / 60;
   const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   const showNowLine = nowHour >= START_HOUR && nowHour <= END_HOUR;
+
+  /* Minuit d'aujourd'hui : les jours >= cette date reçoivent le « + ». */
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
 
   /* ---------------- Derived data ---------------- */
   const categoryById = useMemo(() => {
@@ -950,12 +956,30 @@ export default function Schedule() {
     switch (id) {
       case "add":
         setIsFolderOpen(false);
+        setNewPostDate(null);
         setIsNewPostOpen(true);
         break;
       case "files":
         setIsFolderOpen((open) => !open);
         break;
     }
+  };
+
+  /* Ouvre le New Post modal avec la date/heure de la case cliquée. */
+  const openNewPostAt = (day: Date, hour: number) => {
+    const slot = new Date(day);
+    slot.setHours(hour, 0, 0, 0);
+
+    if (slot.getTime() <= Date.now()) {
+      // Heure en cours (déjà commencée) : prochain multiple de 5 min.
+      const d = new Date();
+      d.setMinutes(Math.ceil((d.getMinutes() + 1) / 5) * 5, 0, 0);
+      setNewPostDate(d);
+    } else {
+      setNewPostDate(slot);
+    }
+    setIsFolderOpen(false);
+    setIsNewPostOpen(true);
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
@@ -1318,6 +1342,45 @@ export default function Schedule() {
                           />
                         ))}
 
+                        {/* « + » au survol des cases d'aujourd'hui et des jours suivants */}
+                        {day.date.getTime() >= todayStart.getTime() &&
+                          HOURS.slice(0, -1).map((h) => {
+                            const slotEnd = new Date(day.date);
+                            slotEnd.setHours(h + 1, 0, 0, 0);
+                            // Heures entièrement passées : pas de « + ».
+                            if (slotEnd.getTime() <= now.getTime()) return null;
+
+                            return (
+                              <div
+                                key={`add-${h}`}
+                                className="group absolute inset-x-0"
+                                style={{ top: (h - START_HOUR) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                              >
+                                <button
+                                  type="button"
+                                  aria-label="Add a post"
+                                  onClick={() => openNewPostAt(day.date, h)}
+                                  className={[
+                                    "absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
+                                    isDark
+                                      ? "border-white/10 bg-[#242427] text-neutral-300 hover:bg-[#2e2e31] hover:text-white"
+                                      : "border-black/10 bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900",
+                                  ].join(" ")}
+                                >
+                                  <PlusIcon />
+                                  <span
+                                    className={[
+                                      "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
+                                      isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
+                                    ].join(" ")}
+                                  >
+                                    Add a post
+                                  </span>
+                                </button>
+                              </div>
+                            );
+                          })}
+
                         {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
                           <EventCard
                             key={event.id}
@@ -1437,9 +1500,13 @@ export default function Schedule() {
 
       <NewPostModal
         isOpen={isNewPostOpen}
-        onClose={() => setIsNewPostOpen(false)}
+        onClose={() => {
+          setIsNewPostOpen(false);
+          setNewPostDate(null);
+        }}
         isDark={isDark}
         onSubmit={handleCreatePost}
+        initialScheduledAt={newPostDate}
       />
     </main>
   );

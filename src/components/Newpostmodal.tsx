@@ -50,6 +50,8 @@ interface NewPostModalProps {
   onClose: () => void;
   isDark: boolean;
   onSubmit?: (payload: NewPostPayload) => void | Promise<void>;
+  /** Date/heure préremplies (ex. clic sur une case du calendrier). */
+  initialScheduledAt?: Date | null;
 }
 
 const MAX_MEDIA = 20;
@@ -383,7 +385,13 @@ function EmojiPickerPanel({
    Composant principal
    ────────────────────────────────────────────────────────────── */
 
-export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewPostModalProps) {
+export default function NewPostModal({
+  isOpen,
+  onClose,
+  isDark,
+  onSubmit,
+  initialScheduledAt,
+}: NewPostModalProps) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
@@ -479,6 +487,15 @@ export default function NewPostModal({ isOpen, onClose, isDark, onSubmit }: NewP
   useEffect(() => {
     setPendingDraft(isOpen ? savedDraft : null);
   }, [isOpen]);
+
+  // Ouverture depuis une case du calendrier : date/heure préremplies.
+  // (Hook placé avant le `if (!isOpen) return null;` pour respecter l'ordre des hooks.)
+  useEffect(() => {
+    if (isOpen && initialScheduledAt) {
+      setScheduleAction("set_date");
+      setScheduledAt(new Date(initialScheduledAt));
+    }
+  }, [isOpen, initialScheduledAt]);
 
   useEffect(() => {
     if (!showActionMenu && !showDateTimePanel) return;
