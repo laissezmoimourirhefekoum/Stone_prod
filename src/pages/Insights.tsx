@@ -252,7 +252,7 @@ function Chart({
   const line = smoothPath(toPts(current));
   const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
-  const ink = isDark ? "#ffffff" : "#14141f";
+  const ink = isDark ? "#ffffff" : "#171717";
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,31,0.06)";
   const axis = isDark ? "#8b8b95" : "#9a9aa6";
 
@@ -278,8 +278,8 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#8a8f9c"} stopOpacity={isDark ? 0.16 : 0.32} />
-            <stop offset="100%" stopColor={isDark ? "#ffffff" : "#8a8f9c"} stopOpacity="0" />
+            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.16 : 0.32} />
+            <stop offset="100%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -334,7 +334,7 @@ function Chart({
       {hover !== null && (
         <div
           className={`pointer-events-none absolute top-0 min-w-[130px] rounded-2xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(20,20,31,0.12)] ${
-            isDark ? "bg-[#26262b] text-white" : "bg-white text-[#14141f]"
+            isDark ? "bg-[#26262b] text-white" : "bg-white text-neutral-900"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -373,9 +373,9 @@ function Segmented<T extends string>({
   isDark: boolean;
   label: string;
 }) {
-  const track = isDark ? "bg-white/[0.06]" : "bg-[#eef1f7]";
-  const on = isDark ? "bg-white text-black" : "bg-[#14141f] text-white";
-  const off = isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-[#14141f]";
+  const track = isDark ? "bg-white/[0.06]" : "bg-neutral-100";
+  const on = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
+  const off = isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900";
   return (
     <div
       role="tablist"
@@ -390,7 +390,7 @@ function Segmented<T extends string>({
           aria-selected={value === o.key}
           onClick={() => onChange(o.key)}
           className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${
-            isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-[#14141f]/30"
+            isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-neutral-900/30"
           } ${value === o.key ? on : off}`}
         >
           {o.label}
@@ -413,7 +413,7 @@ function RangeSelect({
   return (
     <label
       className={`relative inline-flex items-center rounded-full border text-[12px] ${
-        isDark ? "border-white/10 text-neutral-300" : "border-[#e6e9f1] text-neutral-500"
+        isDark ? "border-white/10 text-neutral-300" : "border-black/[0.08] text-neutral-500"
       }`}
     >
       <span className="sr-only">Date range</span>
@@ -468,14 +468,14 @@ export default function Insights() {
   const { current, previous, summary } = useInsights(days);
 
   // Palette
-  const outer = isDark ? "bg-[#101012] text-white" : "bg-[#f1f4fa] text-[#14141f]";
-  const card = isDark ? "bg-[#18181b]" : "bg-white";
-  const pill = isDark ? "bg-white/[0.05]" : "bg-[#eef1f8]";
-  const muted = isDark ? "text-neutral-400" : "text-neutral-400";
+  const outer = isDark ? "bg-[#09090a] text-white" : "bg-[#f5f3ef] text-neutral-900";
+  const card = isDark ? "border border-white/[0.07] bg-[#141416]" : "border border-black/[0.06] bg-white";
+  const pill = isDark ? "border border-white/[0.07] bg-white/[0.03]" : "border border-black/[0.06] bg-neutral-50";
+  const muted = isDark ? "text-neutral-600" : "text-neutral-400";
   const soft = isDark ? "text-neutral-300" : "text-neutral-500";
-  const hair = isDark ? "border-white/10" : "border-[#eceff5]";
-  const iconBox = isDark ? "bg-white text-black" : "bg-[#14141f] text-white";
-  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-[#14141f]/30";
+  const hair = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const iconBox = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
+  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-neutral-900/30";
 
   const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "No channel";
   const handle = channel?.handle ? `@${channel.handle.replace(/^@/, "")}` : channel?.name ?? "";
@@ -570,9 +570,9 @@ export default function Insights() {
         <span className={`ml-auto text-[11px] ${muted}`}>{g.progressLabel}</span>
         <span className="text-[11px] font-semibold tabular-nums">{g.progress}%</span>
       </div>
-      <div className={`mt-3 h-[3px] w-full rounded-full ${isDark ? "bg-white/10" : "bg-[#eceff5]"}`}>
+      <div className={`mt-3 h-[3px] w-full rounded-full ${isDark ? "bg-white/10" : "bg-black/[0.06]"}`}>
         <div
-          className={`h-full rounded-full ${isDark ? "bg-white" : "bg-[#14141f]"}`}
+          className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
           style={{ width: `${g.progress}%` }}
         />
       </div>
@@ -592,7 +592,7 @@ export default function Insights() {
       className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${outer}`}
       style={{ paddingLeft: sidebarOffset }}
     >
-      <DashboardSidebar />
+      <DashboardSidebar theme={theme} />
       <div className="flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8">
         {/* Barre du haut */}
         <header className="flex items-center justify-between gap-4 px-2 pb-5 pt-2">
@@ -643,7 +643,7 @@ export default function Insights() {
               type="button"
               onClick={() => window.print()}
               className={`flex shrink-0 items-center justify-center gap-2 rounded-2xl px-6 py-4 text-[12px] font-semibold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 print:hidden ${
-                isDark ? "bg-white text-black" : "bg-[#14141f] text-white"
+                isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
               } ${ring}`}
             >
               <IconDownload className="h-4 w-4" />
@@ -738,7 +738,7 @@ export default function Insights() {
               <h3 className="text-[14px] font-semibold">Performance per post</h3>
               <div
                 className={`mt-3 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-8 text-center ${
-                  isDark ? "border-white/15" : "border-[#dfe3ec]"
+                  isDark ? "border-white/15" : "border-black/10"
                 }`}
               >
                 <IconPost className={muted} />
