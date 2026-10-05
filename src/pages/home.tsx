@@ -392,7 +392,7 @@ function Streak({ isDark }: { isDark: boolean }) {
     ].join(" ")}>
       <div className={[
         "pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full blur-3xl",
-        isDark ? "bg-violet-500/[0.14]" : "bg-violet-400/[0.12]",
+        isDark ? "bg-white/[0.08]" : "bg-black/[0.06]",
       ].join(" ")} />
 
       <div className="relative z-10 flex min-h-[122px] flex-col justify-between">
@@ -405,7 +405,7 @@ function Streak({ isDark }: { isDark: boolean }) {
               ].join(" ")}>Streak</span>
               <span className={[
                 "rounded-full px-2 py-0.5 text-[9px] font-medium",
-                isDark ? "bg-violet-400/10 text-violet-300" : "bg-violet-50 text-violet-700",
+                isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
               ].join(" ")}>Keep it going</span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -416,7 +416,7 @@ function Streak({ isDark }: { isDark: boolean }) {
 
           <div className={[
             "flex h-10 w-10 items-center justify-center rounded-2xl border",
-            isDark ? "border-violet-300/15 bg-violet-400/10 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-600",
+            isDark ? "border-white/15 bg-white/[0.08] text-white" : "border-neutral-300 bg-neutral-50 text-neutral-900",
           ].join(" ")}>
             <Flame className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </div>
@@ -432,14 +432,14 @@ function Streak({ isDark }: { isDark: boolean }) {
               <div key={`${day.day}-${index}`} className="flex flex-col items-center gap-1.5">
                 <span className={[
                   "text-[9px] font-semibold",
-                  day.isToday ? "text-violet-500" : isDark ? "text-neutral-600" : "text-neutral-400",
+                  day.isToday ? (isDark ? "text-white" : "text-black") : isDark ? "text-neutral-600" : "text-neutral-400",
                 ].join(" ")}>{day.day}</span>
                 <div className={[
                   "flex h-7 w-7 items-center justify-center rounded-full border text-[9px] font-medium transition-colors",
                   day.isToday
                     ? isDark
-                      ? "border-violet-400/60 bg-violet-400/10 text-violet-300 ring-2 ring-violet-400/10"
-                      : "border-violet-400 bg-violet-50 text-violet-700 ring-2 ring-violet-100"
+                      ? "border-white/70 bg-white/10 text-white ring-2 ring-white/15"
+                      : "border-black bg-neutral-100 text-black ring-2 ring-black/10"
                     : isDark
                       ? "border-white/[0.07] bg-white/[0.025] text-neutral-600"
                       : "border-black/[0.06] bg-neutral-50 text-neutral-400",
