@@ -37,8 +37,8 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  Check,
   ChevronRight,
-  Flame,
   Heart,
   MessageCircle,
   Plus,
@@ -371,83 +371,104 @@ function Stat({
 
 /* ============================================================
    STREAK
+   Semaine du lundi au dimanche. `completedDays` = index (0 = Mon)
+   des jours validés. Mode clair : coche noire sur pastille noire
+   translucide. Mode sombre : couleurs inversées (coche blanche).
 ============================================================ */
 
-const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
+const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function Streak({ isDark }: { isDark: boolean }) {
-  const streak = 0;
-  const today = new Date();
-
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
-    return { day: WEEKDAYS[date.getDay()], date: date.getDate(), isToday: index === 0 };
-  });
+function Streak({
+  isDark,
+  completedDays = [0],
+}: {
+  isDark: boolean;
+  completedDays?: number[];
+}) {
+  /* getDay(): 0 = dimanche → on ramène à 0 = lundi */
+  const todayIndex = (new Date().getDay() + 6) % 7;
 
   return (
-    <div className={[
-      "relative min-h-[154px] overflow-hidden rounded-2xl border p-4 transition-colors duration-300",
-      isDark ? "border-white/[0.08] bg-[#151419]" : "border-black/[0.06] bg-white",
-    ].join(" ")}>
-      <div className={[
-        "pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full blur-3xl",
-        isDark ? "bg-white/[0.08]" : "bg-black/[0.06]",
-      ].join(" ")} />
+    <div
+      className={[
+        "flex min-h-[154px] flex-col rounded-[28px] border px-5 pb-5 pt-4",
+        "transition-colors duration-300",
+        isDark
+          ? "border-white/[0.08] bg-[#141416]"
+          : "border-black/[0.06] bg-[#f6f6f6] shadow-[0_2px_10px_rgba(0,0,0,0.05)]",
+      ].join(" ")}
+    >
+      {/* Titre */}
+      <div className="flex items-center gap-2.5">
+        <CalendarDays
+          className={["h-[22px] w-[22px]", strongClass(isDark)].join(" ")}
+          strokeWidth={1.7}
+        />
 
-      <div className="relative z-10 flex min-h-[122px] flex-col justify-between">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={[
-                "text-[10px] font-semibold uppercase tracking-[0.16em]",
-                isDark ? "text-neutral-400" : "text-neutral-500",
-              ].join(" ")}>Streak</span>
-              <span className={[
-                "rounded-full px-2 py-0.5 text-[9px] font-medium",
-                isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
-              ].join(" ")}>Keep it going</span>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className={["text-[34px] font-semibold leading-none tracking-[-0.06em]", strongClass(isDark)].join(" ")}>{streak}</span>
-              <span className={["text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>day streak</span>
-            </div>
-          </div>
+        <h2
+          className={[
+            "text-[18px] font-semibold tracking-[-0.02em]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
+          Streak
+        </h2>
+      </div>
 
-          <div className={[
-            "flex h-10 w-10 items-center justify-center rounded-2xl border",
-            isDark ? "border-white/15 bg-white/[0.08] text-white" : "border-neutral-300 bg-neutral-50 text-neutral-900",
-          ].join(" ")}>
-            <Flame className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          </div>
-        </div>
+      {/* Séparateur */}
+      <div
+        className={[
+          "mb-auto mt-3.5 h-px w-full",
+          isDark ? "bg-white/[0.08]" : "bg-black/[0.08]",
+        ].join(" ")}
+      />
 
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className={["text-[10px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>Your week</span>
-            <span className={["text-[10px] font-medium", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>0 / 7 active days</span>
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {days.map((day, index) => (
-              <div key={`${day.day}-${index}`} className="flex flex-col items-center gap-1.5">
-                <span className={[
-                  "text-[9px] font-semibold",
-                  day.isToday ? (isDark ? "text-white" : "text-black") : isDark ? "text-neutral-600" : "text-neutral-400",
-                ].join(" ")}>{day.day}</span>
-                <div className={[
-                  "flex h-7 w-7 items-center justify-center rounded-full border text-[9px] font-medium transition-colors",
-                  day.isToday
-                    ? isDark
-                      ? "border-white/70 bg-white/10 text-white ring-2 ring-white/15"
-                      : "border-black bg-neutral-100 text-black ring-2 ring-black/10"
+      {/* Jours */}
+      <div className="mt-4 grid grid-cols-7 gap-1">
+        {WEEK_LABELS.map((label, index) => {
+          const done = completedDays.includes(index);
+          const isToday = index === todayIndex;
+
+          return (
+            <div
+              key={label}
+              className="flex flex-col items-center gap-2"
+            >
+              <span
+                className={[
+                  "text-[11px] sm:text-[12px]",
+                  isToday ? "font-semibold" : "font-normal",
+                  isToday
+                    ? strongClass(isDark)
                     : isDark
-                      ? "border-white/[0.07] bg-white/[0.025] text-neutral-600"
-                      : "border-black/[0.06] bg-neutral-50 text-neutral-400",
-                ].join(" ")}>{day.date}</div>
+                      ? "text-neutral-400"
+                      : "text-neutral-600",
+                ].join(" ")}
+              >
+                {label}
+              </span>
+
+              <div
+                className={[
+                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  "transition-colors",
+                  done
+                    ? isDark
+                      ? "bg-white/20 text-white"
+                      : "bg-black/15 text-black"
+                    : isDark
+                      ? "bg-white/[0.07]"
+                      : "bg-black/[0.07]",
+                ].join(" ")}
+                aria-label={`${label}${done ? " completed" : ""}`}
+              >
+                {done && (
+                  <Check className="h-4 w-4" strokeWidth={2.6} />
+                )}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -733,14 +754,7 @@ function Panel({
           {line1}
         </p>
 
-        <p
-          className={[
-            "text-[12px]",
-            isDark ? "text-neutral-500" : "text-neutral-500",
-          ].join(" ")}
-        >
-          {line2}
-        </p>
+        <p className="text-[12px] text-neutral-500">{line2}</p>
 
         {action && (
           <button
@@ -1107,11 +1121,11 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_1fr]">
               {/* Même fond que le panneau Comments */}
               <div
                 className={[
-                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                  "grid grid-cols-1 content-center gap-3 rounded-2xl border p-4",
                   "sm:grid-cols-3",
                   panelSurfaceClass(isDark),
                 ].join(" ")}
@@ -1141,7 +1155,7 @@ export default function Home() {
                 />
               </div>
 
-              <Streak isDark={isDark} />
+              <Streak isDark={isDark} completedDays={[0]} />
             </div>
           </section>
 

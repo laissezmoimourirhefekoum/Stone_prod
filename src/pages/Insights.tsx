@@ -1,19 +1,49 @@
 // src/pages/Insights.tsx
-// Page Insights, style dashboard doux (cartes blanches arrondies, courbes lissées,
-// pastilles de stats avec icône sombre). Route "analytics".
+// Page Insights : période, comparaison, graphique interactif, impact du contenu, export CSV.
 // Les données sont fournies par `useInsights` : branche-le sur ton backend.
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import {
+  Activity,
+  BarChart3,
+  Check,
+  ChevronDown,
+  Download,
+  Eye,
+  FileText,
+  Heart,
+  MessageCircle,
+  Play,
+  Plus,
+  Share2,
+  TrendingDown,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
-import { useConnectedChannels } from "../hooks/useConnectedChannels";
+import {
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
 
-/* ───────── Types ───────── */
+/* ============================================================
+   TYPES
+============================================================ */
 
 type Range = "7d" | "30d" | "mtd" | "custom";
-type View = "this" | "comparison" | "both";
+type Metric = "followers" | "posts";
 type Tab = "engagement" | "video" | "reach";
 
 type Point = { date: Date; posts: number; followers: number };
@@ -31,11 +61,16 @@ type Summary = {
   avgWatchSec: number;
 };
 
-const RANGES: { key: Range; label: string; days: number }[] = [
-  { key: "7d", label: "Last 7 days", days: 7 },
-  { key: "30d", label: "Last 30 days", days: 30 },
-  { key: "mtd", label: "Month to date", days: new Date().getDate() },
-  { key: "custom", label: "Custom", days: 30 },
+const RANGES: { key: Range; label: string }[] = [
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "mtd", label: "Month to date" },
+  { key: "custom", label: "Custom" },
+];
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: "followers", label: "Followers" },
+  { key: "posts", label: "Posts" },
 ];
 
 const TABS: { key: Tab; label: string }[] = [
@@ -44,30 +79,95 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "reach", label: "Reach" },
 ];
 
-const VIEWS: { key: View; label: string }[] = [
-  { key: "this", label: "This period" },
-  { key: "comparison", label: "Comparison" },
-  { key: "both", label: "Both" },
-];
+/* ============================================================
+   STYLE TOKENS (mêmes teintes que la Home, containers plus sombres)
+============================================================ */
 
-/* ───────── Données (à remplacer par ton API) ───────── */
+const cardClass = (d: boolean) =>
+  d ? "border border-white/[0.06] bg-[#0d0d0f]" : "border border-black/[0.06] bg-white";
 
-function useInsights(days: number): { current: Point[]; previous: Point[]; summary: Summary } {
+const innerClass = (d: boolean) =>
+  d ? "border border-white/[0.06] bg-[#070708]" : "border border-black/[0.06] bg-neutral-50";
+
+const mutedClass = (d: boolean) => (d ? "text-neutral-600" : "text-neutral-400");
+const softClass = (d: boolean) => (d ? "text-neutral-400" : "text-neutral-500");
+const strongClass = (d: boolean) => (d ? "text-white" : "text-neutral-900");
+const hairClass = (d: boolean) => (d ? "border-white/[0.06]" : "border-black/[0.06]");
+const iconBoxClass = (d: boolean) => (d ? "bg-white text-black" : "bg-neutral-900 text-white");
+const ringClass = (d: boolean) =>
+  d ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
+const hoverClass = (d: boolean) => (d ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]");
+
+/* ============================================================
+   DATES & FORMAT
+============================================================ */
+
+const DAY = 86_400_000;
+
+const startOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const addDays = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+const toInput = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fromInput = (v: string) => {
+  const [y, m, d] = v.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+const fmtFull = (d: Date) =>
+  d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+const nf = (n: number) => n.toLocaleString("en-US");
+const signed = (n: number) => (n === 0 ? "0" : `${n > 0 ? "+" : "−"}${nf(Math.abs(n))}`);
+const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
+
+function resolveRange(range: Range, customStart: string, customEnd: string) {
+  const today = startOfDay(new Date());
+  if (range === "7d") return { start: addDays(today, -6), end: today };
+  if (range === "30d") return { start: addDays(today, -29), end: today };
+  if (range === "mtd") return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
+
+  let s = fromInput(customStart);
+  let e = fromInput(customEnd);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return { start: addDays(today, -29), end: today };
+  if (s > e) [s, e] = [e, s];
+  if (e > today) e = today;
+  if (s > e) s = e;
+  if ((e.getTime() - s.getTime()) / DAY > 365) s = addDays(e, -365);
+  return { start: s, end: e };
+}
+
+/* ============================================================
+   DONNÉES (à remplacer par ton API)
+============================================================ */
+
+function useInsights(
+  start: Date,
+  end: Date
+): { current: Point[]; previous: Point[]; summary: Summary } {
+  const s = start.getTime();
+  const e = end.getTime();
+
   return useMemo(() => {
-    const build = (offset: number, base: number): Point[] =>
-      Array.from({ length: days }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (days - 1 - i) - offset);
-        return {
-          date: d,
-          posts: 0,
-          followers: Math.round(base + Math.sin(i / 3) * 2 + (i % 5 === 0 ? 1 : 0)),
-        };
-      });
-    const current = build(0, 108);
+    const days = Math.round((e - s) / DAY) + 1;
+    const build = (from: Date, base: number): Point[] =>
+      Array.from({ length: days }, (_, i) => ({
+        date: addDays(from, i),
+        posts: 0,
+        followers: Math.round(base + Math.sin(i / 3) * 2 + (i % 5 === 0 ? 1 : 0)),
+      }));
+
+    const current = build(new Date(s), 108);
     return {
       current,
-      previous: build(days, 105),
+      previous: build(addDays(new Date(s), -days), 105),
       summary: {
         followers: current[current.length - 1]?.followers ?? 0,
         posts: 0,
@@ -81,12 +181,10 @@ function useInsights(days: number): { current: Point[]; previous: Point[]; summa
         avgWatchSec: 0,
       },
     };
-  }, [days]);
+  }, [s, e]);
 }
 
-/* ───────── Helpers ───────── */
-
-/** Canal demandé via /#/insights?channel=<key> (re-rendu à chaque navigation). */
+/** Canal demandé via #/analytics?channel=<key> (re-rendu à chaque navigation). */
 function useHashChannel(): string | null {
   useHashRoute();
   const hash = window.location.hash;
@@ -94,13 +192,20 @@ function useHashChannel(): string | null {
   return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
 }
 
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-const fmtFull = (d: Date) =>
-  d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows.map((r) => r.join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
+/* ============================================================
+   COURBE LISSÉE (spline cubique monotone)
+============================================================ */
 
-/** Courbe lissée (spline cubique monotone) à partir de points [x, y]. */
 function smoothPath(pts: [number, number][]): string {
   const n = pts.length;
   if (n === 0) return "";
@@ -122,9 +227,9 @@ function smoothPath(pts: [number, number][]): string {
     }
     const a = t[i] / m[i];
     const b = t[i + 1] / m[i];
-    const s = a * a + b * b;
-    if (s > 9) {
-      const k = 3 / Math.sqrt(s);
+    const q = a * a + b * b;
+    if (q > 9) {
+      const k = 3 / Math.sqrt(q);
       t[i] = k * a * m[i];
       t[i + 1] = k * b * m[i];
     }
@@ -140,103 +245,37 @@ function smoothPath(pts: [number, number][]): string {
   return d;
 }
 
-/* ───────── Icônes ───────── */
-
-type IconProps = { className?: string };
-const Svg = ({ className, children }: IconProps & { children: ReactNode }) => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
-    {children}
-  </svg>
-);
-const IconUsers = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="9" cy="8" r="3.2" />
-    <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-    <path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c1.8.8 3 2.6 3 5.6" />
-  </Svg>
-);
-const IconPost = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="4" y="4" width="16" height="16" rx="3" />
-    <path d="M8 9h8M8 13h8M8 17h4" />
-  </Svg>
-);
-const IconHeart = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
-  </Svg>
-);
-const IconChat = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4A8 8 0 1 1 20 12Z" />
-    <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" />
-  </Svg>
-);
-const IconPlay = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="m10.5 8.8 4.2 3.2-4.2 3.2Z" />
-  </Svg>
-);
-const IconEye = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
-    <circle cx="12" cy="12" r="2.8" />
-  </Svg>
-);
-const IconDownload = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14" />
-  </Svg>
-);
-const IconChevron = (p: IconProps) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={p.className} aria-hidden="true">
-    <path d="m6 9 6 6 6-6" />
-  </svg>
-);
-
-/* ───────── Chart (SVG, sans dépendance) ───────── */
+/* ============================================================
+   CHART
+============================================================ */
 
 function Chart({
   dates,
   current,
   previous,
-  view,
+  compare,
   isDark,
-  label,
   unit,
 }: {
   dates: Date[];
   current: number[];
-  previous?: number[];
-  view: View;
+  previous: number[];
+  compare: boolean;
   isDark: boolean;
-  label: string;
   unit: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const gradId = useId();
-  const W = 560;
-  const H = 210;
-  const pad = { l: 26, r: 8, t: 14, b: 26 };
+  const gradId = useId().replace(/:/g, "");
+  const W = 720;
+  const H = 280;
+  const pad = { l: 34, r: 12, t: 16, b: 28 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
-  const showPrev = !!previous && view !== "this";
-  const showCur = view !== "comparison" || !previous;
+  const n = current.length;
 
-  const all = [...current, ...(showPrev ? previous! : [])];
-  let min = Math.floor(Math.min(...all));
+  const all = [...current, ...(compare ? previous : [])];
+  const lo = Math.min(...all);
+  let min = Math.floor(lo);
   let max = Math.ceil(Math.max(...all));
   if (max - min < 4) {
     max = min + 4;
@@ -244,7 +283,7 @@ function Chart({
     min -= 1;
     max += 1;
   }
-  const n = current.length;
+  if (min < 0 && lo >= 0) min = 0;
 
   const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
@@ -253,32 +292,49 @@ function Chart({
   const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
   const ink = isDark ? "#ffffff" : "#171717";
-  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(20,20,31,0.06)";
-  const axis = isDark ? "#8b8b95" : "#9a9aa6";
+  const grid = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+  const axis = isDark ? "#6b6b73" : "#9a9aa3";
 
-  const ticks = Array.from(new Set(Array.from({ length: 7 }, (_, i) => Math.round(min + ((max - min) * i) / 6))));
-  const labelIdx = Array.from(new Set([0, 0.17, 0.33, 0.5, 0.67, 0.83, 1].map((r) => Math.round(r * (n - 1)))));
+  const ticks = Array.from(new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4))));
+  const labelIdx = Array.from(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((r) => Math.round(r * (n - 1)))));
 
-  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const px = ((e.clientX - r.left) / r.width) * W;
-    const i = Math.round(((px - pad.l) / iw) * (n - 1));
+    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
+  const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowRight") setHover((h) => (h === null ? 0 : Math.min(n - 1, h + 1)));
+    else if (e.key === "ArrowLeft") setHover((h) => (h === null ? n - 1 : Math.max(0, h - 1)));
+    else if (e.key === "Home") setHover(0);
+    else if (e.key === "End") setHover(n - 1);
+    else if (e.key === "Escape") setHover(null);
+    else return;
+    e.preventDefault();
+  };
+
   return (
-    <div className="relative">
+    <div
+      className={`relative rounded-2xl focus-visible:outline-none focus-visible:ring-2 ${ringClass(isDark)}`}
+      tabIndex={0}
+      role="group"
+      aria-label={`${unit} chart. Use the left and right arrow keys to inspect each day.`}
+      onKeyDown={onKey}
+      onBlur={() => setHover(null)}
+    >
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-auto w-full"
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
-        role="img"
-        aria-label={label}
+        className="h-auto w-full touch-pan-y"
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={() => setHover(null)}
+        aria-hidden="true"
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.16 : 0.32} />
+            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.14 : 0.28} />
             <stop offset="100%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -286,7 +342,7 @@ function Chart({
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={grid} />
-            <text x={pad.l - 8} y={y(t) + 3} fontSize="8" fill={axis} textAnchor="end" className="tabular-nums">
+            <text x={pad.l - 8} y={y(t) + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
               {t}
             </text>
           </g>
@@ -296,18 +352,17 @@ function Chart({
             key={i}
             x={x(i)}
             y={H - 8}
-            fontSize="8"
+            fontSize="10"
             fill={axis}
-            fontWeight="500"
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
           >
             {fmt(dates[i])}
           </text>
         ))}
 
-        {showPrev && (
+        {compare && (
           <path
-            d={smoothPath(toPts(previous!))}
+            d={smoothPath(toPts(previous))}
             fill="none"
             stroke={ink}
             strokeOpacity="0.35"
@@ -316,25 +371,21 @@ function Chart({
             strokeLinecap="round"
           />
         )}
-        {showCur && (
-          <>
-            <path d={area} fill={`url(#${gradId})`} />
-            <path d={line} fill="none" stroke={ink} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-          </>
-        )}
+        <path d={area} fill={`url(#${gradId})`} />
+        <path d={line} fill="none" stroke={ink} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
 
         {hover !== null && (
           <g>
-            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.5" strokeDasharray="3 3" />
-            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#111" : "#fff"} stroke={ink} strokeWidth="2.5" />
+            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
+            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#0d0d0f" : "#fff"} stroke={ink} strokeWidth="2.5" />
           </g>
         )}
       </svg>
 
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-0 min-w-[130px] rounded-2xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(20,20,31,0.12)] ${
-            isDark ? "bg-[#0d0d0f] text-white ring-1 ring-white/10" : "bg-white text-neutral-900"
+          className={`pointer-events-none absolute top-1 min-w-[140px] rounded-2xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${
+            isDark ? "bg-[#0d0d0f] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/5"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -344,21 +395,27 @@ function Chart({
           <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
           <div className="flex justify-between gap-5">
             <span>{unit}</span>
-            <b className="tabular-nums">{current[hover]}</b>
+            <b className="tabular-nums">{nf(current[hover])}</b>
           </div>
-          {showPrev && (
+          {compare && (
             <div className="flex justify-between gap-5 opacity-50">
               <span>Previous</span>
-              <b className="tabular-nums">{previous![hover]}</b>
+              <b className="tabular-nums">{nf(previous[hover])}</b>
             </div>
           )}
         </div>
       )}
+
+      <p className="sr-only" aria-live="polite">
+        {hover !== null ? `${fmtFull(dates[hover])}: ${current[hover]} ${unit.toLowerCase()}` : ""}
+      </p>
     </div>
   );
 }
 
-/* ───────── Petits composants ───────── */
+/* ============================================================
+   PETITS COMPOSANTS
+============================================================ */
 
 function Segmented<T extends string>({
   value,
@@ -373,84 +430,315 @@ function Segmented<T extends string>({
   isDark: boolean;
   label: string;
 }) {
-  const track = isDark ? "bg-[#070708]" : "bg-neutral-100";
-  const on = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
-  const off = isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900";
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label={label}
-      className={`inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1 ${track}`}
+      className={`inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1 ${
+        isDark ? "bg-[#070708]" : "bg-neutral-100"
+      }`}
     >
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          role="tab"
-          aria-selected={value === o.key}
-          onClick={() => onChange(o.key)}
-          className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${
-            isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-neutral-900/30"
-          } ${value === o.key ? on : off}`}
-        >
-          {o.label}
-        </button>
-      ))}
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.key)}
+            className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+              isDark
+            )} ${
+              active
+                ? isDark
+                  ? "bg-white text-black"
+                  : "bg-neutral-900 text-white"
+                : isDark
+                ? "text-neutral-400 hover:text-white"
+                : "text-neutral-500 hover:text-neutral-900"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/** Menu déroulant en pastille (« Last 7 days ⌄ »). */
-function RangeSelect({
-  value,
+function Switch({
+  checked,
   onChange,
+  label,
   isDark,
 }: {
-  value: Range;
-  onChange: (r: Range) => void;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
   isDark: boolean;
 }) {
   return (
-    <label
-      className={`relative inline-flex items-center rounded-full border text-[12px] ${
-        isDark ? "border-white/10 text-neutral-300" : "border-black/[0.08] text-neutral-500"
-      }`}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-3.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+        isDark
+      )} ${softClass(isDark)} ${hoverClass(isDark)}`}
     >
-      <span className="sr-only">Date range</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as Range)}
-        className="cursor-pointer appearance-none rounded-full bg-transparent py-2 pl-4 pr-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50"
+      <span
+        className={`relative h-5 w-9 rounded-full transition-colors motion-reduce:transition-none ${
+          checked ? (isDark ? "bg-white" : "bg-neutral-900") : isDark ? "bg-white/15" : "bg-black/15"
+        }`}
       >
-        {RANGES.map((r) => (
-          <option key={r.key} value={r.key} className="text-black">
-            {r.label}
-          </option>
-        ))}
-      </select>
-      <IconChevron className="pointer-events-none absolute right-3.5 text-current" />
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full transition-all motion-reduce:transition-none ${
+            checked ? "left-[18px]" : "left-0.5"
+          } ${checked ? (isDark ? "bg-black" : "bg-white") : isDark ? "bg-neutral-400" : "bg-white"}`}
+        />
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function Chip({ value, isDark, children }: { value: number; isDark: boolean; children: ReactNode }) {
+  const tone =
+    value > 0
+      ? isDark
+        ? "bg-emerald-500/10 text-emerald-400"
+        : "bg-emerald-50 text-emerald-700"
+      : value < 0
+      ? isDark
+        ? "bg-rose-500/10 text-rose-400"
+        : "bg-rose-50 text-rose-700"
+      : isDark
+      ? "bg-white/[0.05] text-neutral-400"
+      : "bg-neutral-100 text-neutral-500";
+  const Icon = value < 0 ? TrendingDown : TrendingUp;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${tone}`}>
+      {value !== 0 && <Icon className="h-3 w-3" aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
+function Bar({ value, isDark }: { value: number; isDark: boolean }) {
+  return (
+    <div
+      className={`h-1.5 w-full overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/[0.06]"}`}
+      role="progressbar"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div
+        className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
+        style={{ width: `${value}%` }}
+      />
+    </div>
+  );
+}
+
+function Kpi({
+  isDark,
+  icon,
+  label,
+  value,
+  chip,
+}: {
+  isDark: boolean;
+  icon: ReactNode;
+  label: string;
+  value: string;
+  chip?: ReactNode;
+}) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-4 rounded-3xl p-4 ${cardClass(isDark)}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBoxClass(isDark)}`}>{icon}</span>
+        {chip}
+      </div>
+      <div className="min-w-0">
+        <p className={`truncate text-[12px] ${mutedClass(isDark)}`}>{label}</p>
+        <p className={`mt-0.5 text-[24px] font-semibold leading-tight tracking-tight tabular-nums ${strongClass(isDark)}`}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ channel, isDark, size = 36 }: { channel?: ConnectedChannel; isDark: boolean; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [channel?.avatarUrl]);
+  const label = (channel?.handle || channel?.name || "?").replace(/^@/, "");
+  const box = { width: size, height: size };
+
+  if (channel?.avatarUrl && !failed) {
+    return (
+      <img
+        src={channel.avatarUrl}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        style={box}
+        className="shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+  return (
+    <span
+      style={box}
+      className={`flex shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${iconBoxClass(isDark)}`}
+    >
+      {label.charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+function ChannelMenu({
+  channels,
+  current,
+  isDark,
+}: {
+  channels: ConnectedChannel[];
+  current?: ConnectedChannel;
+  isDark: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
+  const canSwitch = channels.length > 1;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={!canSwitch}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-default ${ringClass(
+          isDark
+        )} ${cardClass(isDark)} ${canSwitch ? hoverClass(isDark) : ""}`}
+      >
+        <Avatar channel={current} isDark={isDark} />
+        <span className="min-w-0 text-left">
+          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${strongClass(isDark)}`}>
+            {name(current)}
+          </span>
+          <span className={`block text-[11px] ${mutedClass(isDark)}`}>
+            {canSwitch ? "Switch channel" : "Connected channel"}
+          </span>
+        </span>
+        {canSwitch && (
+          <ChevronDown
+            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${softClass(isDark)}`}
+            aria-hidden="true"
+          />
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${cardClass(isDark)}`}
+        >
+          {channels.map((c) => {
+            const active = c.key === current?.key;
+            return (
+              <button
+                key={c.key}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => {
+                  setOpen(false);
+                  navigate(`analytics?channel=${encodeURIComponent(c.key)}`);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+                  isDark
+                )} ${hoverClass(isDark)}`}
+              >
+                <Avatar channel={c} isDark={isDark} size={28} />
+                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${strongClass(isDark)}`}>{name(c)}</span>
+                {active && <Check className={`h-4 w-4 ${strongClass(isDark)}`} aria-hidden="true" />}
+              </button>
+            );
+          })}
+          <div className={`my-1 border-t ${hairClass(isDark)}`} />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => navigate("channels")}
+            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+              isDark
+            )} ${hoverClass(isDark)} ${softClass(isDark)}`}
+          >
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${innerClass(isDark)}`}>
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            Manage channels
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  isDark,
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  max: string;
+  onChange: (v: string) => void;
+  isDark: boolean;
+}) {
+  return (
+    <label className={`flex items-center gap-2 text-[12px] ${mutedClass(isDark)}`}>
+      {label}
+      <input
+        type="date"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className={`rounded-full px-3 py-1.5 text-[12px] focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+          isDark
+        )} ${innerClass(isDark)} ${strongClass(isDark)} ${isDark ? "[color-scheme:dark]" : ""}`}
+      />
     </label>
   );
 }
 
-function Delta({ value, isDark }: { value: number; isDark: boolean }) {
-  const text = value === 0 ? "0" : `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
-  const tone =
-    value > 0
-      ? isDark
-        ? "text-green-400"
-        : "text-green-600"
-      : value < 0
-      ? isDark
-        ? "text-red-400"
-        : "text-red-600"
-      : isDark
-      ? "text-neutral-400"
-      : "text-neutral-400";
-  return <span className={`text-[11px] font-medium tabular-nums ${tone}`}>{text}</span>;
-}
-
-/* ───────── Page ───────── */
+/* ============================================================
+   PAGE
+============================================================ */
 
 export default function Insights() {
   const { theme } = useTheme();
@@ -460,132 +748,85 @@ export default function Insights() {
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
 
+  const todayInput = toInput(new Date());
   const [range, setRange] = useState<Range>("30d");
+  const [customStart, setCustomStart] = useState(() => toInput(addDays(new Date(), -29)));
+  const [customEnd, setCustomEnd] = useState(todayInput);
+  const [compare, setCompare] = useState(true);
+  const [metric, setMetric] = useState<Metric>("followers");
   const [tab, setTab] = useState<Tab>("engagement");
-  const [view, setView] = useState<View>("this");
 
-  const days = RANGES.find((r) => r.key === range)!.days;
-  const { current, previous, summary } = useInsights(days);
-
-  // Palette
-  const outer = isDark ? "bg-[#09090a] text-white" : "bg-[#f5f3ef] text-neutral-900";
-  const card = isDark ? "border border-white/[0.06] bg-[#0d0d0f]" : "border border-black/[0.06] bg-white";
-  const pill = isDark ? "border border-white/[0.06] bg-[#070708]" : "border border-black/[0.06] bg-neutral-50";
-  const muted = isDark ? "text-neutral-600" : "text-neutral-400";
-  const soft = isDark ? "text-neutral-300" : "text-neutral-500";
-  const hair = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
-  const iconBox = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
-  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-neutral-900/30";
-
-  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "No channel";
-  const handle = channel?.handle ? `@${channel.handle.replace(/^@/, "")}` : channel?.name ?? "";
-  const start = current[0].date;
-  const end = current[current.length - 1].date;
-  const pStart = previous[0].date;
-  const pEnd = previous[previous.length - 1].date;
-  const period = `${fmtFull(start)} - ${fmtFull(end)}`;
-  const compared = `${fmtFull(pStart)} - ${fmtFull(pEnd)}`;
-
-  const first = current[0];
-  const last = current[current.length - 1];
-  const delta = last.followers - first.followers;
-
-  const dates = current.map((p) => p.date);
-  const followersSeries = current.map((p) => p.followers);
-  const prevFollowersSeries = previous.map((p) => p.followers);
-  const postsSeries = current.map((p) => p.posts);
-  const totalPosts = postsSeries.reduce((a, b) => a + b, 0);
-
-  // Blocs de la carte de droite (équivalent des « Running Tasks »)
-  const groups: {
-    key: Tab;
-    title: string;
-    icon: ReactNode;
-    progressLabel: string;
-    progress: number;
-    cols: { label: string; value: string }[];
-  }[] = [
-    {
-      key: "engagement",
-      title: "Engagement",
-      icon: <IconHeart />,
-      progressLabel: "Eng. rate",
-      progress: Math.min(100, Math.round(summary.engRate)),
-      cols: [
-        { label: "Reactions", value: String(summary.reactions) },
-        { label: "Comments", value: String(summary.comments) },
-        { label: "Shares", value: String(summary.shares) },
-        { label: "Posts", value: String(summary.posts) },
-        { label: "Eng. rate", value: `${summary.engRate}%` },
-      ],
-    },
-    {
-      key: "video",
-      title: "Video",
-      icon: <IconPlay />,
-      progressLabel: "Views / reach",
-      progress: pct(summary.videoViews, summary.reach),
-      cols: [
-        { label: "Video views", value: String(summary.videoViews) },
-        { label: "Watch time (min)", value: String(summary.watchMin) },
-        { label: "Avg. watch (sec)", value: String(summary.avgWatchSec) },
-        { label: "Shares", value: String(summary.shares) },
-        { label: "Comments", value: String(summary.comments) },
-      ],
-    },
-    {
-      key: "reach",
-      title: "Reach",
-      icon: <IconEye />,
-      progressLabel: "Reach / followers",
-      progress: pct(summary.reach, summary.followers),
-      cols: [
-        { label: "Reach", value: String(summary.reach) },
-        { label: "Followers", value: String(summary.followers) },
-        { label: "Reactions", value: String(summary.reactions) },
-        { label: "Video views", value: String(summary.videoViews) },
-        { label: "Posts", value: String(summary.posts) },
-      ],
-    },
-  ];
-  const visibleGroups = groups.filter((g) => g.key === tab);
-  const otherGroups = groups.filter((g) => g.key !== tab);
-
-  const stats: { label: string; value: string; icon: ReactNode; extra?: ReactNode }[] = [
-    {
-      label: "Followers",
-      value: String(summary.followers),
-      icon: <IconUsers />,
-      extra: <Delta value={delta} isDark={isDark} />,
-    },
-    { label: "Posts", value: String(summary.posts), icon: <IconPost /> },
-    { label: "Reactions", value: String(summary.reactions), icon: <IconHeart /> },
-  ];
-
-  const renderGroup = (g: (typeof groups)[number], isLast: boolean) => (
-    <div key={g.key} className={`py-5 ${isLast ? "" : `border-b ${hair}`}`}>
-      <div className="flex items-center gap-4">
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBox}`}>{g.icon}</span>
-        <span className="text-[14px] font-medium">{g.title}</span>
-        <span className={`ml-auto text-[11px] ${muted}`}>{g.progressLabel}</span>
-        <span className="text-[11px] font-semibold tabular-nums">{g.progress}%</span>
-      </div>
-      <div className={`mt-3 h-[3px] w-full rounded-full ${isDark ? "bg-white/10" : "bg-black/[0.06]"}`}>
-        <div
-          className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-          style={{ width: `${g.progress}%` }}
-        />
-      </div>
-      <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-5">
-        {g.cols.map((c) => (
-          <div key={c.label}>
-            <dt className={`text-[10px] ${muted}`}>{c.label}</dt>
-            <dd className="mt-1 text-[14px] font-medium tabular-nums">{c.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+  const { start, end } = useMemo(
+    () => resolveRange(range, customStart, customEnd),
+    [range, customStart, customEnd]
   );
+  const { current, previous, summary } = useInsights(start, end);
+
+  const days = current.length;
+  const dates = current.map((p) => p.date);
+  const first = current[0];
+  const last = current[days - 1];
+  const delta = last.followers - first.followers;
+  const prevDelta = previous[days - 1].followers - previous[0].followers;
+  const totalPosts = current.reduce((a, p) => a + p.posts, 0);
+
+  const period = `${fmtFull(start)} – ${fmtFull(end)}`;
+  const compared = `${fmtFull(previous[0].date)} – ${fmtFull(previous[days - 1].date)}`;
+  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "";
+
+  const series =
+    metric === "followers"
+      ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers" }
+      : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts" };
+
+  const impact: Record<
+    Tab,
+    { title: string; icon: ReactNode; headline: string; value: number; rows: { label: string; value: string }[] }
+  > = {
+    engagement: {
+      title: "Engagement rate",
+      icon: <Heart className="h-4 w-4" />,
+      headline: `${summary.engRate}%`,
+      value: Math.min(100, Math.round(summary.engRate)),
+      rows: [
+        { label: "Reactions", value: nf(summary.reactions) },
+        { label: "Comments", value: nf(summary.comments) },
+        { label: "Shares", value: nf(summary.shares) },
+        { label: "Posts", value: nf(summary.posts) },
+      ],
+    },
+    video: {
+      title: "Views compared to reach",
+      icon: <Play className="h-4 w-4" />,
+      headline: `${pct(summary.videoViews, summary.reach)}%`,
+      value: pct(summary.videoViews, summary.reach),
+      rows: [
+        { label: "Video views", value: nf(summary.videoViews) },
+        { label: "Watch time (min)", value: nf(summary.watchMin) },
+        { label: "Avg. watch time (sec)", value: nf(summary.avgWatchSec) },
+      ],
+    },
+    reach: {
+      title: "Reach compared to followers",
+      icon: <Eye className="h-4 w-4" />,
+      headline: `${pct(summary.reach, summary.followers)}%`,
+      value: pct(summary.reach, summary.followers),
+      rows: [
+        { label: "Reach", value: nf(summary.reach) },
+        { label: "Followers", value: nf(summary.followers) },
+        { label: "Video views", value: nf(summary.videoViews) },
+      ],
+    },
+  };
+  const group = impact[tab];
+
+  const exportCsv = () => {
+    const rows: (string | number)[][] = [["date", "followers", "posts", "previous_followers"]];
+    current.forEach((p, i) => rows.push([toInput(p.date), p.followers, p.posts, previous[i].followers]));
+    downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
+  };
+
+  const outer = isDark ? "bg-[#09090a] text-white" : "bg-[#f5f3ef] text-neutral-900";
 
   return (
     <main
@@ -593,163 +834,241 @@ export default function Insights() {
       style={{ paddingLeft: sidebarOffset }}
     >
       <DashboardSidebar theme={theme} />
-      <div className="flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8">
-        {/* Barre du haut */}
-        <header className="flex items-center justify-between gap-4 px-2 pb-5 pt-2">
-          <h1 className="truncate text-[22px] font-bold tracking-tight">Insights</h1>
-          <p className={`hidden text-[12px] sm:block ${soft}`}>{period}</p>
-        </header>
 
-        {/* Profil + stats */}
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-          <div className={`flex items-center gap-4 rounded-[28px] p-4 ${card}`}>
-            {channel?.avatarUrl ? (
-              <img
-                src={channel.avatarUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-14 w-14 shrink-0 rounded-full object-cover shadow-md"
-              />
-            ) : (
-              <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-semibold ${iconBox}`}>
-                {name.charAt(0).toUpperCase() || "?"}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-semibold">{name}</div>
-              <div className={`truncate text-[12px] ${muted}`}>{handle}</div>
-            </div>
-            <IconChevron className={soft} />
+      <div className="flex w-full flex-col gap-5 p-4 sm:p-6 lg:p-8">
+        {/* Header */}
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-semibold tracking-tight">Insights</h1>
+            <p className={`mt-0.5 text-[13px] ${mutedClass(isDark)}`}>{period}</p>
           </div>
-
-          <div className={`flex flex-col gap-3 rounded-[28px] p-3 sm:flex-row sm:items-center ${card}`}>
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-              {stats.map((s) => (
-                <div key={s.label} className={`flex items-center gap-3 rounded-2xl p-3 ${pill}`}>
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBox}`}>
-                    {s.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className={`text-[10px] ${muted}`}>{s.label}</div>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[20px] font-bold tabular-nums leading-tight">{s.value}</span>
-                      {s.extra}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 print:hidden">
+            <ChannelMenu channels={channels} current={channel} isDark={isDark} />
             <button
               type="button"
-              onClick={() => window.print()}
-              className={`flex shrink-0 items-center justify-center gap-2 rounded-2xl px-6 py-4 text-[12px] font-semibold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 print:hidden ${
-                isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
-              } ${ring}`}
+              onClick={exportCsv}
+              disabled={!channel}
+              className={`flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40 ${ringClass(
+                isDark
+              )} ${isDark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
             >
-              <IconDownload className="h-4 w-4" />
-              Export report
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export CSV
             </button>
           </div>
-        </section>
+        </header>
 
-        {/* Graphiques + liste */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.05fr]">
-          {/* Colonne gauche */}
-          <div className="flex flex-col gap-4">
-            <section className={`rounded-[28px] p-5 ${card}`} aria-labelledby="followers-title">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 id="followers-title" className="text-[16px] font-semibold">
-                    Followers
-                  </h2>
-                  <p className={`mt-1 text-[18px] tabular-nums ${muted}`}>
-                    {delta === 0 ? "No change" : `${delta > 0 ? "+" : "−"}${Math.abs(delta)} followers`}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <RangeSelect value={range} onChange={setRange} isDark={isDark} />
-                  <span className={`text-[10px] ${muted}`}>{period}</span>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <Segmented label="Comparison view" value={view} options={VIEWS} onChange={setView} isDark={isDark} />
-              </div>
-
-              <div className="mt-4">
-                <Chart
-                  dates={dates}
-                  current={followersSeries}
-                  previous={prevFollowersSeries}
-                  view={view}
-                  isDark={isDark}
-                  label="Followers over time"
-                  unit="Followers"
-                />
-              </div>
-              {view !== "this" && (
-                <p className={`mt-2 text-[11px] ${muted}`}>Dashed line: {compared}</p>
-              )}
-            </section>
-
-            <section className={`rounded-[28px] p-5 ${card}`} aria-labelledby="posts-title">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 id="posts-title" className="text-[16px] font-semibold">
-                    Posts
-                  </h2>
-                  <p className={`mt-1 text-[18px] tabular-nums ${muted}`}>
-                    {totalPosts} {totalPosts === 1 ? "post" : "posts"}
-                  </p>
-                </div>
-                <span className={`text-[10px] ${muted}`}>{period}</span>
-              </div>
-              <div className="mt-4">
-                <Chart
-                  dates={dates}
-                  current={postsSeries}
-                  view="this"
-                  isDark={isDark}
-                  label="Posts over time"
-                  unit="Posts"
-                />
-              </div>
-            </section>
-          </div>
-
-          {/* Colonne droite */}
-          <section className={`rounded-[28px] p-5 ${card}`} aria-labelledby="impact-title">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 id="impact-title" className="text-[16px] font-semibold">
-                Content impact
-              </h2>
-              <Segmented label="Metric category" value={tab} options={TABS} onChange={setTab} isDark={isDark} />
-            </div>
-            <p className={`mt-1 text-[11px] ${muted}`}>
-              {period}, compared to {compared}
+        {!channel ? (
+          <section
+            className={`flex flex-col items-center gap-3 rounded-3xl px-6 py-20 text-center ${cardClass(isDark)}`}
+          >
+            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBoxClass(isDark)}`}>
+              <BarChart3 className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
+            <p className={`max-w-[360px] text-[14px] ${softClass(isDark)}`}>
+              Followers, reach and engagement show up here once a social account is connected.
             </p>
-
-            <div className="mt-2">
-              {visibleGroups.map((g) => renderGroup(g, false))}
-              {otherGroups.map((g, i) => renderGroup(g, i === otherGroups.length - 1))}
+            <button
+              type="button"
+              onClick={() => navigate("channels")}
+              className={`mt-2 flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+                isDark
+              )} ${isDark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Connect a channel
+            </button>
+          </section>
+        ) : (
+          <>
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} isDark={isDark} />
+                {range === "custom" && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <DateField
+                      label="From"
+                      value={toInput(start)}
+                      max={toInput(end)}
+                      onChange={setCustomStart}
+                      isDark={isDark}
+                    />
+                    <DateField
+                      label="To"
+                      value={toInput(end)}
+                      min={toInput(start)}
+                      max={todayInput}
+                      onChange={setCustomEnd}
+                      isDark={isDark}
+                    />
+                  </div>
+                )}
+              </div>
+              <Switch checked={compare} onChange={setCompare} label="Compare with previous period" isDark={isDark} />
             </div>
 
-            <div className={`mt-4 border-t pt-5 ${hair}`}>
-              <h3 className="text-[14px] font-semibold">Performance per post</h3>
+            {/* KPIs */}
+            <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <Kpi
+                isDark={isDark}
+                icon={<Users className="h-4 w-4" />}
+                label="Followers"
+                value={nf(summary.followers)}
+                chip={<Chip value={delta} isDark={isDark}>{signed(delta)}</Chip>}
+              />
+              <Kpi isDark={isDark} icon={<FileText className="h-4 w-4" />} label="Posts" value={nf(summary.posts)} />
+              <Kpi isDark={isDark} icon={<Eye className="h-4 w-4" />} label="Reach" value={nf(summary.reach)} />
+              <Kpi isDark={isDark} icon={<Heart className="h-4 w-4" />} label="Reactions" value={nf(summary.reactions)} />
+              <Kpi
+                isDark={isDark}
+                icon={<MessageCircle className="h-4 w-4" />}
+                label="Comments"
+                value={nf(summary.comments)}
+              />
+              <Kpi isDark={isDark} icon={<Share2 className="h-4 w-4" />} label="Shares" value={nf(summary.shares)} />
+            </section>
+
+            {/* Chart + impact */}
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.7fr_1fr]">
+              <section className={`rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="trend-title">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="trend-title" className="text-[16px] font-semibold">
+                    Trend
+                  </h2>
+                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} isDark={isDark} />
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <p className={`text-[12px] ${mutedClass(isDark)}`}>
+                      {metric === "followers" ? "Followers on " + fmt(end) : "Posts in this period"}
+                    </p>
+                    <div className="mt-1 flex items-center gap-3">
+                      <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums">
+                        {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
+                      </span>
+                      {metric === "followers" && <Chip value={delta} isDark={isDark}>{signed(delta)}</Chip>}
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center gap-4 text-[12px] ${softClass(isDark)}`} aria-hidden="true">
+                    <span className="flex items-center gap-2">
+                      <span className={`h-0.5 w-5 rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`} />
+                      This period
+                    </span>
+                    {compare && (
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-0 w-5 border-t-2 border-dashed"
+                          style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}
+                        />
+                        Previous
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className={`mt-3 text-[13px] ${softClass(isDark)}`}>
+                  {metric === "followers"
+                    ? delta === 0
+                      ? "Your audience was flat in this period."
+                      : delta > 0
+                      ? `You gained ${nf(delta)} followers in this period.`
+                      : `You lost ${nf(Math.abs(delta))} followers in this period.`
+                    : totalPosts === 0
+                    ? "You didn't publish any posts in this period."
+                    : `You published ${nf(totalPosts)} posts in this period.`}
+                  {compare && metric === "followers" && (
+                    <span className={mutedClass(isDark)}> Previous period: {signed(prevDelta)}.</span>
+                  )}
+                </p>
+
+                <div className="mt-5">
+                  <Chart
+                    dates={dates}
+                    current={series.cur}
+                    previous={series.prev}
+                    compare={compare}
+                    isDark={isDark}
+                    unit={series.unit}
+                  />
+                </div>
+                {compare && <p className={`mt-3 text-[11px] ${mutedClass(isDark)}`}>Dashed line: {compared}</p>}
+              </section>
+
+              <section className={`flex flex-col rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="impact-title">
+                <h2 id="impact-title" className="text-[16px] font-semibold">
+                  Content impact
+                </h2>
+                <div className="mt-4">
+                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} isDark={isDark} />
+                </div>
+
+                <div className={`mt-5 rounded-2xl p-4 ${innerClass(isDark)}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBoxClass(isDark)}`}>
+                      {group.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-[12px] ${mutedClass(isDark)}`}>{group.title}</p>
+                      <p className="text-[22px] font-semibold leading-tight tabular-nums">{group.headline}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Bar value={group.value} isDark={isDark} />
+                  </div>
+                </div>
+
+                <dl className="mt-2 flex-1">
+                  {group.rows.map((r) => (
+                    <div
+                      key={r.label}
+                      className={`flex items-center justify-between border-b py-3.5 last:border-b-0 ${hairClass(isDark)}`}
+                    >
+                      <dt className={`text-[13px] ${softClass(isDark)}`}>{r.label}</dt>
+                      <dd className="text-[14px] font-semibold tabular-nums">{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            </div>
+
+            {/* Performance per post */}
+            <section className={`rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="perf-title">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="perf-title" className="text-[16px] font-semibold">
+                  Performance per post
+                </h2>
+                <p className={`text-[12px] ${mutedClass(isDark)}`}>{period}</p>
+              </div>
+
               <div
-                className={`mt-3 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-8 text-center ${
-                  isDark ? "border-white/15" : "border-black/10"
+                className={`mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-12 text-center ${
+                  isDark ? "border-white/10" : "border-black/10"
                 }`}
               >
-                <IconPost className={muted} />
-                <p className="text-[13px] font-medium">No posts in the last {days} days</p>
-                <p className={`max-w-[320px] text-[12px] ${muted}`}>
-                  Pick another date range to see how your earlier posts performed.
+                <Activity className={`h-6 w-6 ${mutedClass(isDark)}`} aria-hidden="true" />
+                <p className="text-[14px] font-medium">No posts in this period</p>
+                <p className={`max-w-[360px] text-[13px] ${softClass(isDark)}`}>
+                  Choose a longer range to see how your earlier posts performed.
                 </p>
+                {days < 30 && (
+                  <button
+                    type="button"
+                    onClick={() => setRange("30d")}
+                    className={`mt-2 rounded-full border px-4 py-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
+                      isDark
+                    )} ${hairClass(isDark)} ${hoverClass(isDark)}`}
+                  >
+                    Show last 30 days
+                  </button>
+                )}
               </div>
-            </div>
-          </section>
-        </div>
+            </section>
+          </>
+        )}
       </div>
     </main>
   );
