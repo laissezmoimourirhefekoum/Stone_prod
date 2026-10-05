@@ -391,7 +391,7 @@ function Streak({
   return (
     <div
       className={[
-        "flex min-h-[154px] flex-col rounded-[28px] border px-5 pb-5 pt-4",
+        "flex flex-col rounded-2xl border px-4 pb-3.5 pt-3",
         "transition-colors duration-300",
         isDark
           ? "border-white/[0.08] bg-[#141416]"
@@ -399,15 +399,15 @@ function Streak({
       ].join(" ")}
     >
       {/* Titre */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <CalendarDays
-          className={["h-[22px] w-[22px]", strongClass(isDark)].join(" ")}
+          className={["h-4 w-4", strongClass(isDark)].join(" ")}
           strokeWidth={1.7}
         />
 
         <h2
           className={[
-            "text-[18px] font-semibold tracking-[-0.02em]",
+            "text-[13px] font-semibold tracking-[-0.02em]",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -418,13 +418,13 @@ function Streak({
       {/* Séparateur */}
       <div
         className={[
-          "mb-auto mt-3.5 h-px w-full",
+          "mt-2.5 h-px w-full",
           isDark ? "bg-white/[0.08]" : "bg-black/[0.08]",
         ].join(" ")}
       />
 
       {/* Jours */}
-      <div className="mt-4 grid grid-cols-7 gap-1">
+      <div className="mt-3 grid grid-cols-7 gap-1">
         {WEEK_LABELS.map((label, index) => {
           const done = completedDays.includes(index);
           const isToday = index === todayIndex;
@@ -432,11 +432,11 @@ function Streak({
           return (
             <div
               key={label}
-              className="flex flex-col items-center gap-2"
+              className="flex flex-col items-center gap-1.5"
             >
               <span
                 className={[
-                  "text-[11px] sm:text-[12px]",
+                  "text-[10px]",
                   isToday ? "font-semibold" : "font-normal",
                   isToday
                     ? strongClass(isDark)
@@ -450,7 +450,7 @@ function Streak({
 
               <div
                 className={[
-                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  "flex h-6 w-6 items-center justify-center rounded-full",
                   "transition-colors",
                   done
                     ? isDark
@@ -463,7 +463,7 @@ function Streak({
                 aria-label={`${label}${done ? " completed" : ""}`}
               >
                 {done && (
-                  <Check className="h-4 w-4" strokeWidth={2.6} />
+                  <Check className="h-3 w-3" strokeWidth={2.8} />
                 )}
               </div>
             </div>
