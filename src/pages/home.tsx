@@ -70,6 +70,10 @@ const panelSurfaceClass = (isDark: boolean) =>
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-neutral-50";
 
+/* Couleur des anneaux d'avatar = couleur effective du fond panelSurfaceClass */
+const panelRingClass = (isDark: boolean) =>
+  isDark ? "ring-[#101011]" : "ring-neutral-50";
+
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
 
@@ -615,7 +619,7 @@ function ChannelAvatar({
           onError={() => setFailed(true)}
           className={[
             "h-full w-full rounded-full object-cover ring-2",
-            isDark ? "ring-[#141416]" : "ring-white",
+            panelRingClass(isDark),
           ].join(" ")}
         />
       ) : (
@@ -624,8 +628,9 @@ function ChannelAvatar({
             "flex h-full w-full items-center justify-center rounded-full",
             "text-[11px] font-semibold ring-2",
             isDark
-              ? "bg-[#29292c] text-white ring-[#141416]"
-              : "bg-neutral-900 text-white ring-white",
+              ? "bg-[#29292c] text-white"
+              : "bg-neutral-900 text-white",
+            panelRingClass(isDark),
           ].join(" ")}
         >
           {initial}
@@ -637,7 +642,7 @@ function ChannelAvatar({
           className={[
             "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
             "justify-center rounded-full bg-white text-black ring-1",
-            isDark ? "ring-[#141416]" : "ring-white",
+            panelRingClass(isDark),
           ].join(" ")}
         >
           <NetworkIcon className="h-2.5 w-2.5" />
@@ -662,7 +667,7 @@ function Channels({
     <div
       className={[
         "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
-        cardClass(isDark),
+        panelSurfaceClass(isDark),
       ].join(" ")}
     >
       {channels.length === 0 ? (
@@ -670,7 +675,9 @@ function Channels({
           <div
             className={[
               "flex h-9 w-9 items-center justify-center rounded-xl",
-              isDark ? "bg-white/[0.06]" : "bg-neutral-100",
+              isDark
+                ? "bg-white/[0.06]"
+                : "bg-white shadow-sm ring-1 ring-black/[0.05]",
             ].join(" ")}
           >
             <Plus
