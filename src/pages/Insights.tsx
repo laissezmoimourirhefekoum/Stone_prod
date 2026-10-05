@@ -468,8 +468,7 @@ export default function Insights() {
   const { current, previous, summary } = useInsights(days);
 
   // Palette
-  const outer = isDark ? "bg-[#050506] text-white" : "bg-[#dfe3ec] text-[#14141f]";
-  const panel = isDark ? "bg-[#101012]" : "bg-[#f1f4fa]";
+  const outer = isDark ? "bg-[#101012] text-white" : "bg-[#f1f4fa] text-[#14141f]";
   const card = isDark ? "bg-[#18181b]" : "bg-white";
   const pill = isDark ? "bg-white/[0.05]" : "bg-[#eef1f8]";
   const muted = isDark ? "text-neutral-400" : "text-neutral-400";
@@ -590,11 +589,11 @@ export default function Insights() {
 
   return (
     <main
-      className={`min-h-screen py-6 pr-4 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none sm:pr-8 ${outer}`}
+      className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${outer}`}
       style={{ paddingLeft: sidebarOffset }}
     >
       <DashboardSidebar />
-      <div className={`mx-auto max-w-[1100px] rounded-[36px] p-4 sm:p-6 ${panel}`}>
+      <div className="flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8">
         {/* Barre du haut */}
         <header className="flex items-center justify-between gap-4 px-2 pb-5 pt-2">
           <h1 className="truncate text-[22px] font-bold tracking-tight">Insights</h1>
