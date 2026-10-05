@@ -377,198 +377,76 @@ const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
 
 function Streak({ isDark }: { isDark: boolean }) {
   const streak = 0;
-  const goal = 7;
-
   const today = new Date();
 
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(today);
-
     date.setDate(today.getDate() + index);
-
-    return {
-      day: WEEKDAYS[date.getDay()],
-      date: date.getDate(),
-      isToday: index === 0,
-    };
+    return { day: WEEKDAYS[date.getDay()], date: date.getDate(), isToday: index === 0 };
   });
 
-  const progress = Math.min((streak / goal) * 100, 100);
-
   return (
-    <div
-      className={[
-        "relative min-h-[154px] overflow-hidden rounded-2xl border p-4",
-        "transition-all duration-300",
-        cardClass(isDark),
-      ].join(" ")}
-    >
-      {/* Background gradient */}
-      <div
-        className={[
-          "pointer-events-none absolute inset-0",
-          isDark
-            ? "bg-[radial-gradient(circle_at_100%_0%,rgba(255,255,255,0.09),transparent_45%),linear-gradient(135deg,#0b0b0c_0%,#171719_48%,#303033_100%)]"
-            : "bg-[radial-gradient(circle_at_100%_0%,rgba(0,0,0,0.08),transparent_45%),linear-gradient(135deg,#ffffff_0%,#f1f1f1_48%,#d4d4d4_100%)]",
-        ].join(" ")}
-      />
+    <div className={[
+      "relative min-h-[154px] overflow-hidden rounded-2xl border p-4 transition-colors duration-300",
+      isDark ? "border-white/[0.08] bg-[#151419]" : "border-black/[0.06] bg-white",
+    ].join(" ")}>
+      <div className={[
+        "pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full blur-3xl",
+        isDark ? "bg-violet-500/[0.14]" : "bg-violet-400/[0.12]",
+      ].join(" ")} />
 
-      {/* Subtle glow */}
-      <div
-        className={[
-          "pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-3xl",
-          isDark
-            ? "bg-white/[0.06]"
-            : "bg-black/[0.05]",
-        ].join(" ")}
-      />
-
-      <div className="relative z-10 flex h-full min-h-[122px] flex-col justify-between">
-        {/* TOP */}
-        <div className="flex items-start justify-between">
+      <div className="relative z-10 flex min-h-[122px] flex-col justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p
-              className={[
-                "text-[10px] font-semibold uppercase tracking-[0.14em]",
-                isDark
-                  ? "text-neutral-400"
-                  : "text-neutral-500",
-              ].join(" ")}
-            >
-              Streak
-            </p>
-
-            <div className="mt-1 flex items-end gap-1.5">
-              <span
-                className={[
-                  "text-[30px] font-bold leading-none tracking-[-0.06em]",
-                  isDark
-                    ? "text-white"
-                    : "text-neutral-950",
-                ].join(" ")}
-              >
-                {streak}
-              </span>
-
-              <span className="mb-0.5 text-[10px] font-medium text-neutral-500">
-                days
-              </span>
+            <div className="flex items-center gap-2">
+              <span className={[
+                "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                isDark ? "text-neutral-400" : "text-neutral-500",
+              ].join(" ")}>Streak</span>
+              <span className={[
+                "rounded-full px-2 py-0.5 text-[9px] font-medium",
+                isDark ? "bg-violet-400/10 text-violet-300" : "bg-violet-50 text-violet-700",
+              ].join(" ")}>Keep it going</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className={["text-[34px] font-semibold leading-none tracking-[-0.06em]", strongClass(isDark)].join(" ")}>{streak}</span>
+              <span className={["text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>day streak</span>
             </div>
           </div>
 
-          {/* FLAME */}
-          <div
-            className={[
-              "flex h-9 w-9 items-center justify-center rounded-xl border",
-              "backdrop-blur-sm",
-              isDark
-                ? "border-white/10 bg-white/[0.06] text-white"
-                : "border-black/10 bg-white/50 text-neutral-900",
-            ].join(" ")}
-          >
-            <Flame className="h-[17px] w-[17px]" />
+          <div className={[
+            "flex h-10 w-10 items-center justify-center rounded-2xl border",
+            isDark ? "border-violet-300/15 bg-violet-400/10 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-600",
+          ].join(" ")}>
+            <Flame className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </div>
         </div>
 
-        {/* PROGRESS */}
-        <div className="mt-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[9px] font-medium text-neutral-500">
-              Weekly progress
-            </span>
-
-            <span
-              className={[
-                "text-[9px] font-semibold",
-                isDark
-                  ? "text-neutral-300"
-                  : "text-neutral-700",
-              ].join(" ")}
-            >
-              {streak}/{goal}
-            </span>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className={["text-[10px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>Your week</span>
+            <span className={["text-[10px] font-medium", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>0 / 7 active days</span>
           </div>
-
-          <div
-            className={[
-              "h-1.5 w-full overflow-hidden rounded-full",
-              isDark ? "bg-white/10" : "bg-black/10",
-            ].join(" ")}
-          >
-            <div
-              className={[
-                "h-full rounded-full transition-all duration-500",
-                isDark
-                  ? "bg-gradient-to-r from-white/30 via-white/70 to-white"
-                  : "bg-gradient-to-r from-neutral-700 via-neutral-900 to-black",
-              ].join(" ")}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* DAYS */}
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {days.map((day, index) => {
-            const completed = index < streak;
-
-            return (
-              <div
-                key={`${day.day}-${index}`}
-                className="flex flex-col items-center gap-1"
-              >
-                <span
-                  className={[
-                    "text-[8px] font-semibold",
-                    day.isToday
-                      ? isDark
-                        ? "text-white"
-                        : "text-black"
-                      : "text-neutral-500",
-                  ].join(" ")}
-                >
-                  {day.day}
-                </span>
-
-                <div
-                  className={[
-                    "relative flex h-6 w-6 items-center justify-center rounded-full border",
-                    "transition-all duration-300",
-                    completed
-                      ? isDark
-                        ? "border-white bg-white text-black"
-                        : "border-black bg-black text-white"
-                      : day.isToday
-                        ? isDark
-                          ? "border-white/50 bg-white/[0.08]"
-                          : "border-black/40 bg-black/[0.05]"
-                        : isDark
-                          ? "border-white/10 bg-white/[0.025]"
-                          : "border-black/10 bg-black/[0.025]",
-                  ].join(" ")}
-                >
-                  {completed ? (
-                    <span className="text-[8px] font-bold">
-                      ✓
-                    </span>
-                  ) : (
-                    <span className="text-[8px] font-medium text-neutral-500">
-                      {day.date}
-                    </span>
-                  )}
-
-                  {day.isToday && !completed && (
-                    <span
-                      className={[
-                        "absolute -bottom-0.5 h-1 w-1 rounded-full",
-                        isDark ? "bg-white" : "bg-black",
-                      ].join(" ")}
-                    />
-                  )}
-                </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {days.map((day, index) => (
+              <div key={`${day.day}-${index}`} className="flex flex-col items-center gap-1.5">
+                <span className={[
+                  "text-[9px] font-semibold",
+                  day.isToday ? "text-violet-500" : isDark ? "text-neutral-600" : "text-neutral-400",
+                ].join(" ")}>{day.day}</span>
+                <div className={[
+                  "flex h-7 w-7 items-center justify-center rounded-full border text-[9px] font-medium transition-colors",
+                  day.isToday
+                    ? isDark
+                      ? "border-violet-400/60 bg-violet-400/10 text-violet-300 ring-2 ring-violet-400/10"
+                      : "border-violet-400 bg-violet-50 text-violet-700 ring-2 ring-violet-100"
+                    : isDark
+                      ? "border-white/[0.07] bg-white/[0.025] text-neutral-600"
+                      : "border-black/[0.06] bg-neutral-50 text-neutral-400",
+                ].join(" ")}>{day.date}</div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </div>
