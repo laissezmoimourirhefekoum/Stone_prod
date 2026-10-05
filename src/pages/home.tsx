@@ -1,4 +1,9 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import {
+  useEffect,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
@@ -59,20 +64,17 @@ const cardClass = (isDark: boolean) =>
     ? "border-white/[0.07] bg-[#141416]"
     : "border-black/[0.06] bg-white";
 
-const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
-
-const strongClass = (isDark: boolean) =>
-  isDark ? "text-white" : "text-neutral-900";
-
-/* Surface partagée avec les panneaux type "Comments" */
+/* Fond partagé : panneau Comments / Up Next + bloc Followers / Likes */
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-neutral-50";
 
-const panelSurfaceRingClass = (isDark: boolean) =>
-  isDark ? "ring-[#101011]" : "ring-neutral-50";
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-600" : "text-neutral-400";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
 
 /* ============================================================
    USER CACHE
@@ -97,7 +99,7 @@ type SocialNetworkKey =
 
 const NETWORK_ICONS: Record<
   SocialNetworkKey,
-  (props: { className?: string }) => JSX.Element
+  (props: { className?: string }) => ReactElement
 > = {
   x: XIcon,
   facebook: FacebookIcon,
@@ -174,6 +176,12 @@ const BLOG_POSTS: BlogPost[] = [
     url: BLOG_URL,
   },
 ];
+
+/* Ouvre un nouvel onglet uniquement pour une vraie URL externe */
+const linkProps = (url: string) =>
+  /^https?:\/\//.test(url)
+    ? { target: "_blank", rel: "noreferrer" }
+    : {};
 
 /* ============================================================
    GREETING
@@ -291,7 +299,7 @@ function Stat({
   change,
 }: {
   isDark: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   change: string;
@@ -302,8 +310,7 @@ function Stat({
     <div
       className={[
         "flex min-w-0 items-center gap-3",
-        "border-r last:border-r-0",
-        "pr-5 last:pr-0",
+        "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
         isDark
           ? "border-white/[0.07]"
           : "border-black/[0.07]",
@@ -314,7 +321,7 @@ function Stat({
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
           isDark
             ? "bg-white/[0.06] text-white"
-            : "bg-neutral-100 text-neutral-700",
+            : "bg-white text-neutral-700 shadow-sm ring-1 ring-black/[0.05]",
         ].join(" ")}
       >
         {icon}
@@ -416,20 +423,16 @@ function Streak({ isDark }: { isDark: boolean }) {
         {/* TOP */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <p
-                className={[
-                  "text-[10px] font-semibold uppercase tracking-[0.14em]",
-                  isDark
-                    ? "text-neutral-400"
-                    : "text-neutral-500",
-                ].join(" ")}
-              >
-                Streak
-              </p>
-
-             
-            </div>
+            <p
+              className={[
+                "text-[10px] font-semibold uppercase tracking-[0.14em]",
+                isDark
+                  ? "text-neutral-400"
+                  : "text-neutral-500",
+              ].join(" ")}
+            >
+              Streak
+            </p>
 
             <div className="mt-1 flex items-end gap-1.5">
               <span
@@ -443,14 +446,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                 {streak}
               </span>
 
-              <span
-                className={[
-                  "mb-0.5 text-[10px] font-medium",
-                  isDark
-                    ? "text-neutral-500"
-                    : "text-neutral-500",
-                ].join(" ")}
-              >
+              <span className="mb-0.5 text-[10px] font-medium text-neutral-500">
                 days
               </span>
             </div>
@@ -473,14 +469,7 @@ function Streak({ isDark }: { isDark: boolean }) {
         {/* PROGRESS */}
         <div className="mt-3">
           <div className="mb-1.5 flex items-center justify-between">
-            <span
-              className={[
-                "text-[9px] font-medium",
-                isDark
-                  ? "text-neutral-500"
-                  : "text-neutral-500",
-              ].join(" ")}
-            >
+            <span className="text-[9px] font-medium text-neutral-500">
               Weekly progress
             </span>
 
@@ -499,9 +488,7 @@ function Streak({ isDark }: { isDark: boolean }) {
           <div
             className={[
               "h-1.5 w-full overflow-hidden rounded-full",
-              isDark
-                ? "bg-white/10"
-                : "bg-black/10",
+              isDark ? "bg-white/10" : "bg-black/10",
             ].join(" ")}
           >
             <div
@@ -511,9 +498,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                   ? "bg-gradient-to-r from-white/30 via-white/70 to-white"
                   : "bg-gradient-to-r from-neutral-700 via-neutral-900 to-black",
               ].join(" ")}
-              style={{
-                width: `${progress}%`,
-              }}
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
@@ -535,9 +520,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                       ? isDark
                         ? "text-white"
                         : "text-black"
-                      : isDark
-                        ? "text-neutral-500"
-                        : "text-neutral-500",
+                      : "text-neutral-500",
                   ].join(" ")}
                 >
                   {day.day}
@@ -565,14 +548,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                       ✓
                     </span>
                   ) : (
-                    <span
-                      className={[
-                        "text-[8px] font-medium",
-                        isDark
-                          ? "text-neutral-500"
-                          : "text-neutral-500",
-                      ].join(" ")}
-                    >
+                    <span className="text-[8px] font-medium text-neutral-500">
                       {day.date}
                     </span>
                   )}
@@ -581,9 +557,7 @@ function Streak({ isDark }: { isDark: boolean }) {
                     <span
                       className={[
                         "absolute -bottom-0.5 h-1 w-1 rounded-full",
-                        isDark
-                          ? "bg-white"
-                          : "bg-black",
+                        isDark ? "bg-white" : "bg-black",
                       ].join(" ")}
                     />
                   )}
@@ -616,12 +590,10 @@ function ChannelAvatar({
     setFailed(false);
   }, [channel.avatarUrl]);
 
-  const label =
-    channel.handle || channel.name || "Channel";
+  const label = channel.handle || channel.name || "Channel";
 
   const initial =
-    label.replace(/^@/, "").charAt(0).toUpperCase() ||
-    "?";
+    label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   const networkId = getNetworkId(channel);
 
@@ -632,9 +604,7 @@ function ChannelAvatar({
   return (
     <div
       className="relative h-9 w-9 shrink-0"
-      style={{
-        marginLeft: overlap ? -8 : 0,
-      }}
+      style={{ marginLeft: overlap ? -8 : 0 }}
       title={label}
     >
       {channel.avatarUrl && !failed ? (
@@ -645,7 +615,7 @@ function ChannelAvatar({
           onError={() => setFailed(true)}
           className={[
             "h-full w-full rounded-full object-cover ring-2",
-            panelSurfaceRingClass(isDark),
+            isDark ? "ring-[#141416]" : "ring-white",
           ].join(" ")}
         />
       ) : (
@@ -654,9 +624,8 @@ function ChannelAvatar({
             "flex h-full w-full items-center justify-center rounded-full",
             "text-[11px] font-semibold ring-2",
             isDark
-              ? "bg-[#29292c] text-white"
-              : "bg-neutral-900 text-white",
-            panelSurfaceRingClass(isDark),
+              ? "bg-[#29292c] text-white ring-[#141416]"
+              : "bg-neutral-900 text-white ring-white",
           ].join(" ")}
         >
           {initial}
@@ -668,7 +637,7 @@ function ChannelAvatar({
           className={[
             "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
             "justify-center rounded-full bg-white text-black ring-1",
-            panelSurfaceRingClass(isDark),
+            isDark ? "ring-[#141416]" : "ring-white",
           ].join(" ")}
         >
           <NetworkIcon className="h-2.5 w-2.5" />
@@ -693,7 +662,7 @@ function Channels({
     <div
       className={[
         "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
-        panelSurfaceClass(isDark),
+        cardClass(isDark),
       ].join(" ")}
     >
       {channels.length === 0 ? (
@@ -701,17 +670,13 @@ function Channels({
           <div
             className={[
               "flex h-9 w-9 items-center justify-center rounded-xl",
-              isDark
-                ? "bg-white/[0.06]"
-                : "bg-neutral-100",
+              isDark ? "bg-white/[0.06]" : "bg-neutral-100",
             ].join(" ")}
           >
             <Plus
               className={[
                 "h-4 w-4",
-                isDark
-                  ? "text-white"
-                  : "text-neutral-700",
+                isDark ? "text-white" : "text-neutral-700",
               ].join(" ")}
             />
           </div>
@@ -739,16 +704,14 @@ function Channels({
       ) : (
         <div className="flex items-center gap-3">
           <div className="flex items-center pl-1">
-            {channels.slice(0, 6).map(
-              (channel, index) => (
-                <ChannelAvatar
-                  key={channel.key}
-                  channel={channel}
-                  isDark={isDark}
-                  overlap={index > 0}
-                />
-              )
-            )}
+            {channels.slice(0, 6).map((channel, index) => (
+              <ChannelAvatar
+                key={channel.key}
+                channel={channel}
+                isDark={isDark}
+                overlap={index > 0}
+              />
+            ))}
           </div>
 
           <div>
@@ -759,9 +722,7 @@ function Channels({
               ].join(" ")}
             >
               {channels.length}{" "}
-              {channels.length === 1
-                ? "channel"
-                : "channels"}{" "}
+              {channels.length === 1 ? "channel" : "channels"}{" "}
               connected
             </p>
 
@@ -788,9 +749,7 @@ function Channels({
             : "text-neutral-900 hover:bg-neutral-100",
         ].join(" ")}
       >
-        {channels.length === 0
-          ? "Connect"
-          : "Manage"}
+        {channels.length === 0 ? "Connect" : "Manage"}
 
         <ArrowUpRight className="h-3 w-3" />
       </button>
@@ -816,7 +775,7 @@ function Panel({
   title: string;
   meta: string;
   onViewAll?: () => void;
-  icon: React.ReactNode;
+  icon: ReactNode;
   line1: string;
   line2: string;
   action?: {
@@ -830,9 +789,7 @@ function Panel({
         <p
           className={[
             "text-[12px] font-semibold",
-            isDark
-              ? "text-neutral-300"
-              : "text-neutral-700",
+            isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
           {title}
@@ -884,7 +841,7 @@ function Panel({
 
         <p
           className={[
-            "text-[12px]",
+            "text-[12px] font-medium",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -894,7 +851,7 @@ function Panel({
         <p
           className={[
             "text-[12px]",
-            strongClass(isDark),
+            isDark ? "text-neutral-500" : "text-neutral-500",
           ].join(" ")}
         >
           {line2}
@@ -943,9 +900,7 @@ function BlogImage({
       <div
         className={[
           "h-[140px] w-full rounded-xl",
-          isDark
-            ? "bg-white/[0.06]"
-            : "bg-neutral-200/70",
+          isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
         ].join(" ")}
       />
     );
@@ -967,20 +922,14 @@ function BlogImage({
    BLOG SECTION
 ============================================================ */
 
-function BlogSection({
-  isDark,
-}: {
-  isDark: boolean;
-}) {
+function BlogSection({ isDark }: { isDark: boolean }) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
         <p
           className={[
             "text-[12px] font-semibold",
-            isDark
-              ? "text-neutral-300"
-              : "text-neutral-700",
+            isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
           From the Blog
@@ -988,8 +937,7 @@ function BlogSection({
 
         <a
           href={BLOG_URL}
-          target="_blank"
-          rel="noreferrer"
+          {...linkProps(BLOG_URL)}
           className={[
             "flex items-center gap-0.5 text-[11px] font-semibold transition",
             isDark
@@ -1007,8 +955,7 @@ function BlogSection({
           <a
             key={post.title}
             href={post.url}
-            target="_blank"
-            rel="noreferrer"
+            {...linkProps(post.url)}
             className={[
               "group flex flex-col rounded-2xl border p-3.5 transition",
               cardClass(isDark),
@@ -1017,10 +964,7 @@ function BlogSection({
                 : "hover:bg-neutral-50",
             ].join(" ")}
           >
-            <BlogImage
-              src={post.image}
-              isDark={isDark}
-            />
+            <BlogImage src={post.image} isDark={isDark} />
 
             <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
@@ -1086,37 +1030,23 @@ export default function Home() {
   const sidebarOffset = useSidebarOffset();
 
   const [query, setQuery] = useState("");
-  const [isNewPostOpen, setIsNewPostOpen] =
-    useState(false);
-  const [isFolderOpen, setIsFolderOpen] =
-    useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
 
-  const [user, setUser] =
-    useState<UserProfile | null>(
-      userProfileCache.profile
-    );
-
-  const [now, setNow] = useState(
-    () => new Date()
+  const [user, setUser] = useState<UserProfile | null>(
+    userProfileCache.profile
   );
 
-  const connectedChannels =
-    useConnectedChannels();
+  const [now, setNow] = useState(() => new Date());
 
-  const homeConnectedChannels = useMemo(
-    () => connectedChannels,
-    [connectedChannels]
-  );
+  const connectedChannels = useConnectedChannels();
 
   /* ----------------------------------------------------------
      CLOCK
   ---------------------------------------------------------- */
 
   useEffect(() => {
-    const interval = setInterval(
-      () => setNow(new Date()),
-      15000
-    );
+    const interval = setInterval(() => setNow(new Date()), 15000);
 
     return () => clearInterval(interval);
   }, []);
@@ -1130,20 +1060,14 @@ export default function Home() {
 
     async function loadUser() {
       try {
-        const userData =
-          await getCurrentUser();
+        const userData = await getCurrentUser();
 
         if (mounted && userData) {
-          userProfileCache.profile =
-            userData;
-
+          userProfileCache.profile = userData;
           setUser(userData);
         }
       } catch (error) {
-        console.error(
-          "Error loading user on Home:",
-          error
-        );
+        console.error("Error loading user on Home:", error);
       }
     }
 
@@ -1154,10 +1078,9 @@ export default function Home() {
     };
   }, []);
 
-  const fullName =
-    `${user?.first_name || ""} ${
-      user?.last_name || ""
-    }`.trim();
+  const fullName = `${user?.first_name || ""} ${
+    user?.last_name || ""
+  }`.trim();
 
   const initials =
     `${(user?.first_name || "")[0] || ""}${
@@ -1170,13 +1093,8 @@ export default function Home() {
      CREATE POST
   ---------------------------------------------------------- */
 
-  const handleCreatePost = async (
-    payload: NewPostPayload
-  ) => {
-    console.log(
-      "Nouveau post à envoyer :",
-      payload
-    );
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    console.log("Nouveau post à envoyer :", payload);
   };
 
   /* ----------------------------------------------------------
@@ -1184,14 +1102,11 @@ export default function Home() {
   ---------------------------------------------------------- */
 
   const handleViewAllComments = () => {
-    const first =
-      homeConnectedChannels[0];
+    const first = connectedChannels[0];
 
     navigate(
       first
-        ? `community?channel=${encodeURIComponent(
-            first.key
-          )}`
+        ? `community?channel=${encodeURIComponent(first.key)}`
         : "community"
     );
   };
@@ -1200,9 +1115,7 @@ export default function Home() {
      BOTTOM BAR
   ---------------------------------------------------------- */
 
-  const handleBottomBarChange = (
-    id: BottomBarTab
-  ) => {
+  const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
         setIsFolderOpen(false);
@@ -1210,9 +1123,7 @@ export default function Home() {
         break;
 
       case "files":
-        setIsFolderOpen(
-          (open) => !open
-        );
+        setIsFolderOpen((open) => !open);
         break;
 
       default:
@@ -1229,9 +1140,7 @@ export default function Home() {
       className={[
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
-        isDark
-          ? "bg-[#09090a]"
-          : "bg-[#f5f3ef]",
+        isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]",
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
@@ -1244,9 +1153,7 @@ export default function Home() {
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{
-          paddingLeft: sidebarOffset,
-        }}
+        style={{ paddingLeft: sidebarOffset }}
       >
         <div
           className={[
@@ -1289,10 +1196,7 @@ export default function Home() {
               </div>
             </div>
 
-            <ClockDisplay
-              isDark={isDark}
-              now={now}
-            />
+            <ClockDisplay isDark={isDark} now={now} />
           </header>
 
           {/* OVERVIEW */}
@@ -1302,9 +1206,7 @@ export default function Home() {
               <p
                 className={[
                   "text-[11px] font-semibold",
-                  isDark
-                    ? "text-neutral-500"
-                    : "text-neutral-400",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
                 ].join(" ")}
               >
                 Overview
@@ -1313,9 +1215,7 @@ export default function Home() {
               <p
                 className={[
                   "mt-0.5 text-[10px]",
-                  isDark
-                    ? "text-neutral-700"
-                    : "text-neutral-400",
+                  isDark ? "text-neutral-700" : "text-neutral-400",
                 ].join(" ")}
               >
                 Your activity at a glance
@@ -1323,11 +1223,12 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
+              {/* Même fond que le panneau Comments */}
               <div
                 className={[
                   "grid grid-cols-1 gap-3 rounded-2xl border p-4",
                   "sm:grid-cols-3",
-                  cardClass(isDark),
+                  panelSurfaceClass(isDark),
                 ].join(" ")}
               >
                 <Stat
@@ -1335,9 +1236,7 @@ export default function Home() {
                   label="Followers"
                   value="27K"
                   change="-2%"
-                  icon={
-                    <Users className="h-4 w-4" />
-                  }
+                  icon={<Users className="h-4 w-4" />}
                 />
 
                 <Stat
@@ -1345,9 +1244,7 @@ export default function Home() {
                   label="Likes"
                   value="12.4K"
                   change="+16%"
-                  icon={
-                    <Heart className="h-4 w-4" />
-                  }
+                  icon={<Heart className="h-4 w-4" />}
                 />
 
                 <Stat
@@ -1355,9 +1252,7 @@ export default function Home() {
                   label="Comments"
                   value="342"
                   change="+5%"
-                  icon={
-                    <MessageCircle className="h-4 w-4" />
-                  }
+                  icon={<MessageCircle className="h-4 w-4" />}
                 />
               </div>
 
@@ -1373,9 +1268,7 @@ export default function Home() {
                 <p
                   className={[
                     "text-[11px] font-semibold",
-                    isDark
-                      ? "text-neutral-500"
-                      : "text-neutral-400",
+                    isDark ? "text-neutral-500" : "text-neutral-400",
                   ].join(" ")}
                 >
                   Channels
@@ -1384,9 +1277,7 @@ export default function Home() {
                 <p
                   className={[
                     "mt-0.5 text-[10px]",
-                    isDark
-                      ? "text-neutral-700"
-                      : "text-neutral-400",
+                    isDark ? "text-neutral-700" : "text-neutral-400",
                   ].join(" ")}
                 >
                   Your connected accounts
@@ -1395,9 +1286,7 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate("channels")
-                }
+                onClick={() => navigate("channels")}
                 className={[
                   "text-[10px] font-semibold",
                   isDark
@@ -1409,12 +1298,7 @@ export default function Home() {
               </button>
             </div>
 
-            <Channels
-              isDark={isDark}
-              channels={
-                homeConnectedChannels
-              }
-            />
+            <Channels isDark={isDark} channels={connectedChannels} />
           </section>
 
           {/* COMMENTS + UP NEXT */}
@@ -1424,12 +1308,8 @@ export default function Home() {
               isDark={isDark}
               title="Comments"
               meta="0 unanswered"
-              onViewAll={
-                handleViewAllComments
-              }
-              icon={
-                <MessageCircle className="h-5 w-5" />
-              }
+              onViewAll={handleViewAllComments}
+              icon={<MessageCircle className="h-5 w-5" />}
               line1="No comments yet."
               line2="You'll see the latest comments here."
             />
@@ -1438,18 +1318,13 @@ export default function Home() {
               isDark={isDark}
               title="Up Next"
               meta="0 posts scheduled"
-              onViewAll={() =>
-                navigate("calendar")
-              }
-              icon={
-                <CalendarDays className="h-5 w-5" />
-              }
+              onViewAll={() => navigate("calendar")}
+              icon={<CalendarDays className="h-5 w-5" />}
               line1="No posts scheduled yet."
               line2="You'll see upcoming posts here."
               action={{
                 label: "Create Post",
-                onClick: () =>
-                  setIsNewPostOpen(true),
+                onClick: () => setIsNewPostOpen(true),
               }}
             />
           </div>
@@ -1457,9 +1332,7 @@ export default function Home() {
           {/* BLOG */}
 
           <div className="mt-8">
-            <BlogSection
-              isDark={isDark}
-            />
+            <BlogSection isDark={isDark} />
           </div>
         </div>
       </div>
@@ -1468,9 +1341,7 @@ export default function Home() {
 
       <Folder
         isOpen={isFolderOpen}
-        onClose={() =>
-          setIsFolderOpen(false)
-        }
+        onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
         offsetLeft={sidebarOffset}
       />
@@ -1480,12 +1351,8 @@ export default function Home() {
       <BottomBar
         isDark={isDark}
         offsetLeft={sidebarOffset}
-        active={
-          isFolderOpen ? "files" : null
-        }
-        onChange={
-          handleBottomBarChange
-        }
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
         query={query}
         onQueryChange={setQuery}
       />
@@ -1494,9 +1361,7 @@ export default function Home() {
 
       <NewPostModal
         isOpen={isNewPostOpen}
-        onClose={() =>
-          setIsNewPostOpen(false)
-        }
+        onClose={() => setIsNewPostOpen(false)}
         isDark={isDark}
         onSubmit={handleCreatePost}
       />
