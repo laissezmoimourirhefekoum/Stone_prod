@@ -1121,7 +1121,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_1fr]">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
               {/* Même fond que le panneau Comments */}
               <div
                 className={[
