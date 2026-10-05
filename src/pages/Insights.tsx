@@ -334,7 +334,7 @@ function Chart({
       {hover !== null && (
         <div
           className={`pointer-events-none absolute top-0 min-w-[130px] rounded-2xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(20,20,31,0.12)] ${
-            isDark ? "bg-[#26262b] text-white" : "bg-white text-neutral-900"
+            isDark ? "bg-[#0d0d0f] text-white ring-1 ring-white/10" : "bg-white text-neutral-900"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -373,7 +373,7 @@ function Segmented<T extends string>({
   isDark: boolean;
   label: string;
 }) {
-  const track = isDark ? "bg-white/[0.06]" : "bg-neutral-100";
+  const track = isDark ? "bg-[#070708]" : "bg-neutral-100";
   const on = isDark ? "bg-white text-black" : "bg-neutral-900 text-white";
   const off = isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900";
   return (
@@ -469,8 +469,8 @@ export default function Insights() {
 
   // Palette
   const outer = isDark ? "bg-[#09090a] text-white" : "bg-[#f5f3ef] text-neutral-900";
-  const card = isDark ? "border border-white/[0.07] bg-[#141416]" : "border border-black/[0.06] bg-white";
-  const pill = isDark ? "border border-white/[0.07] bg-white/[0.03]" : "border border-black/[0.06] bg-neutral-50";
+  const card = isDark ? "border border-white/[0.06] bg-[#0d0d0f]" : "border border-black/[0.06] bg-white";
+  const pill = isDark ? "border border-white/[0.06] bg-[#070708]" : "border border-black/[0.06] bg-neutral-50";
   const muted = isDark ? "text-neutral-600" : "text-neutral-400";
   const soft = isDark ? "text-neutral-300" : "text-neutral-500";
   const hair = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
