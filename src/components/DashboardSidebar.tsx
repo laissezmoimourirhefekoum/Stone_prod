@@ -2026,32 +2026,52 @@ export default function DashboardSidebar({
         ].join(" ")}
       >
         {/* Logo */}
-        <div
-          className={[
-            "flex items-center gap-2",
-            "select-none",
-            "overflow-hidden px-1.5",
-            t.brand,
-          ].join(" ")}
-        >
-          <img
-            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-            alt="Stone logo"
-            draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
-          />
-
-          <span
+        <Tip label="Home" enabled={isCollapsed} menuClass={t.menu}>
+          <button
+            type="button"
+            aria-label="Stone, go to Home"
+            aria-current={currentRoute === "home" ? "page" : undefined}
+            onClick={() => handleNavigate("home")}
             className={[
-              "select-none",
-              "text-[20px] font-semibold",
-              "leading-none tracking-tight",
-              labelClass,
+              "group flex h-11 w-full items-center justify-center",
+              "select-none overflow-hidden rounded-xl",
+              "transition-transform duration-200 active:scale-[0.97]",
+              "motion-reduce:transition-none motion-reduce:active:scale-100",
+              focus,
+              t.brand,
             ].join(" ")}
           >
-            Stone
-          </span>
-        </div>
+            <img
+              src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+              alt=""
+              draggable={false}
+              className={[
+                "h-9 w-8 shrink-0 select-none object-contain",
+                "transition-transform duration-200",
+                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "group-hover:scale-105",
+                "motion-reduce:transition-none motion-reduce:group-hover:scale-100",
+              ].join(" ")}
+            />
+
+            {/* Le texte replie sa largeur (pas seulement son opacité) :
+                l'icône reste centrée réduite, et le duo icône + texte l'est ouvert. */}
+            <span
+              className={[
+                "select-none overflow-hidden whitespace-nowrap",
+                "text-[20px] font-semibold leading-none tracking-tight",
+                "transition-[max-width,margin,opacity]",
+                "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "motion-reduce:transition-none",
+                isCollapsed
+                  ? "ml-0 max-w-0 opacity-0 duration-150"
+                  : "ml-2 max-w-[96px] opacity-100 duration-300",
+              ].join(" ")}
+            >
+              Stone
+            </span>
+          </button>
+        </Tip>
 
         {/* Navigation */}
         <nav
