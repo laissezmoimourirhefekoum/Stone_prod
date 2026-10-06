@@ -37,6 +37,8 @@ import ConnectChannelModal, {
   type ConnectChannelModalProps,
 } from "./ConnectChannelModal";
 
+/* Config + services des réseaux : la sidebar est autonome, elle gère
+   elle-même l'état des connexions (comme la page Channels). */
 import {
   CHANNELS,
   PLAN,
@@ -73,13 +75,23 @@ import {
    Types
 ============================================================================ */
 
-type IconProps = { className?: string };
+type IconProps = {
+  className?: string;
+};
+
 type IconComponent = (props: IconProps) => React.ReactElement;
+
+type NavChild = {
+  label: string;
+  route: string;
+};
 
 type NavItem = {
   label: string;
   icon: IconComponent;
-  route: string;
+  route?: string;
+  badge?: string;
+  children?: NavChild[];
 };
 
 type NavSection = {
@@ -90,37 +102,43 @@ type NavSection = {
 type MenuItem = {
   label: string;
   icon: IconComponent;
+  badge?: string;
   route?: string;
-  action?: "logout";
+  action?: "logout" | "toggleTheme";
 };
 
 type ThemeTokens = {
   aside: string;
+  brand: string;
   divider: string;
   navActive: string;
   navIdle: string;
-  accent: string;
-  muted: string;
-  title: string;
+  handle: string;
+  count: string;
+  dotRing: string;
+  rail: string;
+  sub: string;
+  subActive: string;
   row: string;
   rowOpen: string;
-  surface: string;
-  track: string;
-  cta: string;
-  kbd: string;
-  badge: string;
-  tabActive: string;
-  tabIdle: string;
+  avatar: string;
+  title: string;
+  muted: string;
   menu: string;
   menuDivider: string;
   menuItem: string;
   menuIcon: string;
-  avatar: string;
-  dotRing: string;
+  upgrade: string;
+  badge: string;
   ring: string;
 };
 
-type ToggleThemeFn = (origin?: { x: number; y: number }) => void;
+type ToggleOrigin = {
+  x: number;
+  y: number;
+};
+
+type ToggleThemeFn = (origin?: ToggleOrigin) => void;
 
 /** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
 type StatusResponse = {
@@ -136,31 +154,67 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Keyframes
+   Keyframes + global UI guards
 ============================================================================ */
 
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-@keyframes sbFade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+
+@keyframes sbItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.sb-menu { animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.sb-fade { animation: sbFade 220ms ease-out 120ms both; }
+
+.sb-menu {
+  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.sb-item {
+  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
 
 #app-sidebar button,
+#app-sidebar [role="menuitem"],
+#app-sidebar [role="button"],
 #app-sidebar svg,
 #app-sidebar img {
   -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+#app-sidebar button::selection,
+#app-sidebar button *::selection,
+#app-sidebar svg::selection,
+#app-sidebar svg *::selection {
+  background: transparent;
+  color: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-fade { animation: none; }
+  .sb-menu,
+  .sb-item {
+    animation: none;
+  }
 }
 `;
 
@@ -171,7 +225,9 @@ const SIDEBAR_KEYFRAMES = `
 function Svg({
   className = "h-4 w-4",
   children,
-}: IconProps & { children: ReactNode }) {
+}: IconProps & {
+  children: ReactNode;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -188,119 +244,124 @@ function Svg({
   );
 }
 
-const OverviewIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 12.5 12 5l8 7.5" />
-    <path d="M6 10.5V18h12v-7.5" />
-  </Svg>
-);
+function OverviewIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 12.5 12 5l8 7.5" />
+      <path d="M6 10.5V18h12v-7.5" />
+    </Svg>
+  );
+}
 
-const CalendarIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-  </Svg>
-);
+function CalendarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+      <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
+    </Svg>
+  );
+}
 
-const TemplatesIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-    <path d="M8 10h8M8 14h8" />
-  </Svg>
-);
+function TemplatesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+      <path d="M8 10h8M8 14h8" />
+    </Svg>
+  );
+}
 
-const SettingsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </Svg>
-);
+function SettingsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </Svg>
+  );
+}
 
-const ChannelsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="7.5" cy="7.5" r="2.5" />
-    <circle cx="16.5" cy="7.5" r="2.5" />
-    <circle cx="7.5" cy="16.5" r="2.5" />
-    <circle cx="16.5" cy="16.5" r="2.5" />
-  </Svg>
-);
+function ChannelsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="7.5" cy="7.5" r="2.5" />
+      <circle cx="16.5" cy="7.5" r="2.5" />
+      <circle cx="7.5" cy="16.5" r="2.5" />
+      <circle cx="16.5" cy="16.5" r="2.5" />
+    </Svg>
+  );
+}
 
-const BillingIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
-  </Svg>
-);
+function BillingIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
+    </Svg>
+  );
+}
 
-const HelpIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
-  </Svg>
-);
+function HelpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
+    </Svg>
+  );
+}
 
-const AppsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
-    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
-    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
-    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-  </Svg>
-);
+function LightbulbIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
+    </Svg>
+  );
+}
 
-const BetaIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
-    <path d="M8 15h8" />
-  </Svg>
-);
+function AppsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </Svg>
+  );
+}
 
-const LogoutIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
-    <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
-  </Svg>
-);
+function BetaIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
+      <path d="M8 15h8" />
+    </Svg>
+  );
+}
 
-const BoltIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
-  </Svg>
-);
+function LogoutIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
+      <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
+    </Svg>
+  );
+}
 
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
-
-const ChevronUpIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m6 15 6-6 6 6" />
-  </Svg>
-);
-
-const PublishIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 12 20 4l-6 16-3-6.5L4 12Z" />
-  </Svg>
-);
-
-const CommunityIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
-    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
-  </Svg>
-);
-
-const InsightsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
-  </Svg>
-);
+function BoltIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
+    </Svg>
+  );
+}
 
 /** Icône « panneau latéral » : le panneau gauche se remplit quand la sidebar est ouverte. */
-function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
+function SidebarToggleIcon({
+  className,
+  open,
+}: IconProps & {
+  open: boolean;
+}) {
   return (
     <Svg className={className}>
       <rect
@@ -312,12 +373,21 @@ function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
         fill="currentColor"
         stroke="none"
         className={[
-          "transition-opacity duration-300 motion-reduce:transition-none",
+          "transition-opacity duration-300",
+          "motion-reduce:transition-none",
           open ? "opacity-30" : "opacity-0",
         ].join(" ")}
       />
       <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
       <path d="M9.5 4.5v15" />
+    </Svg>
+  );
+}
+
+function ChevronDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m6 9 6 6 6-6" />
     </Svg>
   );
 }
@@ -328,12 +398,11 @@ function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
 
 const navSections: NavSection[] = [
   {
-    label: "Workspace",
+    label: "General",
     items: [
       { label: "Overview", icon: OverviewIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
       { label: "Templates", icon: TemplatesIcon, route: "template" },
-      { label: "Integrations", icon: AppsIcon, route: "integrations" },
     ],
   },
 ];
@@ -342,6 +411,7 @@ const defaultAccount = {
   name: "Ronan",
   initials: "RN",
   email: "workspace@crew.io",
+  organization: "My Organization",
   plan: "Free plan",
   channels: 0,
   avatarUrl: undefined as string | undefined,
@@ -351,11 +421,13 @@ const menuGroups: MenuItem[][] = [
   [
     { label: "Settings", icon: SettingsIcon, route: "settings" },
     { label: "Channels", icon: ChannelsIcon, route: "channels" },
-    { label: "Plans and billing", icon: BillingIcon, route: "pricing" },
+    { label: "Plans and Billing", icon: BillingIcon, route: "pricing" },
+    { label: "Help & Support", icon: HelpIcon, route: "faq" },
   ],
   [
-    { label: "Help & support", icon: HelpIcon, route: "faq" },
-    { label: "Beta features", icon: BetaIcon },
+    { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
+    { label: "Integrations", icon: AppsIcon, route: "integrations" },
+    { label: "Beta Features", icon: BetaIcon },
   ],
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
 ];
@@ -364,63 +436,226 @@ const menuGroups: MenuItem[][] = [
    Navigation item
 ============================================================================ */
 
-/** Barre d'accent collée au bord gauche de la sidebar : indique l'élément actif. */
-function ActiveBar({ accent }: { accent: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={[
-        "absolute -left-3 bottom-2 top-2 w-[3px] rounded-r-full",
-        accent,
-      ].join(" ")}
-    />
-  );
-}
-
 type NavItemViewProps = {
   item: NavItem;
-  isActive: boolean;
+  index: number;
+  currentRoute: string;
   isCollapsed: boolean;
+  isOpen: boolean;
+  labelClass: string;
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
+  onToggleGroup: (label: string) => void;
+  onExpandAndOpen: (label: string) => void;
 };
 
-const NavItemView = memo(function NavItemView({
+function NavItemViewImpl({
   item,
-  isActive,
+  index,
+  currentRoute,
   isCollapsed,
+  isOpen,
+  labelClass,
   focus,
   t,
   onNavigate,
+  onToggleGroup,
+  onExpandAndOpen,
 }: NavItemViewProps) {
   const Icon = item.icon;
 
+  const hasChildren = Boolean(item.children?.length);
+
+  const labelStyle = {
+    transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
+  };
+
+  const isActive =
+    (item.route !== undefined && item.route === currentRoute) ||
+    Boolean(item.children?.some((child) => child.route === currentRoute));
+
+  const onClick = () => {
+    if (!hasChildren) {
+      if (item.route) {
+        onNavigate(item.route);
+      }
+      return;
+    }
+
+    if (isCollapsed) {
+      onExpandAndOpen(item.label);
+      return;
+    }
+
+    onToggleGroup(item.label);
+  };
+
   return (
-    <button
-      type="button"
-      aria-label={item.label}
-      aria-current={isActive ? "page" : undefined}
-      title={isCollapsed ? item.label : undefined}
-      onClick={() => onNavigate(item.route)}
-      className={[
-        "group relative flex h-10 w-full items-center gap-3 rounded-lg px-[14px]",
-        "text-[13px] font-medium",
-        "transition-[background-color,color,transform] duration-150",
-        "active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-        focus,
-        isActive ? t.navActive : t.navIdle,
-      ].join(" ")}
-    >
-      {isActive && <ActiveBar accent={t.accent} />}
-      <Icon className="h-5 w-5 shrink-0" />
-      {!isCollapsed && <span className="sb-fade truncate">{item.label}</span>}
-    </button>
+    <div>
+      <button
+        type="button"
+        aria-label={item.label}
+        aria-current={isActive ? "page" : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
+        title={isCollapsed ? item.label : undefined}
+        onClick={onClick}
+        className={[
+          "group relative flex h-10 w-full",
+          "select-none",
+          "items-center gap-3 overflow-hidden",
+          "rounded-xl px-3",
+          "text-[13px] font-medium",
+          "transition-[background-color,color,transform]",
+          "duration-200",
+          "active:scale-[0.97]",
+          "motion-reduce:transition-none",
+          "motion-reduce:active:scale-100",
+          focus,
+          isActive ? t.navActive : t.navIdle,
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "relative flex shrink-0",
+            "select-none",
+            "transition-transform duration-200",
+            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+            "group-hover:scale-110",
+            "motion-reduce:transition-none",
+            "motion-reduce:group-hover:scale-100",
+          ].join(" ")}
+        >
+          <Icon className="h-5 w-5" />
+
+          {item.badge && (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute -right-0.5 -top-0.5",
+                "h-2 w-2 rounded-full",
+                "select-none",
+                "bg-[#ff5ec4] ring-2",
+                t.dotRing,
+                isCollapsed
+                  ? "opacity-100 delay-150 duration-200"
+                  : "opacity-0 duration-100",
+              ].join(" ")}
+            />
+          )}
+        </span>
+
+        <span
+          className={["flex-1 select-none text-left", labelClass].join(" ")}
+          style={labelStyle}
+        >
+          {item.label}
+        </span>
+
+        {item.badge && (
+          <span
+            style={labelStyle}
+            className={[
+              "select-none",
+              "rounded-md px-1.5 py-0.5",
+              "text-[11px] font-medium",
+              t.count,
+              labelClass,
+            ].join(" ")}
+          >
+            <span aria-hidden="true">{item.badge}</span>
+            <span className="sr-only">{item.badge} en attente</span>
+          </span>
+        )}
+
+        {hasChildren && (
+          <span
+            className={["flex shrink-0 select-none", labelClass].join(" ")}
+            style={labelStyle}
+          >
+            <ChevronDownIcon
+              className={[
+                "h-4 w-4",
+                "transition-transform duration-300",
+                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "motion-reduce:transition-none",
+                isOpen ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </span>
+        )}
+      </button>
+
+      {hasChildren && (
+        <div
+          className={[
+            "grid",
+            "transition-[grid-template-rows]",
+            "duration-300",
+            "ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "motion-reduce:transition-none",
+            isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          ].join(" ")}
+        >
+          <div className="overflow-hidden">
+            <div
+              className={[
+                "ml-[22px] mt-1 flex",
+                "flex-col gap-0.5",
+                "border-l pl-[13px]",
+                t.rail,
+              ].join(" ")}
+            >
+              {item.children!.map((child, childIndex) => {
+                const childActive = child.route === currentRoute;
+
+                return (
+                  <button
+                    key={child.route}
+                    type="button"
+                    tabIndex={isOpen ? 0 : -1}
+                    aria-current={childActive ? "page" : undefined}
+                    onClick={() => onNavigate(child.route)}
+                    style={{
+                      transitionDelay: isOpen
+                        ? `${80 + childIndex * 45}ms`
+                        : "0ms",
+                    }}
+                    className={[
+                      "flex h-9 w-full",
+                      "select-none",
+                      "items-center",
+                      "whitespace-nowrap",
+                      "rounded-lg px-2",
+                      "text-left text-[13px]",
+                      "font-medium",
+                      "transition-[background-color,color,opacity,transform]",
+                      "duration-300",
+                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      "motion-reduce:transition-none",
+                      isOpen
+                        ? "translate-x-0 opacity-100"
+                        : "-translate-x-2 opacity-0",
+                      focus,
+                      childActive ? t.subActive : t.sub,
+                    ].join(" ")}
+                  >
+                    {child.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-});
+}
+
+const NavItemView = memo(NavItemViewImpl);
 
 /* ============================================================================
-   Channels
+   Section Channels (réseaux connectés)
 ============================================================================ */
 
 type NetworkKey =
@@ -433,7 +668,19 @@ type NetworkKey =
   | "pinterest"
   | "threads";
 
-const channelsMemory = { selected: null as string | null };
+type SidebarChannelsProps = {
+  channels: ConnectedChannel[];
+  isCollapsed: boolean;
+  currentRoute: string;
+  labelClass: string;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+  onExpand: () => void;
+  onConnect: () => void;
+};
+
+const channelsMemory = { open: [] as string[] };
 
 const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
   x: XIcon,
@@ -474,17 +721,54 @@ function getHashChannel(): string | null {
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
 
+const PublishIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
+  </Svg>
+);
+
+const CommunityIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
+    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
+  </Svg>
+);
+
+const InsightsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+  </Svg>
+);
+
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
 const CHANNEL_LINKS: {
   label: string;
   route: string;
   icon: IconComponent;
-  isNew?: boolean;
+  badge?: string;
   /** Le lien porte le canal : /#/<route>?channel=<key> */
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
-  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
-  { label: "Insights", route: "insights", icon: InsightsIcon, isNew: true, perChannel: true },
+  {
+    label: "Community",
+    route: "community",
+    icon: CommunityIcon,
+    perChannel: true,
+  },
+  {
+    label: "Insights",
+    route: "insights",
+    icon: InsightsIcon,
+    badge: "New",
+    perChannel: true,
+  },
 ];
 
 /** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
@@ -509,7 +793,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-7 w-7 shrink-0">
+    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -517,10 +801,10 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-full object-cover"
+          className="h-full w-full select-none rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[11px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
           {initial}
         </span>
       )}
@@ -540,203 +824,222 @@ function ChannelAvatar({
   );
 }
 
-type SidebarChannelsProps = {
-  channels: ConnectedChannel[];
-  isCollapsed: boolean;
-  currentRoute: string;
-  focus: string;
-  t: ThemeTokens;
-  onNavigate: (route: string) => void;
-  onConnect: () => void;
-};
-
-/**
- * UX : un canal = une ligne. Un clic le sélectionne et garde la section en
- * cours (Community / Insights). Le sélecteur de section n'apparaît que sous le
- * canal actif, sous forme d'onglets compacts.
- */
 function SidebarChannels({
   channels,
   isCollapsed,
   currentRoute,
+  labelClass,
   focus,
   t,
   onNavigate,
+  onExpand,
   onConnect,
 }: SidebarChannelsProps) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(
-    channelsMemory.selected
-  );
+  const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
   useEffect(() => {
-    channelsMemory.selected = selectedKey;
-  }, [selectedKey]);
-
-  const exists = (key: string | null) =>
-    key !== null && channels.some((c) => c.key === key);
+    channelsMemory.open = openKeys;
+  }, [openKeys]);
 
   // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
-  const activeKey = exists(hashChannel)
-    ? hashChannel
-    : exists(selectedKey)
-      ? selectedKey
-      : (channels[0]?.key ?? null);
+  const toggleKey = (key: string) =>
+    setOpenKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
 
-  const selectChannel = (key: string) => {
-    setSelectedKey(key);
-    const route = CHANNEL_ROUTES.has(currentRoute) ? currentRoute : "insights";
-    onNavigate(`${route}?channel=${encodeURIComponent(key)}`);
-  };
+  const openKey = (key: string) =>
+    setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+
+  const headerButton = [
+    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
+    "transition-colors duration-150 motion-reduce:transition-none",
+    t.menuIcon,
+    focus,
+    t.row,
+  ].join(" ");
 
   return (
     <div>
-      {/* En-tête : titre, quota, ajout */}
-      {!isCollapsed && (
-        <div className="sb-fade mb-1.5 flex h-6 items-center justify-between pl-[14px] pr-1">
-          <span className="flex items-center gap-2">
-            <span className={["text-[12px] font-medium", t.muted].join(" ")}>
-              Channels
-            </span>
-            <span
-              className={[
-                "rounded-full px-1.5 py-px text-[10.5px] font-semibold tabular-nums",
-                t.kbd,
-              ].join(" ")}
-            >
-              {channels.length}/{PLAN.maxChannels}
-            </span>
-          </span>
+      <div
+        aria-hidden={isCollapsed}
+        className={[
+          "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
+          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
+        ].join(" ")}
+      >
+        <span
+          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
+        >
+          Channels
+        </span>
 
+        <span className="flex items-center gap-0.5">
           <button
             type="button"
+            tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
             title="Connect a channel"
             onClick={onConnect}
-            className={[
-              "flex h-6 w-6 items-center justify-center rounded-md",
-              "transition-colors duration-150 motion-reduce:transition-none",
-              t.menuIcon,
-              t.row,
-              focus,
-            ].join(" ")}
+            className={headerButton}
           >
             <PlusIcon className="h-4 w-4" />
           </button>
-        </div>
-      )}
+        </span>
+      </div>
 
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
-          const label = (channel.handle || channel.name).replace(/^@/, "");
-          const selected = channel.key === activeKey;
+          const label = channel.handle || channel.name;
+          const groupKey = `channel:${channel.key}`;
+          const isOpen = openKeys.includes(groupKey) && !isCollapsed;
 
           return (
             <div key={channel.key}>
               <button
                 type="button"
-                aria-pressed={selected}
+                aria-expanded={isOpen}
                 title={isCollapsed ? label : undefined}
-                onClick={() => selectChannel(channel.key)}
+                onClick={() => {
+                  if (isCollapsed) {
+                    onExpand();
+                    openKey(groupKey);
+                  } else {
+                    toggleKey(groupKey);
+                  }
+                }}
                 className={[
-                  "relative flex h-11 w-full items-center gap-3 rounded-lg px-[10px]",
-                  "text-[13px] font-medium",
-                  "transition-[background-color,color,transform] duration-150",
-                  "active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
+                  "rounded-xl px-2.5 text-[13px] font-medium",
+                  "transition-[background-color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none",
                   focus,
-                  selected ? t.navActive : t.navIdle,
+                  t.navIdle,
                 ].join(" ")}
               >
-                {selected && <ActiveBar accent={t.accent} />}
                 <ChannelAvatar
                   channel={channel}
                   NetworkIcon={NetworkIcon}
                   dotRing={t.dotRing}
                 />
-                {!isCollapsed && (
-                  <span className="sb-fade min-w-0 flex-1 truncate text-left">
-                    {label}
-                  </span>
-                )}
-              </button>
-
-              {/* Sections du canal sélectionné */}
-              {selected && !isCollapsed && (
-                <div
-                  role="group"
-                  aria-label={`Sections for ${label}`}
+                <span
                   className={[
-                    "sb-fade mb-1 mt-1 grid grid-cols-3 gap-1 rounded-xl border p-1",
-                    t.surface,
+                    "min-w-0 flex-1 truncate text-left",
+                    labelClass,
                   ].join(" ")}
                 >
-                  {CHANNEL_LINKS.map((link) => {
-                    const Icon = link.icon;
+                  {label.replace(/^@/, "")}
+                </span>
+                <span className={["flex shrink-0", labelClass].join(" ")}>
+                  <ChevronDownIcon
+                    className={[
+                      "h-3.5 w-3.5 opacity-50",
+                      "transition-[transform,opacity] duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:opacity-100",
+                      "motion-reduce:transition-none",
+                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
+                    ].join(" ")}
+                  />
+                </span>
+              </button>
 
-                    const target = link.perChannel
-                      ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
-                      : link.route;
+              <div
+                className={[
+                  "grid transition-[grid-template-rows] duration-300",
+                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                ].join(" ")}
+              >
+                <div className="overflow-hidden">
+                  <div
+                    className={[
+                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      t.rail,
+                    ].join(" ")}
+                  >
+                    {CHANNEL_LINKS.map((link, i) => {
+                      const Icon = link.icon;
 
-                    const active = link.route === currentRoute;
+                      const target = link.perChannel
+                        ? `${link.route}?channel=${encodeURIComponent(
+                            channel.key
+                          )}`
+                        : link.route;
 
-                    return (
-                      <button
-                        key={link.route}
-                        type="button"
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => onNavigate(target)}
-                        className={[
-                          "relative flex flex-col items-center gap-1 rounded-lg py-2",
-                          "text-[11px] font-medium",
-                          "transition-colors duration-150 motion-reduce:transition-none",
-                          focus,
-                          active ? t.tabActive : t.tabIdle,
-                        ].join(" ")}
-                      >
-                        <Icon className="h-[18px] w-[18px]" />
-                        {link.label}
-                        {link.isNew && (
-                          <span
-                            aria-label="New"
-                            className={[
-                              "absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full",
-                              t.accent,
-                            ].join(" ")}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
+                      // Un lien "par canal" n'est actif que pour le canal ouvert.
+                      const active = link.perChannel
+                        ? link.route === currentRoute &&
+                          (hashChannel === null
+                            ? channels[0]?.key === channel.key
+                            : hashChannel === channel.key)
+                        : link.route === currentRoute;
+
+                      return (
+                        <button
+                          key={link.route}
+                          type="button"
+                          tabIndex={isOpen ? 0 : -1}
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => onNavigate(target)}
+                          style={{
+                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
+                          }}
+                          className={[
+                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[13px] font-medium",
+                            "transition-[background-color,color,opacity,transform] duration-300",
+                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+                            isOpen
+                              ? "translate-x-0 opacity-100"
+                              : "-translate-x-2 opacity-0",
+                            focus,
+                            active ? t.subActive : t.sub,
+                          ].join(" ")}
+                        >
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="flex-1">{link.label}</span>
+                          {link.badge && (
+                            <span
+                              className={[
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                t.badge,
+                              ].join(" ")}
+                            >
+                              {link.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* État vide / ajout */}
       {channels.length === 0 && !isCollapsed && (
         <button
           type="button"
           onClick={onConnect}
           className={[
-            "sb-fade flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
+            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
+            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
-            t.divider,
-            t.navIdle,
+            t.rail,
             focus,
+            t.navIdle,
           ].join(" ")}
         >
-          <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <PlusIcon className="h-4 w-4" />
-            Connect your first channel
-          </span>
-          <span className={["text-[11.5px] leading-snug", t.muted].join(" ")}>
-            Link an account to schedule posts and see your results.
-          </span>
+          <PlusIcon className="h-4 w-4 shrink-0" />
+          Connect a channel
         </button>
       )}
 
@@ -747,14 +1050,14 @@ function SidebarChannels({
           title="Connect a channel"
           onClick={onConnect}
           className={[
-            "mt-1 flex h-10 w-full items-center justify-center rounded-lg",
-            "transition-colors duration-150 motion-reduce:transition-none",
-            t.menuIcon,
-            t.row,
+            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
+            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
+            "motion-reduce:transition-none",
             focus,
+            t.navIdle,
           ].join(" ")}
         >
-          <PlusIcon className="h-5 w-5" />
+          <PlusIcon className="h-5 w-5 shrink-0" />
         </button>
       )}
     </div>
@@ -787,14 +1090,14 @@ const TOGGLE_SHORTCUT_LABEL =
 
 const sidebarMemory = {
   collapsed: readStoredCollapsed(),
+  openGroup: null as string | null,
   entered: false,
 };
 
-/* Largeurs de la sidebar (collée au bord gauche) + 24px de respiration. */
-const SIDEBAR_COLLAPSED_WIDTH = 72;
-const SIDEBAR_EXPANDED_WIDTH = 264;
-export const SIDEBAR_COLLAPSED_OFFSET = SIDEBAR_COLLAPSED_WIDTH + 24;
-export const SIDEBAR_EXPANDED_OFFSET = SIDEBAR_EXPANDED_WIDTH + 24;
+/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
+   plus sa marge gauche (16px) et un espace de respiration. */
+export const SIDEBAR_COLLAPSED_OFFSET = 104;
+export const SIDEBAR_EXPANDED_OFFSET = 232;
 
 const sidebarListeners = new Set<() => void>();
 
@@ -837,8 +1140,9 @@ const userProfileCache = {
 function resetSidebarModuleState() {
   userProfileCache.profile = null;
   setSidebarCollapsed(true);
+  sidebarMemory.openGroup = null;
   sidebarMemory.entered = false;
-  channelsMemory.selected = null;
+  channelsMemory.open = [];
 }
 
 /* ============================================================================
@@ -892,62 +1196,6 @@ function toConnection(status: StatusResponse): Connection {
 }
 
 /* ============================================================================
-   Theme tokens
-============================================================================ */
-
-const DARK_TOKENS: ThemeTokens = {
-  aside: "border-white/[0.07] bg-[#0b0b0d]",
-  divider: "border-white/[0.07]",
-  navActive: "bg-white/[0.08] text-white",
-  navIdle: "text-white/65 hover:bg-white/[0.05] hover:text-white",
-  accent: "bg-[#ff5ec4]",
-  muted: "text-white/45",
-  title: "text-white",
-  row: "hover:bg-white/[0.06]",
-  rowOpen: "bg-white/[0.08]",
-  surface: "border-white/[0.07] bg-white/[0.03]",
-  track: "bg-white/10",
-  cta: "bg-white text-black hover:bg-white/90",
-  kbd: "bg-white/10 text-white/70",
-  badge: "bg-[#4a2f4a] text-[#f0bdf0]",
-  tabActive: "bg-white/[0.12] text-white",
-  tabIdle: "text-white/55 hover:bg-white/[0.06] hover:text-white",
-  menu: "border-white/10 bg-[#161618] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-  menuDivider: "border-white/10",
-  menuItem: "text-white/85 hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
-  menuIcon: "text-white/50",
-  avatar: "bg-[#f0f0ed] text-[#111111]",
-  dotRing: "ring-[#0b0b0d]",
-  ring: "focus-visible:ring-white/30",
-};
-
-const LIGHT_TOKENS: ThemeTokens = {
-  aside: "border-black/[0.08] bg-[#fbfaf8]",
-  divider: "border-black/[0.08]",
-  navActive: "bg-black/[0.06] text-[#151515]",
-  navIdle: "text-[#4a4946] hover:bg-black/[0.04] hover:text-[#151515]",
-  accent: "bg-[#e0359f]",
-  muted: "text-[#76746f]",
-  title: "text-[#1b1b1a]",
-  row: "hover:bg-black/[0.05]",
-  rowOpen: "bg-black/[0.06]",
-  surface: "border-black/[0.07] bg-black/[0.025]",
-  track: "bg-black/10",
-  cta: "bg-[#151515] text-white hover:bg-[#2a2a29]",
-  kbd: "bg-black/[0.06] text-[#4a4946]",
-  badge: "bg-[#f3dcf3] text-[#7a2f7a]",
-  tabActive: "bg-white text-[#151515] shadow-sm",
-  tabIdle: "text-[#76746f] hover:bg-black/[0.04] hover:text-[#151515]",
-  menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
-  menuDivider: "border-black/[0.07]",
-  menuItem: "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
-  menuIcon: "text-[#6b6a67]",
-  avatar: "bg-[#1d1d1d] text-white",
-  dotRing: "ring-[#fbfaf8]",
-  ring: "focus-visible:ring-black/20",
-};
-
-/* ============================================================================
    Sidebar
 ============================================================================ */
 
@@ -970,6 +1218,9 @@ export default function DashboardSidebar({
   const userId = user?.id ?? null;
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
+  const [openGroup, setOpenGroup] = useState<string | null>(
+    sidebarMemory.openGroup
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(sidebarMemory.entered);
@@ -1004,7 +1255,10 @@ export default function DashboardSidebar({
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  /* Load profile */
+  /* --------------------------------------------------------------------------
+     Load profile
+  -------------------------------------------------------------------------- */
+
   useEffect(() => {
     let mounted = true;
 
@@ -1029,7 +1283,10 @@ export default function DashboardSidebar({
     };
   }, []);
 
-  /* Sync channel statuses (cache + backend), + parse OAuth return */
+  /* --------------------------------------------------------------------------
+     Sync channel statuses (cache + backend), + parse OAuth return
+  -------------------------------------------------------------------------- */
+
   useEffect(() => {
     if (!userId) return;
 
@@ -1065,6 +1322,8 @@ export default function DashboardSidebar({
     if (returned.youtube) clearCache(userId, "youtube");
 
     // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
+    // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
+    // et ne doivent pas être polluées par un replaceState.)
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -1138,9 +1397,14 @@ export default function DashboardSidebar({
     };
   }, [userId]);
 
-  /* Sidebar entrance */
+  /* --------------------------------------------------------------------------
+     Sidebar entrance
+  -------------------------------------------------------------------------- */
+
   useEffect(() => {
-    if (sidebarMemory.entered) return;
+    if (sidebarMemory.entered) {
+      return;
+    }
 
     const id = requestAnimationFrame(() => {
       sidebarMemory.entered = true;
@@ -1150,14 +1414,23 @@ export default function DashboardSidebar({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  /* Persist sidebar state */
+  /* --------------------------------------------------------------------------
+     Persist sidebar state
+  -------------------------------------------------------------------------- */
+
   useEffect(() => {
     setSidebarCollapsed(isCollapsed);
-  }, [isCollapsed]);
+    sidebarMemory.openGroup = openGroup;
+  }, [isCollapsed, openGroup]);
 
-  /* Account menu events */
+  /* --------------------------------------------------------------------------
+     Account menu events
+  -------------------------------------------------------------------------- */
+
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen) {
+      return;
+    }
 
     const onPointerDown = (event: MouseEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) {
@@ -1181,14 +1454,107 @@ export default function DashboardSidebar({
     };
   }, [menuOpen]);
 
-  const t = useMemo<ThemeTokens>(() => (isDark ? DARK_TOKENS : LIGHT_TOKENS), [isDark]);
+  /* --------------------------------------------------------------------------
+     Theme tokens
+  -------------------------------------------------------------------------- */
 
-  const focus = ["focus-visible:outline-none", "focus-visible:ring-2", t.ring].join(" ");
+  const t = useMemo<ThemeTokens>(
+    () =>
+      isDark
+        ? {
+            aside:
+              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
+            brand: "text-white",
+            divider: "bg-white/10",
+            navActive: "bg-white/15 text-white",
+            navIdle: "text-white hover:bg-white/10",
+            handle:
+              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
+            count: "bg-white/10 text-[#d7d7d2]",
+            dotRing: "ring-[#050506]",
+            rail: "border-white/10",
+            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
+            subActive: "bg-white/[0.08] text-white",
+            row: "hover:bg-white/10",
+            rowOpen: "bg-white/10",
+            avatar: "bg-[#f0f0ed] text-[#111111]",
+            title: "text-[#f3f3ef]",
+            muted: "text-[#99a2a2]",
+            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
+            menuDivider: "border-white/10",
+            menuItem:
+              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
+            menuIcon: "text-[#a9aeae]",
+            upgrade:
+              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
+            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
+            ring: "focus-visible:ring-white/30",
+          }
+        : {
+            aside:
+              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
+            brand: "text-[#151515]",
+            divider: "bg-black/[0.07]",
+            navActive: "bg-black/[0.06] text-[#151515]",
+            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
+            handle:
+              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
+            count: "bg-black/[0.05] text-[#3f3f3d]",
+            dotRing: "ring-white",
+            rail: "border-black/[0.08]",
+            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
+            subActive: "bg-black/[0.06] text-[#151515]",
+            row: "hover:bg-black/[0.04]",
+            rowOpen: "bg-black/[0.04]",
+            avatar: "bg-[#1d1d1d] text-white",
+            title: "text-[#1b1b1a]",
+            muted: "text-[#71706d]",
+            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
+            menuDivider: "border-black/[0.07]",
+            menuItem:
+              "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
+            menuIcon: "text-[#6b6a67]",
+            upgrade:
+              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
+            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
+            ring: "focus-visible:ring-black/20",
+          },
+    [isDark]
+  );
 
-  /* Actions */
+  const focus = [
+    "focus-visible:outline-none",
+    "focus-visible:ring-2",
+    t.ring,
+  ].join(" ");
+
+  /* --------------------------------------------------------------------------
+     Label animation
+  -------------------------------------------------------------------------- */
+
+  const labelClass = useMemo(
+    () =>
+      [
+        "select-none",
+        "whitespace-nowrap",
+        "transition-[opacity,transform]",
+        "ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "motion-reduce:transition-none",
+        isCollapsed
+          ? "-translate-x-1 opacity-0 duration-150"
+          : "translate-x-0 opacity-100 duration-300",
+      ].join(" "),
+    [isCollapsed]
+  );
+
+  /* --------------------------------------------------------------------------
+     Sidebar actions
+  -------------------------------------------------------------------------- */
+
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
     setIsCollapsed((previous) => !previous);
+    setOpenGroup(null);
   }, []);
 
   /* Raccourci Cmd/Ctrl + B (ignoré pendant la saisie de texte). */
@@ -1225,7 +1591,14 @@ export default function DashboardSidebar({
     navigate(route);
   }, []);
 
-  /** Ouvre toujours le modal « Connect a New Channel » (sans quitter la page). */
+  const handleToggleGroup = useCallback((label: string) => {
+    setOpenGroup((current) => (current === label ? null : label));
+  }, []);
+
+  /**
+   * Ouvre toujours le modal « Connect a New Channel » (le même composant que
+   * sur /channels). La sidebar ne redirige pas vers /channels.
+   */
   const openConnect = useCallback(() => {
     setMenuOpen(false);
     setConnectError(null);
@@ -1234,7 +1607,15 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Channel connect handlers */
+  const handleExpandAndOpen = useCallback((label: string) => {
+    setIsCollapsed(false);
+    setOpenGroup(label);
+  }, []);
+
+  /* --------------------------------------------------------------------------
+     Channel connect handlers (self-contained)
+  -------------------------------------------------------------------------- */
+
   const limitReached =
     Object.values(connections).filter((c) => c.connected).length >=
     PLAN.maxChannels;
@@ -1388,9 +1769,14 @@ export default function DashboardSidebar({
     handlePlaceholderToggle(key);
   };
 
-  /* Logout */
+  /* --------------------------------------------------------------------------
+     Logout
+  -------------------------------------------------------------------------- */
+
   const handleLogout = useCallback(async () => {
-    if (loggingOut) return;
+    if (loggingOut) {
+      return;
+    }
 
     setMenuOpen(false);
     setLoggingOut(true);
@@ -1405,7 +1791,13 @@ export default function DashboardSidebar({
     }
   }, [loggingOut]);
 
-  /* Account data */
+  /* --------------------------------------------------------------------------
+     Account data
+  -------------------------------------------------------------------------- */
+
+  let itemIndex = 0;
+  let menuItemIndex = 0;
+
   const account = userProfile
     ? {
         name:
@@ -1417,6 +1809,7 @@ export default function DashboardSidebar({
             (userProfile.last_name || "")[0] || ""
           }`.toUpperCase() || "U",
         email: userProfile.email,
+        organization: "My Organization",
         plan: "Free plan",
         channels: connectedChannels.length,
         avatarUrl: userProfile.avatar_url || undefined,
@@ -1424,12 +1817,11 @@ export default function DashboardSidebar({
     : { ...defaultAccount, channels: connectedChannels.length };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
-  const usage = Math.min(
-    100,
-    Math.round((account.channels / Math.max(PLAN.maxChannels, 1)) * 100)
-  );
 
-  /* Modal props */
+  /* --------------------------------------------------------------------------
+     Modal props
+  -------------------------------------------------------------------------- */
+
   const channelConnectProps: Omit<
     ConnectChannelModalProps,
     "isDark" | "onClose"
@@ -1444,8 +1836,6 @@ export default function DashboardSidebar({
     onToggle: handleToggle,
   };
 
-  let menuItemIndex = 0;
-
   /* ==========================================================================
      Render
   ========================================================================== */
@@ -1453,10 +1843,14 @@ export default function DashboardSidebar({
   return (
     <div
       className={[
-        "fixed inset-y-0 left-0 z-20",
-        "transition-[opacity,transform] duration-500",
-        "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-        hasMounted ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0",
+        "fixed inset-y-8 left-4 z-20",
+        "transition-[opacity,transform]",
+        "duration-500",
+        "ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "motion-reduce:transition-none",
+        hasMounted
+          ? "translate-x-0 opacity-100"
+          : "-translate-x-6 opacity-0",
       ].join(" ")}
     >
       <style>{SIDEBAR_KEYFRAMES}</style>
@@ -1464,328 +1858,433 @@ export default function DashboardSidebar({
       <aside
         id="app-sidebar"
         className={[
-          "relative flex h-full flex-col border-r px-3 py-4",
-          "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "relative flex h-full flex-col",
+          "overflow-visible rounded-[56px]",
+          "border px-3 py-7",
+          "transition-[width,box-shadow]",
+          "duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
+          "will-change-[width]",
           t.aside,
-          isCollapsed ? "w-[72px]" : "w-[264px]",
+          isCollapsed ? "w-[68px]" : "w-[200px]",
         ].join(" ")}
       >
-        {/* Header : logo + bascule */}
+        {/* Logo */}
         <div
           className={[
-            "flex h-10 items-center",
-            isCollapsed ? "justify-center" : "justify-between pl-1.5",
+            "flex items-center gap-2",
+            "select-none",
+            "overflow-hidden px-1.5",
+            t.brand,
           ].join(" ")}
         >
-          {isCollapsed ? (
-            <button
-              type="button"
-              aria-label="Expand sidebar"
-              aria-expanded={false}
-              aria-controls="app-sidebar"
-              aria-keyshortcuts="Control+B Meta+B"
-              title={`Expand sidebar (${TOGGLE_SHORTCUT_LABEL})`}
-              onClick={toggleCollapsed}
-              className={["flex h-10 w-10 items-center justify-center rounded-xl", t.row, focus].join(" ")}
-            >
-              <img
-                src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-                alt="Stone logo"
-                draggable={false}
-                className="h-8 w-7 object-contain"
-              />
-            </button>
-          ) : (
-            <>
-              <div className="sb-fade flex min-w-0 items-center gap-2.5">
-                <img
-                  src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-                  alt="Stone logo"
-                  draggable={false}
-                  className="h-8 w-7 shrink-0 object-contain"
-                />
-                <span
-                  className={[
-                    "text-[19px] font-semibold leading-none tracking-tight",
-                    t.title,
-                  ].join(" ")}
-                >
-                  Stone
-                </span>
-              </div>
+          <img
+            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+            alt="Stone logo"
+            draggable={false}
+            className="h-9 w-8 shrink-0 select-none object-contain"
+          />
 
-              <button
-                type="button"
-                aria-label="Collapse sidebar"
-                aria-expanded
-                aria-controls="app-sidebar"
-                aria-keyshortcuts="Control+B Meta+B"
-                title={`Collapse sidebar (${TOGGLE_SHORTCUT_LABEL})`}
-                onClick={toggleCollapsed}
-                className={[
-                  "flex h-9 w-9 items-center justify-center rounded-xl",
-                  "transition-colors duration-150 motion-reduce:transition-none",
-                  t.menuIcon,
-                  t.row,
-                  focus,
-                ].join(" ")}
-              >
-                <SidebarToggleIcon className="h-[18px] w-[18px]" open />
-              </button>
-            </>
-          )}
+          <span
+            className={[
+              "select-none",
+              "text-[20px] font-semibold",
+              "leading-none tracking-tight",
+              labelClass,
+            ].join(" ")}
+          >
+            Stone
+          </span>
         </div>
-
-        {/* Action principale */}
-        <button
-          type="button"
-          aria-label="New post"
-          title={isCollapsed ? "New post" : undefined}
-          onClick={() => handleNavigate("create")}
-          className={[
-            "mt-4 flex h-10 items-center rounded-xl text-[13px] font-semibold",
-            "transition-[background-color,transform] duration-150",
-            "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-            isCollapsed ? "w-10 justify-center self-center" : "w-full gap-2 px-3.5",
-            focus,
-            t.cta,
-          ].join(" ")}
-        >
-          <PlusIcon className="h-[18px] w-[18px] shrink-0" />
-          {!isCollapsed && <span className="sb-fade">New post</span>}
-        </button>
 
         {/* Navigation */}
         <nav
           className={[
-            "-mx-3 mt-5 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "-mx-1 mt-5 flex min-h-0 flex-1",
+            "flex-col overflow-y-auto",
+            "overflow-x-hidden px-1",
+            "[scrollbar-width:none]",
+            "[&::-webkit-scrollbar]:hidden",
           ].join(" ")}
           aria-label="Main"
         >
-          {navSections.map((section) => (
-            <div key={section.label}>
-              {!isCollapsed && (
-                <div
-                  className={[
-                    "sb-fade mb-1.5 pl-[14px] text-[12px] font-medium leading-4",
-                    t.muted,
-                  ].join(" ")}
-                >
-                  {section.label}
-                </div>
+          {navSections.map((section, sectionIndex) => (
+            <div
+              key={section.label}
+              className={sectionIndex === 0 ? "" : "mt-3"}
+            >
+              {sectionIndex > 0 && (
+                <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
               )}
 
-              <div className="flex flex-col gap-0.5">
-                {section.items.map((item) => (
-                  <NavItemView
-                    key={item.label}
-                    item={item}
-                    isActive={item.route === currentRoute}
-                    isCollapsed={isCollapsed}
-                    focus={focus}
-                    t={t}
-                    onNavigate={handleNavigate}
-                  />
-                ))}
+              <div
+                className={[
+                  "select-none",
+                  "overflow-hidden",
+                  "whitespace-nowrap",
+                  "px-3 text-[12px]",
+                  "font-medium leading-4",
+                  "transition-[height,margin,opacity,transform]",
+                  "duration-300",
+                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  "motion-reduce:transition-none",
+                  t.muted,
+                  isCollapsed
+                    ? "mb-0 h-0 -translate-x-1 opacity-0"
+                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-100",
+                ].join(" ")}
+              >
+                {section.label}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                {section.items.map((item) => {
+                  const hasChildren = Boolean(item.children?.length);
+
+                  const isOpen =
+                    hasChildren && openGroup === item.label && !isCollapsed;
+
+                  return (
+                    <NavItemView
+                      key={item.label}
+                      index={itemIndex++}
+                      item={item}
+                      currentRoute={currentRoute}
+                      isCollapsed={isCollapsed}
+                      isOpen={isOpen}
+                      labelClass={labelClass}
+                      focus={focus}
+                      t={t}
+                      onNavigate={handleNavigate}
+                      onToggleGroup={handleToggleGroup}
+                      onExpandAndOpen={handleExpandAndOpen}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}
 
-          <div className={["border-t pt-4", t.divider].join(" ")}>
+          {/* Channels */}
+          <div className="mt-3">
+            <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
             <SidebarChannels
               channels={connectedChannels}
               isCollapsed={isCollapsed}
               currentRoute={currentRoute}
+              labelClass={labelClass}
               focus={focus}
               t={t}
               onNavigate={handleNavigate}
+              onExpand={() => setIsCollapsed(false)}
               onConnect={openConnect}
             />
           </div>
         </nav>
 
-        {/* Compte */}
+        {/* Account */}
         <div
           ref={profileRef}
-          className={["relative mt-3 border-t pt-3", t.divider].join(" ")}
+          className={["mt-3 border-t pt-3", t.rail].join(" ")}
         >
-          {/* Menu du compte */}
-          {menuOpen && (
-            <div
-              id="account-menu"
-              role="menu"
-              aria-label="Account menu"
-              className={[
-                "sb-menu absolute bottom-full left-0 z-50 mb-2 w-[264px]",
-                "origin-bottom-left overflow-hidden rounded-2xl border",
-                t.menu,
-              ].join(" ")}
-            >
-              <div className="px-3.5 pb-3 pt-3.5">
-                <div className="truncate text-[14px] font-semibold">
-                  {account.name}
-                </div>
-                <div className={["mt-0.5 truncate text-[11.5px]", t.muted].join(" ")}>
-                  {account.email}
-                </div>
-              </div>
-
-              {menuGroups.map((group, groupIndex) => (
-                <div
-                  key={group[0]?.label ?? groupIndex}
-                  role="none"
-                  className={["border-t p-1.5", t.menuDivider].join(" ")}
-                >
-                  {group.map((item) => {
-                    const Icon = item.icon;
-                    const isLogout = item.action === "logout";
-                    menuItemIndex++;
-
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        role="menuitem"
-                        disabled={isLogout && loggingOut}
-                        onClick={() => {
-                          if (isLogout) {
-                            void handleLogout();
-                            return;
-                          }
-
-                          setMenuOpen(false);
-
-                          if (item.route) {
-                            navigate(item.route);
-                          }
-                        }}
-                        className={[
-                          "group flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2",
-                          "text-left text-[12.5px] font-medium",
-                          "transition-[background-color,transform] duration-150",
-                          "active:scale-[0.98] motion-reduce:transition-none",
-                          "disabled:cursor-wait disabled:opacity-60",
-                          focus,
-                          t.menuItem,
-                        ].join(" ")}
-                      >
-                        <Icon className={["h-4 w-4 shrink-0", t.menuIcon].join(" ")} />
-                        <span className="flex-1 truncate">
-                          {isLogout && loggingOut ? "Logging out..." : item.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Quota de canaux + passage au plan supérieur */}
-          {!isCollapsed && (
-            <div className={["sb-fade mb-2 rounded-xl border p-3", t.surface].join(" ")}>
-              <div className="flex items-center justify-between text-[11.5px]">
-                <span className={t.muted}>
-                  {account.channels} of {PLAN.maxChannels} channels used
-                </span>
-              </div>
-
-              <div
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={PLAN.maxChannels}
-                aria-valuenow={account.channels}
-                aria-label="Channels used"
-                className={["mt-2 h-1.5 overflow-hidden rounded-full", t.track].join(" ")}
-              >
-                <div
-                  className={[
-                    "h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none",
-                    t.accent,
-                  ].join(" ")}
-                  style={{ width: `${usage}%` }}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleNavigate("pricing")}
-                className={[
-                  "mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5",
-                  "text-[12px] font-semibold",
-                  "transition-colors duration-150 motion-reduce:transition-none",
-                  focus,
-                  t.tabIdle,
-                ].join(" ")}
-              >
-                <BoltIcon className="h-3.5 w-3.5" />
-                Upgrade plan
-              </button>
-            </div>
-          )}
-
-          {/* Profil */}
-          <button
-            ref={triggerRef}
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-controls="account-menu"
-            aria-label="Open account menu"
-            title={isCollapsed ? account.name : undefined}
-            onClick={() => setMenuOpen((value) => !value)}
+          {/*
+            Fermée : le toggle est au-dessus de la photo de profil (colonne).
+            Ouverte : le toggle est à droite, aligné avec le profil (ligne).
+          */}
+          <div
             className={[
-              "flex h-12 w-full items-center gap-3 rounded-xl px-2",
-              "transition-[background-color,transform] duration-150",
-              "active:scale-[0.98] motion-reduce:transition-none",
-              focus,
-              menuOpen ? t.rowOpen : t.row,
+              "flex gap-1",
+              isCollapsed ? "flex-col" : "flex-row items-center gap-1.5",
             ].join(" ")}
           >
-            {showAvatarImage ? (
-              <img
-                key={account.avatarUrl}
-                src={account.avatarUrl}
-                alt="Profile"
-                draggable={false}
-                className="h-8 w-8 shrink-0 rounded-full object-cover"
-                onError={() => setAvatarLoadFailed(true)}
-              />
-            ) : (
+            {/* Toggle sidebar */}
+            <button
+              type="button"
+              aria-expanded={!isCollapsed}
+              aria-controls="app-sidebar"
+              aria-keyshortcuts="Control+B Meta+B"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={toggleCollapsed}
+              className={[
+                "group/toggle relative flex shrink-0 select-none",
+                "items-center justify-center rounded-xl",
+                "transition-[background-color,color,transform] duration-200",
+                "active:scale-[0.94]",
+                "motion-reduce:transition-none",
+                "motion-reduce:active:scale-100",
+                isCollapsed
+                  ? "order-first h-9 w-full"
+                  : "order-last h-9 w-9",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <SidebarToggleIcon className="h-[18px] w-[18px]" open={!isCollapsed} />
+
+              {/* Infobulle : libellé + raccourci */}
               <span
+                role="tooltip"
                 className={[
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                  "text-[11px] font-semibold",
-                  t.avatar,
+                  "pointer-events-none absolute z-50 flex items-center gap-2",
+                  "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+                  "text-[11.5px] font-medium",
+                  "opacity-0 transition-opacity duration-150 delay-0",
+                  "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
+                  "group-focus-visible/toggle:opacity-100",
+                  "motion-reduce:transition-none",
+                  isCollapsed
+                    ? "left-full top-1/2 ml-3 -translate-y-1/2"
+                    : "bottom-full right-0 mb-2",
+                  t.menu,
                 ].join(" ")}
               >
-                {account.initials}
-              </span>
-            )}
-
-            {!isCollapsed && (
-              <>
-                <span className="sb-fade min-w-0 flex-1 text-left leading-tight">
-                  <span className={["block truncate text-[13px] font-medium", t.title].join(" ")}>
-                    {account.name}
-                  </span>
-                  <span className={["block truncate text-[11.5px]", t.muted].join(" ")}>
-                    {account.plan}
-                  </span>
-                </span>
-
-                <ChevronUpIcon
+                {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                <kbd
                   className={[
-                    "h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none",
-                    t.menuIcon,
-                    menuOpen ? "rotate-180" : "",
+                    "rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
+                    t.count,
                   ].join(" ")}
-                />
-              </>
-            )}
-          </button>
+                >
+                  {TOGGLE_SHORTCUT_LABEL}
+                </kbd>
+              </span>
+            </button>
+
+            {/* Profil */}
+            <div className="relative min-w-0 flex-1">
+              {/* Account menu */}
+              {menuOpen && (
+                <div
+                  id="account-menu"
+                  role="menu"
+                  aria-label="Account menu"
+                  className={[
+                    "sb-menu absolute",
+                    "bottom-full left-[6px]",
+                    "z-50 mb-2 w-[264px]",
+                    "origin-bottom-left",
+                    "overflow-hidden",
+                    "rounded-[16px]",
+                    "border",
+                    t.menu,
+                  ].join(" ")}
+                >
+                  {/* Account header */}
+                  <div
+                    className="sb-item px-3.5 pb-3 pt-3.5"
+                    style={{ animationDelay: "30ms" }}
+                  >
+                    <div
+                      className={["truncate text-[11px]", t.muted].join(" ")}
+                    >
+                      {account.email}
+                    </div>
+
+                    <div className="mt-2.5 truncate text-[14px] font-semibold">
+                      {account.name}
+                    </div>
+
+                    <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
+                      {account.plan} · {account.channels} channels
+                    </div>
+
+                    <button
+                      type="button"
+                      className={[
+                        "group mt-3 flex w-full",
+                        "select-none",
+                        "items-center justify-center",
+                        "gap-2 rounded-[10px]",
+                        "border px-3 py-2",
+                        "text-[12px] font-semibold",
+                        "transition-[background-color,transform]",
+                        "duration-150",
+                        "active:scale-[0.98]",
+                        "motion-reduce:transition-none",
+                        focus,
+                        t.upgrade,
+                      ].join(" ")}
+                    >
+                      <BoltIcon
+                        className={[
+                          "h-4 w-4",
+                          "transition-transform duration-300",
+                          "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                          "group-hover:-rotate-12",
+                          "group-hover:scale-110",
+                          "motion-reduce:transition-none",
+                        ].join(" ")}
+                      />
+                      Upgrade Plan
+                    </button>
+                  </div>
+
+                  {/* Menu groups */}
+                  {menuGroups.map((group, groupIndex) => (
+                    <div
+                      key={group[0]?.label ?? groupIndex}
+                      role="none"
+                      className={["border-t px-1.5 py-1.5", t.menuDivider].join(
+                        " "
+                      )}
+                    >
+                      {group.map((item) => {
+                        const Icon = item.icon;
+                        const delay = 60 + menuItemIndex++ * 25;
+                        const isLogout = item.action === "logout";
+
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            role="menuitem"
+                            disabled={isLogout && loggingOut}
+                            style={{ animationDelay: `${delay}ms` }}
+                            onClick={() => {
+                              if (isLogout) {
+                                void handleLogout();
+                                return;
+                              }
+
+                              setMenuOpen(false);
+
+                              if (item.route) {
+                                navigate(item.route);
+                              }
+                            }}
+                            className={[
+                              "sb-item group flex",
+                              "w-full cursor-pointer",
+                              "select-none",
+                              "items-center gap-3",
+                              "rounded-[10px]",
+                              "px-2.5 py-2",
+                              "text-left text-[12.5px]",
+                              "font-medium",
+                              "transition-[background-color,transform] duration-150",
+                              "active:scale-[0.98]",
+                              "motion-reduce:transition-none",
+                              "disabled:cursor-wait disabled:opacity-60",
+                              focus,
+                              t.menuItem,
+                            ].join(" ")}
+                          >
+                            <Icon
+                              className={[
+                                "h-4 w-4 shrink-0",
+                                "transition-transform duration-200",
+                                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                                "group-hover:scale-110",
+                                "motion-reduce:transition-none",
+                                t.menuIcon,
+                              ].join(" ")}
+                            />
+
+                            <span className="flex-1 truncate">
+                              {isLogout && loggingOut
+                                ? "Logging out..."
+                                : item.label}
+                            </span>
+
+                            {item.badge && (
+                              <span
+                                className={[
+                                  "select-none",
+                                  "rounded-full",
+                                  "px-2 py-0.5",
+                                  "text-[10px]",
+                                  "font-semibold",
+                                  t.badge,
+                                ].join(" ")}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Profile trigger */}
+              <button
+                ref={triggerRef}
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-controls="account-menu"
+                aria-label="Open account menu"
+                title={isCollapsed ? account.name : undefined}
+                onClick={() => setMenuOpen((value) => !value)}
+                className={[
+                  "group flex h-11 w-full",
+                  "select-none",
+                  "items-center gap-3",
+                  "overflow-hidden",
+                  "rounded-xl px-1.5",
+                  "transition-[background-color,transform]",
+                  "duration-200",
+                  "active:scale-[0.97]",
+                  "motion-reduce:transition-none",
+                  focus,
+                  menuOpen ? t.rowOpen : t.row,
+                ].join(" ")}
+              >
+                {showAvatarImage ? (
+                  <img
+                    key={account.avatarUrl}
+                    src={account.avatarUrl}
+                    alt="Profile"
+                    draggable={false}
+                    className={[
+                      "h-8 w-8 shrink-0",
+                      "select-none",
+                      "rounded-full object-cover",
+                      "transition-transform duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:scale-105",
+                      "motion-reduce:transition-none",
+                    ].join(" ")}
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
+                ) : (
+                  <span
+                    className={[
+                      "flex h-8 w-8 shrink-0",
+                      "select-none",
+                      "items-center justify-center",
+                      "rounded-full",
+                      "text-[10px] font-semibold",
+                      "transition-transform duration-300",
+                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      "group-hover:scale-105",
+                      "motion-reduce:transition-none",
+                      t.avatar,
+                    ].join(" ")}
+                  >
+                    {account.initials}
+                  </span>
+                )}
+
+                <span
+                  className={[
+                    "min-w-0 flex-1",
+                    "select-none",
+                    "truncate text-left",
+                    "text-[13px] font-medium",
+                    t.title,
+                    labelClass,
+                  ].join(" ")}
+                >
+                  {account.name}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
