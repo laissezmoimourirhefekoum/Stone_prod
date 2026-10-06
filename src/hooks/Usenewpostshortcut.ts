@@ -60,4 +60,5 @@ export function useNewPostShortcut(onOpen: () => void, enabled = true) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [enabled]);
+  
 }
