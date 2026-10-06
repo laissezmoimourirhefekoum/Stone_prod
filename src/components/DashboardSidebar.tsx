@@ -239,7 +239,7 @@ const SIDEBAR_KEYFRAMES = `
 /* ============================================================================
    Raccourcis clavier
    - Ctrl/⌘ + B : réduire / ouvrir la sidebar
-   - Alt + touche : chaque partie de la sidebar
+   - Ctrl + touche : chaque partie de la sidebar
 ============================================================================ */
 
 const IS_MAC =
@@ -248,10 +248,13 @@ const IS_MAC =
 /** Libellé du raccourci clavier de la sidebar selon la plateforme. */
 const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
 
-/** lettre → route */
+/**
+ * lettre → route
+ * (« d » pour Calendar : Ctrl+C est réservé à la copie.)
+ */
 const SHORTCUT_ROUTES: Record<string, string> = {
   h: "home",
-  c: "schedule",
+  d: "schedule",
   t: "template",
   s: "settings",
   l: "channels",
@@ -261,23 +264,29 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   i: "integrations",
 };
 
-/** Libellé affiché : "Alt S" ou "⌥S". */
+/** Libellé affiché : "Ctrl S" ou "⌃S". */
 function shortcutLabel(key: string): string {
-  return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
+  return IS_MAC ? `⌃${key.toUpperCase()}` : `Ctrl ${key.toUpperCase()}`;
+}
+
+/** Valeur ARIA : "Control+S". */
+function ariaShortcut(key: string): string {
+  return `Control+${key.toUpperCase()}`;
+}
+
+/** Lettre associée à une route (undefined si aucune). */
+function shortcutKeyForRoute(route?: string): string | undefined {
+  if (!route) return undefined;
+  return Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route)?.[0];
 }
 
 /** Raccourci associé à une route (undefined si aucun). */
 function shortcutForRoute(route?: string): string | undefined {
-  if (!route) return undefined;
-
-  const entry = Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route);
-  return entry ? shortcutLabel(entry[0]) : undefined;
+  const key = shortcutKeyForRoute(route);
+  return key ? shortcutLabel(key) : undefined;
 }
 
-/**
- * Lettre pressée, indépendante du Alt macOS (qui produit des
- * caractères spéciaux) : on retombe sur event.code.
- */
+/** Lettre pressée (event.key, avec repli sur event.code). */
 function shortcutKey(event: KeyboardEvent): string {
   if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase();
   return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
@@ -642,6 +651,7 @@ function NavItemViewImpl({
 
   const hasChildren = Boolean(item.children?.length);
   const shortcut = shortcutForRoute(item.route);
+  const shortcutLetter = shortcutKeyForRoute(item.route);
 
   const labelStyle = {
     transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
@@ -681,7 +691,7 @@ function NavItemViewImpl({
         aria-current={isActive ? "page" : undefined}
         aria-expanded={hasChildren ? isOpen : undefined}
         aria-keyshortcuts={
-          shortcut ? shortcut.replace(/^⌥/, "Alt+").replace(/^Alt /, "Alt+") : undefined
+          shortcutLetter ? ariaShortcut(shortcutLetter) : undefined
         }
         onClick={onClick}
         className={[
@@ -1077,7 +1087,7 @@ function SidebarChannelsImpl({
             type="button"
             tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
-            aria-keyshortcuts="Alt+N"
+            aria-keyshortcuts="Control+N"
             title={`Connect a channel (${shortcutLabel("n")})`}
             onClick={onConnect}
             className={headerButton}
@@ -1233,7 +1243,7 @@ function SidebarChannelsImpl({
         <button
           type="button"
           onClick={onConnect}
-          aria-keyshortcuts="Alt+N"
+          aria-keyshortcuts="Control+N"
           className={[
             "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-2.5 whitespace-nowrap",
             "rounded-lg border border-dashed px-3 text-[12.5px] font-medium",
@@ -1260,7 +1270,7 @@ function SidebarChannelsImpl({
           <button
             type="button"
             aria-label="Connect a channel"
-            aria-keyshortcuts="Alt+N"
+            aria-keyshortcuts="Control+N"
             onClick={onConnect}
             className={[
               "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
@@ -1879,14 +1889,14 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Raccourcis Alt + touche (ignorés pendant la saisie ou si le modal est ouvert).
-       Alt P      menu du compte
-       Alt N      modal « Connect a channel »
-       Alt H/C/T  Home / Calendar / Templates
-       Alt S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
+  /* Raccourcis Ctrl + touche (ignorés pendant la saisie ou si le modal est ouvert).
+       Ctrl P       menu du compte
+       Ctrl N       modal « Connect a channel »
+       Ctrl H/D/T   Home / Calendar / Templates
+       Ctrl S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
         return;
       }
 
@@ -2380,7 +2390,6 @@ export default function DashboardSidebar({
                     <button
                       type="button"
                       role="menuitem"
-                      aria-keyshortcuts="Alt+U"
                       onClick={() => {
                         setMenuOpen(false);
                         navigate("pricing");
@@ -2427,7 +2436,6 @@ export default function DashboardSidebar({
                         const Icon = item.icon;
                         const delay = 60 + menuItemIndex++ * 25;
                         const isLogout = item.action === "logout";
-                        const shortcut = shortcutForRoute(item.route);
 
                         return (
                           <button
@@ -2482,10 +2490,6 @@ export default function DashboardSidebar({
                                 : item.label}
                             </span>
 
-                            {shortcut && (
-                              <Kbd className={t.count}>{shortcut}</Kbd>
-                            )}
-
                             {item.badge && (
                               <span
                                 className={[
@@ -2515,13 +2519,9 @@ export default function DashboardSidebar({
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 aria-controls={menuOpen ? "account-menu" : undefined}
-                aria-keyshortcuts="Alt+P"
+                aria-keyshortcuts="Control+P"
                 aria-label="Open account menu"
-                title={
-                  isCollapsed
-                    ? `${account.name} (${shortcutLabel("p")})`
-                    : `Account menu (${shortcutLabel("p")})`
-                }
+                title={isCollapsed ? account.name : "Account menu"}
                 onClick={() => setMenuOpen((value) => !value)}
                 className={[
                   "group flex h-11 w-full",
