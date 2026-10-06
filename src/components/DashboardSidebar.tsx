@@ -10,6 +10,7 @@ import React, {
 } from "react";
 
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -182,12 +183,28 @@ const SIDEBAR_KEYFRAMES = `
   }
 }
 
+@keyframes sbTipIn {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
 .sb-menu {
   animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 .sb-item {
   animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.sb-tip {
+  animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 #app-sidebar button,
@@ -212,7 +229,8 @@ const SIDEBAR_KEYFRAMES = `
 
 @media (prefers-reduced-motion: reduce) {
   .sb-menu,
-  .sb-item {
+  .sb-item,
+  .sb-tip {
     animation: none;
   }
 }
@@ -244,7 +262,7 @@ function Svg({
   );
 }
 
-function OverviewIcon(props: IconProps) {
+function HomeIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M4 12.5 12 5l8 7.5" />
@@ -393,6 +411,82 @@ function ChevronDownIcon(props: IconProps) {
 }
 
 /* ============================================================================
+   Tooltip flottant (portal)
+   La nav a overflow hidden : un tooltip absolu serait rogné. On le rend donc
+   dans document.body, en position fixed, calée sur le bord droit de l'élément.
+============================================================================ */
+
+type TipProps = {
+  label: string;
+  /** Tooltip actif uniquement quand la sidebar est réduite. */
+  enabled: boolean;
+  menuClass: string;
+  children: ReactNode;
+};
+
+const TIP_DELAY_MS = 280;
+
+function Tip({ label, enabled, menuClass, children }: TipProps) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<number | undefined>(undefined);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  const hide = useCallback(() => {
+    window.clearTimeout(timerRef.current);
+    setPos(null);
+  }, []);
+
+  const show = useCallback(() => {
+    if (!enabled) return;
+
+    window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (rect) {
+        setPos({ top: rect.top + rect.height / 2, left: rect.right + 12 });
+      }
+    }, TIP_DELAY_MS);
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) hide();
+  }, [enabled, hide]);
+
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  return (
+    <div
+      ref={anchorRef}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      onPointerDown={hide}
+    >
+      {children}
+
+      {pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{ top: pos.top, left: pos.left }}
+            className={[
+              "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
+              "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+              "text-[11.5px] font-medium",
+              menuClass,
+            ].join(" ")}
+          >
+            {label}
+          </span>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+/* ============================================================================
    Navigation data
 ============================================================================ */
 
@@ -400,7 +494,7 @@ const navSections: NavSection[] = [
   {
     label: "General",
     items: [
-      { label: "Overview", icon: OverviewIcon, route: "home" },
+      { label: "Home", icon: HomeIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
       { label: "Templates", icon: TemplatesIcon, route: "template" },
     ],
@@ -492,20 +586,19 @@ function NavItemViewImpl({
   };
 
   return (
-    <div>
+    <Tip label={item.label} enabled={isCollapsed} menuClass={t.menu}>
       <button
         type="button"
         aria-label={item.label}
         aria-current={isActive ? "page" : undefined}
         aria-expanded={hasChildren ? isOpen : undefined}
-        title={isCollapsed ? item.label : undefined}
         onClick={onClick}
         className={[
-          "group relative flex h-10 w-full",
+          "group relative flex h-9 w-full",
           "select-none",
-          "items-center gap-3 overflow-hidden",
-          "rounded-xl px-3",
-          "text-[13px] font-medium",
+          "items-center gap-2.5 overflow-hidden",
+          "rounded-lg px-3",
+          "text-[12.5px] font-medium",
           "transition-[background-color,color,transform]",
           "duration-200",
           "active:scale-[0.97]",
@@ -515,6 +608,18 @@ function NavItemViewImpl({
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
+        {/* Repère d'état actif : lisible même quand le fond est très discret. */}
+        <span
+          aria-hidden="true"
+          className={[
+            "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2",
+            "rounded-r-full bg-current",
+            "transition-[opacity,transform] duration-200",
+            "motion-reduce:transition-none",
+            isActive ? "scale-y-100 opacity-70" : "scale-y-0 opacity-0",
+          ].join(" ")}
+        />
+
         <span
           className={[
             "relative flex shrink-0",
@@ -526,7 +631,7 @@ function NavItemViewImpl({
             "motion-reduce:group-hover:scale-100",
           ].join(" ")}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-[18px] w-[18px]" />
 
           {item.badge && (
             <span
@@ -558,13 +663,12 @@ function NavItemViewImpl({
             className={[
               "select-none",
               "rounded-md px-1.5 py-0.5",
-              "text-[11px] font-medium",
+              "text-[10.5px] font-medium",
               t.count,
               labelClass,
             ].join(" ")}
           >
-            <span aria-hidden="true">{item.badge}</span>
-            <span className="sr-only">{item.badge} en attente</span>
+            {item.badge}
           </span>
         )}
 
@@ -622,12 +726,12 @@ function NavItemViewImpl({
                         : "0ms",
                     }}
                     className={[
-                      "flex h-9 w-full",
+                      "flex h-8 w-full",
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
                       "rounded-lg px-2",
-                      "text-left text-[13px]",
+                      "text-left text-[12.5px]",
                       "font-medium",
                       "transition-[background-color,color,opacity,transform]",
                       "duration-300",
@@ -648,7 +752,7 @@ function NavItemViewImpl({
           </div>
         </div>
       )}
-    </div>
+    </Tip>
   );
 }
 
@@ -824,7 +928,7 @@ function ChannelAvatar({
   );
 }
 
-function SidebarChannels({
+function SidebarChannelsImpl({
   channels,
   isCollapsed,
   currentRoute,
@@ -891,7 +995,7 @@ function SidebarChannels({
         </span>
       </div>
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
@@ -901,53 +1005,56 @@ function SidebarChannels({
 
           return (
             <div key={channel.key}>
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                title={isCollapsed ? label : undefined}
-                onClick={() => {
-                  if (isCollapsed) {
-                    onExpand();
-                    openKey(groupKey);
-                  } else {
-                    toggleKey(groupKey);
-                  }
-                }}
-                className={[
-                  "group flex h-9 w-full select-none items-center gap-3 overflow-hidden",
-                  "rounded-xl px-2.5 text-[13px] font-medium",
-                  "transition-[background-color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none",
-                  focus,
-                  t.navIdle,
-                ].join(" ")}
-              >
-                <ChannelAvatar
-                  channel={channel}
-                  NetworkIcon={NetworkIcon}
-                  dotRing={t.dotRing}
-                />
-                <span
+              <Tip label={label} enabled={isCollapsed} menuClass={t.menu}>
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-label={label.replace(/^@/, "")}
+                  onClick={() => {
+                    if (isCollapsed) {
+                      onExpand();
+                      openKey(groupKey);
+                    } else {
+                      toggleKey(groupKey);
+                    }
+                  }}
                   className={[
-                    "min-w-0 flex-1 truncate text-left",
-                    labelClass,
+                    "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
+                    "rounded-lg px-[9px] text-[12.5px] font-medium",
+                    "transition-[background-color,transform] duration-200",
+                    "active:scale-[0.97] motion-reduce:transition-none",
+                    "motion-reduce:active:scale-100",
+                    focus,
+                    t.navIdle,
                   ].join(" ")}
                 >
-                  {label.replace(/^@/, "")}
-                </span>
-                <span className={["flex shrink-0", labelClass].join(" ")}>
-                  <ChevronDownIcon
-                    className={[
-                      "h-3.5 w-3.5 opacity-50",
-                      "transition-[transform,opacity] duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:opacity-100",
-                      "motion-reduce:transition-none",
-                      isOpen ? "rotate-0 opacity-100" : "-rotate-90",
-                    ].join(" ")}
+                  <ChannelAvatar
+                    channel={channel}
+                    NetworkIcon={NetworkIcon}
+                    dotRing={t.dotRing}
                   />
-                </span>
-              </button>
+                  <span
+                    className={[
+                      "min-w-0 flex-1 truncate text-left",
+                      labelClass,
+                    ].join(" ")}
+                  >
+                    {label.replace(/^@/, "")}
+                  </span>
+                  <span className={["flex shrink-0", labelClass].join(" ")}>
+                    <ChevronDownIcon
+                      className={[
+                        "h-3.5 w-3.5 opacity-50",
+                        "transition-[transform,opacity] duration-300",
+                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                        "group-hover:opacity-100",
+                        "motion-reduce:transition-none",
+                        isOpen ? "rotate-0 opacity-100" : "-rotate-90",
+                      ].join(" ")}
+                    />
+                  </span>
+                </button>
+              </Tip>
 
               <div
                 className={[
@@ -991,8 +1098,8 @@ function SidebarChannels({
                             transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
                           }}
                           className={[
-                            "flex h-9 w-full select-none items-center gap-3 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[13px] font-medium",
+                            "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
@@ -1002,12 +1109,12 @@ function SidebarChannels({
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <Icon className="h-4 w-4 shrink-0" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1030,8 +1137,8 @@ function SidebarChannels({
           type="button"
           onClick={onConnect}
           className={[
-            "mx-1 flex h-10 w-[calc(100%-8px)] select-none items-center gap-3 whitespace-nowrap",
-            "rounded-xl border border-dashed px-3 text-[13px] font-medium",
+            "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-2.5 whitespace-nowrap",
+            "rounded-lg border border-dashed px-3 text-[12.5px] font-medium",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             focus,
@@ -1044,25 +1151,28 @@ function SidebarChannels({
       )}
 
       {isCollapsed && (
-        <button
-          type="button"
-          aria-label="Connect a channel"
-          title="Connect a channel"
-          onClick={onConnect}
-          className={[
-            "mt-1 flex h-10 w-full select-none items-center gap-3 rounded-xl px-3",
-            "transition-[background-color,transform] duration-200 active:scale-[0.97]",
-            "motion-reduce:transition-none",
-            focus,
-            t.navIdle,
-          ].join(" ")}
-        >
-          <PlusIcon className="h-5 w-5 shrink-0" />
-        </button>
+        <Tip label="Connect a channel" enabled menuClass={t.menu}>
+          <button
+            type="button"
+            aria-label="Connect a channel"
+            onClick={onConnect}
+            className={[
+              "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
+              "transition-[background-color,transform] duration-200 active:scale-[0.97]",
+              "motion-reduce:transition-none motion-reduce:active:scale-100",
+              focus,
+              t.navIdle,
+            ].join(" ")}
+          >
+            <PlusIcon className="h-[18px] w-[18px] shrink-0" />
+          </button>
+        </Tip>
       )}
     </div>
   );
 }
+
+const SidebarChannels = memo(SidebarChannelsImpl);
 
 /* ============================================================================
    Sidebar memory
@@ -1149,6 +1259,14 @@ function resetSidebarModuleState() {
    Channel-connections helpers (self-contained modal)
 ============================================================================ */
 
+type OAuthProvider = "tiktok" | "pinterest" | "youtube";
+
+const OAUTH_LABELS: Record<OAuthProvider, string> = {
+  tiktok: "TikTok",
+  pinterest: "Pinterest",
+  youtube: "YouTube",
+};
+
 const initialConnections: ConnectionState = {
   instagram: { connected: false },
   tiktok: { connected: false },
@@ -1193,6 +1311,10 @@ function toConnection(status: StatusResponse): Connection {
     handle: account?.display_name ?? undefined,
     avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
   };
+}
+
+function pluralizeChannels(count: number): string {
+  return `${count} channel${count === 1 ? "" : "s"}`;
 }
 
 /* ============================================================================
@@ -1248,12 +1370,17 @@ export default function DashboardSidebar({
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
 
-  const tiktokBusy = useRef(false);
-  const pinterestBusy = useRef(false);
-  const youtubeBusy = useRef(false);
+  /** Verrou anti double-clic, un par fournisseur OAuth. */
+  const oauthBusy = useRef<Record<OAuthProvider, boolean>>({
+    tiktok: false,
+    pinterest: false,
+    youtube: false,
+  });
+  const placeholderTimer = useRef<number | undefined>(undefined);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   /* --------------------------------------------------------------------------
      Load profile
@@ -1297,29 +1424,29 @@ export default function DashboardSidebar({
       queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
     );
 
-    const tiktokError = params.get("tiktok_error");
-    const pinterestError = params.get("pinterest_error");
-    const youtubeError = params.get("youtube_error");
-
-    const returned: Record<CacheProvider, boolean> = {
-      tiktok: params.has("tiktok") || Boolean(tiktokError),
-      pinterest: params.has("pinterest") || Boolean(pinterestError),
-      youtube: params.has("youtube") || Boolean(youtubeError),
+    const errors: Record<CacheProvider, string | null> = {
+      tiktok: params.get("tiktok_error"),
+      pinterest: params.get("pinterest_error"),
+      youtube: params.get("youtube_error"),
     };
 
-    if (tiktokError) {
-      setConnectError(`Unable to connect to TikTok. ${tiktokError}`);
-    }
-    if (pinterestError) {
-      setConnectError(`Unable to connect to Pinterest. ${pinterestError}`);
-    }
-    if (youtubeError) {
-      setConnectError(`Unable to connect to YouTube. ${youtubeError}`);
-    }
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: params.has("tiktok") || Boolean(errors.tiktok),
+      pinterest: params.has("pinterest") || Boolean(errors.pinterest),
+      youtube: params.has("youtube") || Boolean(errors.youtube),
+    };
 
-    if (returned.tiktok) clearCache(userId, "tiktok");
-    if (returned.pinterest) clearCache(userId, "pinterest");
-    if (returned.youtube) clearCache(userId, "youtube");
+    (Object.keys(errors) as CacheProvider[]).forEach((provider) => {
+      const message = errors[provider];
+
+      if (message) {
+        setConnectError(
+          `Unable to connect to ${OAUTH_LABELS[provider]}. ${message}`
+        );
+      }
+
+      if (returned[provider]) clearCache(userId, provider);
+    });
 
     // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
     // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
@@ -1424,7 +1551,24 @@ export default function DashboardSidebar({
   }, [isCollapsed, openGroup]);
 
   /* --------------------------------------------------------------------------
-     Account menu events
+     Cleanup des timers
+  -------------------------------------------------------------------------- */
+
+  useEffect(
+    () => () => window.clearTimeout(placeholderTimer.current),
+    []
+  );
+
+  /* --------------------------------------------------------------------------
+     Account menu : fermeture auto à chaque navigation
+  -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [currentRoute]);
+
+  /* --------------------------------------------------------------------------
+     Account menu events (clic extérieur, Échap) + focus initial
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -1432,7 +1576,7 @@ export default function DashboardSidebar({
       return;
     }
 
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -1445,14 +1589,50 @@ export default function DashboardSidebar({
       }
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
 
+    // Place le focus sur le premier élément : la navigation clavier démarre ici.
+    const id = requestAnimationFrame(() => {
+      menuRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
+        ?.focus({ preventScroll: true });
+    });
+
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      cancelAnimationFrame(id);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
+
+  /** Flèches haut/bas, Home, End dans le menu compte (pattern WAI-ARIA menu). */
+  const onMenuKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const items = Array.from(
+        event.currentTarget.querySelectorAll<HTMLElement>(
+          '[role="menuitem"]:not([disabled])'
+        )
+      );
+
+      if (items.length === 0) return;
+
+      const current = items.indexOf(document.activeElement as HTMLElement);
+      let next = -1;
+
+      if (event.key === "ArrowDown") next = (current + 1) % items.length;
+      else if (event.key === "ArrowUp")
+        next = (current - 1 + items.length) % items.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = items.length - 1;
+
+      if (next >= 0) {
+        event.preventDefault();
+        items[next].focus();
+      }
+    },
+    []
+  );
 
   /* --------------------------------------------------------------------------
      Theme tokens
@@ -1612,6 +1792,8 @@ export default function DashboardSidebar({
     setOpenGroup(label);
   }, []);
 
+  const handleExpand = useCallback(() => setIsCollapsed(false), []);
+
   /* --------------------------------------------------------------------------
      Channel connect handlers (self-contained)
   -------------------------------------------------------------------------- */
@@ -1620,117 +1802,77 @@ export default function DashboardSidebar({
     Object.values(connections).filter((c) => c.connected).length >=
     PLAN.maxChannels;
 
-  const handleTikTokToggle = async () => {
-    if (tiktokBusy.current) return;
-    tiktokBusy.current = true;
+  /**
+   * Bascule générique d'un fournisseur OAuth :
+   *  - connecté  → déconnexion + purge du cache
+   *  - sinon     → saisie manuelle de token (si fournie) ou redirection OAuth
+   * `manual` renvoie null quand l'utilisateur annule.
+   */
+  const toggleOAuth = async (
+    provider: OAuthProvider,
+    api: {
+      login: () => Promise<unknown>;
+      disconnect: () => Promise<unknown>;
+      manual?: () => Promise<Connection | null>;
+    }
+  ) => {
+    if (oauthBusy.current[provider]) return;
+    oauthBusy.current[provider] = true;
 
-    setPendingKey("tiktok");
+    setPendingKey(provider);
     let redirecting = false;
 
     try {
-      if (connections.tiktok.connected) {
-        await disconnectTikTok();
-        if (userId) clearCache(userId, "tiktok");
+      if (connections[provider].connected) {
+        await api.disconnect();
+        if (userId) clearCache(userId, provider);
         setConnections((current) => ({
           ...current,
-          tiktok: { connected: false },
+          [provider]: { connected: false },
         }));
+      } else if (api.manual) {
+        const connection = await api.manual();
+        if (!connection) return;
+
+        if (userId) writeCache(userId, connection, provider);
+        setConnections((current) => ({ ...current, [provider]: connection }));
       } else {
-        await startTikTokLogin();
+        await api.login();
         redirecting = true;
       }
     } catch (error) {
-      console.error("[Stone] TikTok OAuth error:", error);
-      setConnectError(formatOAuthError("TikTok", error));
+      console.error(`[Stone] ${OAUTH_LABELS[provider]} OAuth error:`, error);
+      setConnectError(formatOAuthError(OAUTH_LABELS[provider], error));
     } finally {
+      // En cas de redirection, on garde le verrou : la page va être quittée.
       if (!redirecting) {
         setPendingKey(null);
-        tiktokBusy.current = false;
+        oauthBusy.current[provider] = false;
       }
     }
   };
 
-  const handlePinterestToggle = async () => {
-    if (pinterestBusy.current) return;
-    pinterestBusy.current = true;
+  const pinterestManualToken = async (): Promise<Connection | null> => {
+    const token = window.prompt(
+      "Pinterest access token (généré dans le portail développeur) :"
+    );
 
-    setPendingKey("pinterest");
-    let redirecting = false;
+    if (!token?.trim()) return null;
 
-    try {
-      if (connections.pinterest.connected) {
-        await disconnectPinterest();
-        if (userId) clearCache(userId, "pinterest");
-        setConnections((current) => ({
-          ...current,
-          pinterest: { connected: false },
-        }));
-      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
-        const token = window.prompt(
-          "Pinterest access token (généré dans le portail développeur) :"
-        );
+    const account = await connectPinterestWithToken(token.trim());
 
-        if (!token?.trim()) return;
-
-        const account = await connectPinterestWithToken(token.trim());
-
-        const connection: Connection = {
-          connected: true,
-          handle: account?.display_name ?? undefined,
-          avatarUrl: account?.avatar_url ?? undefined,
-        };
-
-        if (userId) writeCache(userId, connection, "pinterest");
-        setConnections((current) => ({ ...current, pinterest: connection }));
-      } else {
-        await startPinterestLogin();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error("[Stone] Pinterest OAuth error:", error);
-      setConnectError(formatOAuthError("Pinterest", error));
-    } finally {
-      if (!redirecting) {
-        setPendingKey(null);
-        pinterestBusy.current = false;
-      }
-    }
-  };
-
-  const handleYouTubeToggle = async () => {
-    if (youtubeBusy.current) return;
-    youtubeBusy.current = true;
-
-    setPendingKey("youtube");
-    let redirecting = false;
-
-    try {
-      if (connections.youtube.connected) {
-        await disconnectYouTube();
-        if (userId) clearCache(userId, "youtube");
-        setConnections((current) => ({
-          ...current,
-          youtube: { connected: false },
-        }));
-      } else {
-        await startYouTubeLogin();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error("[Stone] YouTube OAuth error:", error);
-      setConnectError(formatOAuthError("YouTube", error));
-    } finally {
-      if (!redirecting) {
-        setPendingKey(null);
-        youtubeBusy.current = false;
-      }
-    }
+    return {
+      connected: true,
+      handle: account?.display_name ?? undefined,
+      avatarUrl: account?.avatar_url ?? undefined,
+    };
   };
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
     setPendingKey(key);
 
-    window.setTimeout(() => {
+    window.clearTimeout(placeholderTimer.current);
+    placeholderTimer.current = window.setTimeout(() => {
       setConnections((current) => ({
         ...current,
         [key]: current[key].connected
@@ -1751,22 +1893,35 @@ export default function DashboardSidebar({
       return;
     }
 
-    if (key === "tiktok") {
-      void handleTikTokToggle();
-      return;
-    }
+    switch (key) {
+      case "tiktok":
+        void toggleOAuth("tiktok", {
+          login: startTikTokLogin,
+          disconnect: disconnectTikTok,
+        });
+        return;
 
-    if (key === "pinterest") {
-      void handlePinterestToggle();
-      return;
-    }
+      case "pinterest":
+        void toggleOAuth("pinterest", {
+          login: startPinterestLogin,
+          disconnect: disconnectPinterest,
+          manual:
+            import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
+              ? pinterestManualToken
+              : undefined,
+        });
+        return;
 
-    if (key === "youtube") {
-      void handleYouTubeToggle();
-      return;
-    }
+      case "youtube":
+        void toggleOAuth("youtube", {
+          login: startYouTubeLogin,
+          disconnect: disconnectYouTube,
+        });
+        return;
 
-    handlePlaceholderToggle(key);
+      default:
+        handlePlaceholderToggle(key);
+    }
   };
 
   /* --------------------------------------------------------------------------
@@ -1919,6 +2074,7 @@ export default function DashboardSidebar({
               )}
 
               <div
+                aria-hidden={isCollapsed}
                 className={[
                   "select-none",
                   "overflow-hidden",
@@ -1938,7 +2094,7 @@ export default function DashboardSidebar({
                 {section.label}
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 {section.items.map((item) => {
                   const hasChildren = Boolean(item.children?.length);
 
@@ -1977,7 +2133,7 @@ export default function DashboardSidebar({
               focus={focus}
               t={t}
               onNavigate={handleNavigate}
-              onExpand={() => setIsCollapsed(false)}
+              onExpand={handleExpand}
               onConnect={openConnect}
             />
           </div>
@@ -2057,9 +2213,11 @@ export default function DashboardSidebar({
               {/* Account menu */}
               {menuOpen && (
                 <div
+                  ref={menuRef}
                   id="account-menu"
                   role="menu"
                   aria-label="Account menu"
+                  onKeyDown={onMenuKeyDown}
                   className={[
                     "sb-menu absolute",
                     "bottom-full left-[6px]",
@@ -2087,11 +2245,16 @@ export default function DashboardSidebar({
                     </div>
 
                     <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
-                      {account.plan} · {account.channels} channels
+                      {account.plan} · {pluralizeChannels(account.channels)}
                     </div>
 
                     <button
                       type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        navigate("pricing");
+                      }}
                       className={[
                         "group mt-3 flex w-full",
                         "select-none",
@@ -2216,7 +2379,7 @@ export default function DashboardSidebar({
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                aria-controls="account-menu"
+                aria-controls={menuOpen ? "account-menu" : undefined}
                 aria-label="Open account menu"
                 title={isCollapsed ? account.name : undefined}
                 onClick={() => setMenuOpen((value) => !value)}
@@ -2230,6 +2393,7 @@ export default function DashboardSidebar({
                   "duration-200",
                   "active:scale-[0.97]",
                   "motion-reduce:transition-none",
+                  "motion-reduce:active:scale-100",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
