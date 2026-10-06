@@ -1,12 +1,13 @@
+// src/components/NewPostModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
-import { 
-  Maximize2, Minimize2, X, Tag, FileText, 
+import {
+  Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
   CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
 } from "lucide-react";
 import {
-  XIcon, FacebookIcon, InstagramIcon, LinkedInIcon, 
+  XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
   TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon,
 } from "./IntegrationIcons";
 import { CalendarPicker } from "./CalendarPicker";
@@ -17,9 +18,10 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
+import { useNewPostShortcut } from "../hooks/useNewPostShortcut";
 
 export type SocialNetworkId =
-  | "x" | "facebook" | "instagram" | "linkedin" 
+  | "x" | "facebook" | "instagram" | "linkedin"
   | "tiktok" | "youtube" | "pinterest" | "threads";
 
 type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
@@ -52,6 +54,11 @@ interface NewPostModalProps {
   onSubmit?: (payload: NewPostPayload) => void | Promise<void>;
   /** Date/heure préremplies (ex. clic sur une case du calendrier). */
   initialScheduledAt?: Date | null;
+  /**
+   * Appelé quand l'utilisateur presse N + P alors que la modale est fermée.
+   * Le parent doit y passer `isOpen` à true. Sans cette prop, le raccourci est désactivé.
+   */
+  onRequestOpen?: () => void;
 }
 
 const MAX_MEDIA = 20;
@@ -391,6 +398,7 @@ export default function NewPostModal({
   isDark,
   onSubmit,
   initialScheduledAt,
+  onRequestOpen,
 }: NewPostModalProps) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
@@ -416,6 +424,10 @@ export default function NewPostModal({
   // Réseaux connectés (cache partagé avec la page Channels) :
   // TikTok, YouTube, Pinterest... tous sont affichés.
   const connectedChannels = useConnectedChannels();
+
+  // Raccourci N + P : ouvre la modale quand elle est fermée.
+  // (Hook placé avant le `if (!isOpen) return null;` pour respecter l'ordre des hooks.)
+  useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaItem[]>(media);
@@ -1103,7 +1115,7 @@ export default function NewPostModal({
                   {content && <p className={["text-[13px] leading-relaxed", textPrimary].join(" ")}>{content}</p>}
                   {hashtags.length > 0 && (
                     <p className={["mt-2 text-[12px]", isDark ? "text-white/60" : "text-neutral-500"].join(" ")}>
-                      {hashtags.map(t => `#${t}`).join(" ")}
+                      {hashtags.map((t) => `#${t}`).join(" ")}
                     </p>
                   )}
                   {media.length > 0 && (

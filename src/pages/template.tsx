@@ -11,6 +11,18 @@ import DashboardSidebar, {
 } from "../components/DashboardSidebar";
 import { useTheme } from "../hooks/useTheme";
 
+import NewPostModal, {
+  type NewPostPayload,
+} from "../components/Newpostmodal";
+
+import Folder from "../components/Folder";
+
+import BottomBar, {
+  type BottomBarTab,
+} from "../components/Bottombar";
+
+import { navigate } from "../hooks/useHashRoute";
+
 /* ============================================================================
    Types
 ============================================================================ */
@@ -288,11 +300,18 @@ export default function TemplatesPage() {
   const [activeTab, setActiveTab] = useState<ViewTab>("mine");
 
   const [templates, setTemplates] = useState<Template[]>(initialTemplates);
+
+  /* Recherche partagée : filtre la page ET alimente la BottomBar. */
   const [query, setQuery] = useState("");
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState<Template | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
+
+  /* Modaux pilotés par la BottomBar */
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   /* --------------------------------------------------------------------------
      Theme tokens
@@ -524,6 +543,37 @@ export default function TemplatesPage() {
     setTemplates((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  /* --------------------------------------------------------------------------
+     CREATE POST
+  -------------------------------------------------------------------------- */
+
+  const handleCreatePost = useCallback(
+    async (payload: NewPostPayload) => {
+      console.log("Nouveau post à envoyer :", payload);
+    },
+    []
+  );
+
+  /* --------------------------------------------------------------------------
+     BOTTOM BAR
+  -------------------------------------------------------------------------- */
+
+  const handleBottomBarChange = useCallback((id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+
+      default:
+        break;
+    }
+  }, []);
+
   /* Ferme l'éditeur avec Escape */
   useEffect(() => {
     if (!editorOpen) return;
@@ -550,14 +600,15 @@ export default function TemplatesPage() {
       {/* Contenu principal */}
       <main
         className={[
-          "h-full overflow-y-auto",
+          "h-full overflow-y-auto overflow-x-hidden",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div className="mx-auto max-w-[1200px] px-6 py-10 sm:px-10 sm:py-12">
+        <div className="mx-auto max-w-[1200px] px-6 pb-[120px] pt-10 sm:px-10 sm:pt-12">
           {/* ============================================================
               HEADER
           ============================================================ */}
@@ -913,6 +964,38 @@ export default function TemplatesPage() {
           </section>
         </div>
       </main>
+
+      {/* ============================================================
+          FOLDER
+      ============================================================ */}
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+
+      {/* ============================================================
+          BOTTOM BAR
+      ============================================================ */}
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={query}
+        onQueryChange={setQuery}
+      />
+
+      {/* ============================================================
+          NEW POST
+      ============================================================ */}
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+      />
 
       {/* ============================================================
           ÉDITEUR (panneau latéral)

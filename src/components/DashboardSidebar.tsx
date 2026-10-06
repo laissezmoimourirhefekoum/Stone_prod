@@ -261,9 +261,6 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   i: "integrations",
 };
 
-/** Évènement interne : ouvre/ferme le canal n° detail (0-based). */
-const CHANNEL_SHORTCUT_EVENT = "stone:channel-shortcut";
-
 /** Libellé affiché : "Alt S" ou "⌥S". */
 function shortcutLabel(key: string): string {
   return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
@@ -278,11 +275,10 @@ function shortcutForRoute(route?: string): string | undefined {
 }
 
 /**
- * Lettre/chiffre pressé, indépendant du Alt macOS (qui produit des
+ * Lettre pressée, indépendante du Alt macOS (qui produit des
  * caractères spéciaux) : on retombe sur event.code.
  */
 function shortcutKey(event: KeyboardEvent): string {
-  if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
   if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase();
   return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
 }
@@ -1040,33 +1036,6 @@ function SidebarChannelsImpl({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
-  /* Alt + 1…9 : ouvre / ferme le canal n° N (l'ordre est celui de la sidebar). */
-  useEffect(() => {
-    const onShortcut = (event: Event) => {
-      const index = (event as CustomEvent<number>).detail;
-      const channel = channels[index];
-      if (!channel) return;
-
-      const groupKey = `channel:${channel.key}`;
-
-      if (isCollapsed) {
-        onExpand();
-        setOpenKeys((prev) =>
-          prev.includes(groupKey) ? prev : [...prev, groupKey]
-        );
-      } else {
-        setOpenKeys((prev) =>
-          prev.includes(groupKey)
-            ? prev.filter((k) => k !== groupKey)
-            : [...prev, groupKey]
-        );
-      }
-    };
-
-    window.addEventListener(CHANNEL_SHORTCUT_EVENT, onShortcut);
-    return () => window.removeEventListener(CHANNEL_SHORTCUT_EVENT, onShortcut);
-  }, [channels, isCollapsed, onExpand]);
-
   // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
@@ -1119,20 +1088,17 @@ function SidebarChannelsImpl({
       </div>
 
       <div className="flex flex-col gap-0.5">
-        {channels.map((channel, channelIndex) => {
+        {channels.map((channel) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
           const label = channel.handle || channel.name;
           const groupKey = `channel:${channel.key}`;
           const isOpen = openKeys.includes(groupKey) && !isCollapsed;
-          const channelShortcut =
-            channelIndex < 9 ? shortcutLabel(String(channelIndex + 1)) : undefined;
 
           return (
             <div key={channel.key}>
               <Tip
                 label={label}
-                shortcut={channelShortcut}
                 enabled={isCollapsed}
                 menuClass={t.menu}
                 countClass={t.count}
@@ -1141,9 +1107,6 @@ function SidebarChannelsImpl({
                   type="button"
                   aria-expanded={isOpen}
                   aria-label={label.replace(/^@/, "")}
-                  aria-keyshortcuts={
-                    channelIndex < 9 ? `Alt+${channelIndex + 1}` : undefined
-                  }
                   onClick={() => {
                     if (isCollapsed) {
                       onExpand();
@@ -1919,7 +1882,6 @@ export default function DashboardSidebar({
   /* Raccourcis Alt + touche (ignorés pendant la saisie ou si le modal est ouvert).
        Alt P      menu du compte
        Alt N      modal « Connect a channel »
-       Alt 1…9    ouvre / ferme le canal n° N
        Alt H/C/T  Home / Calendar / Templates
        Alt S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
   useEffect(() => {
@@ -1944,16 +1906,6 @@ export default function DashboardSidebar({
       if (key === "n") {
         event.preventDefault();
         openConnect();
-        return;
-      }
-
-      // Canal n° 1..9
-      if (/^[1-9]$/.test(key)) {
-        event.preventDefault();
-        setMenuOpen(false);
-        window.dispatchEvent(
-          new CustomEvent(CHANNEL_SHORTCUT_EVENT, { detail: Number(key) - 1 })
-        );
         return;
       }
 
