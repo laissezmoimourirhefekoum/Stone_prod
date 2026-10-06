@@ -426,10 +426,6 @@ type TipProps = {
 
 const TIP_DELAY_MS = 280;
 
-/** Réglage optique du logo quand la sidebar est ouverte (px, + = vers la droite).
-    Ajuste de 1 à 3 si le duo icône + « Stone » te paraît encore décalé. */
-const LOGO_OPTICAL_NUDGE_PX = 0;
-
 function Tip({ label, enabled, menuClass, children }: TipProps) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | undefined>(undefined);
@@ -2030,65 +2026,32 @@ export default function DashboardSidebar({
         ].join(" ")}
       >
         {/* Logo */}
-        <Tip label="Home" enabled={isCollapsed} menuClass={t.menu}>
-          <button
-            type="button"
-            aria-label="Stone, go to Home"
-            aria-current={currentRoute === "home" ? "page" : undefined}
-            onClick={() => handleNavigate("home")}
+        <div
+          className={[
+            "flex items-center gap-2",
+            "select-none",
+            "overflow-hidden px-1.5",
+            t.brand,
+          ].join(" ")}
+        >
+          <img
+            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+            alt="Stone logo"
+            draggable={false}
+            className="h-9 w-8 shrink-0 select-none object-contain"
+          />
+
+          <span
             className={[
-              "group flex h-11 w-full items-center justify-center",
-              "select-none overflow-hidden rounded-xl",
-              "transition-transform duration-200 active:scale-[0.97]",
-              "motion-reduce:transition-none motion-reduce:active:scale-100",
-              focus,
-              t.brand,
+              "select-none",
+              "text-[20px] font-semibold",
+              "leading-none tracking-tight",
+              labelClass,
             ].join(" ")}
           >
-            {/* Duo icône + texte : la nudge corrige le décalage optique
-                (marges transparentes du PNG, poids visuel du texte). */}
-            <span
-              className="flex items-center transition-transform duration-300 motion-reduce:transition-none"
-              style={{
-                transform: isCollapsed
-                  ? "none"
-                  : `translateX(${LOGO_OPTICAL_NUDGE_PX}px)`,
-              }}
-            >
-              <img
-                src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-                alt=""
-                draggable={false}
-                className={[
-                  // w-auto : la boîte épouse l'image (plus de bandes vides
-                  // d'object-contain qui creusent l'espace avec le texte).
-                  "h-9 w-auto max-w-none shrink-0 select-none",
-                  "transition-transform duration-200",
-                  "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                  "group-hover:scale-105",
-                  "motion-reduce:transition-none motion-reduce:group-hover:scale-100",
-                ].join(" ")}
-              />
-
-              {/* Le texte replie sa largeur (pas seulement son opacité) :
-                  l'icône reste centrée réduite. */}
-              <span
-                className={[
-                  "select-none overflow-hidden whitespace-nowrap",
-                  "text-[20px] font-semibold leading-none tracking-tight",
-                  "transition-[max-width,margin,opacity]",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "motion-reduce:transition-none",
-                  isCollapsed
-                    ? "ml-0 max-w-0 opacity-0 duration-150"
-                    : "ml-1.5 max-w-[96px] opacity-100 duration-300",
-                ].join(" ")}
-              >
-                Stone
-              </span>
-            </span>
-          </button>
-        </Tip>
+            Stone
+          </span>
+        </div>
 
         {/* Navigation */}
         <nav
