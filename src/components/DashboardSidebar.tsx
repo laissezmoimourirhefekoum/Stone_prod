@@ -237,6 +237,79 @@ const SIDEBAR_KEYFRAMES = `
 `;
 
 /* ============================================================================
+   Raccourcis clavier
+   - Ctrl/⌘ + B : réduire / ouvrir la sidebar
+   - Alt + touche : chaque partie de la sidebar
+============================================================================ */
+
+const IS_MAC =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
+
+/** Libellé du raccourci clavier de la sidebar selon la plateforme. */
+const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
+
+/** lettre → route */
+const SHORTCUT_ROUTES: Record<string, string> = {
+  h: "home",
+  c: "schedule",
+  t: "template",
+  s: "settings",
+  l: "channels",
+  u: "pricing",
+  f: "faq",
+  k: "create",
+  i: "integrations",
+};
+
+/** Évènement interne : ouvre/ferme le canal n° detail (0-based). */
+const CHANNEL_SHORTCUT_EVENT = "stone:channel-shortcut";
+
+/** Libellé affiché : "Alt S" ou "⌥S". */
+function shortcutLabel(key: string): string {
+  return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
+}
+
+/** Raccourci associé à une route (undefined si aucun). */
+function shortcutForRoute(route?: string): string | undefined {
+  if (!route) return undefined;
+
+  const entry = Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route);
+  return entry ? shortcutLabel(entry[0]) : undefined;
+}
+
+/**
+ * Lettre/chiffre pressé, indépendant du Alt macOS (qui produit des
+ * caractères spéciaux) : on retombe sur event.code.
+ */
+function shortcutKey(event: KeyboardEvent): string {
+  if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
+  if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase();
+  return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+
+  return Boolean(
+    el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+  );
+}
+
+/** Petite pastille « touche » affichée à côté des libellés. */
+function Kbd({ children, className }: { children: ReactNode; className: string }) {
+  return (
+    <kbd
+      className={[
+        "select-none rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </kbd>
+  );
+}
+
+/* ============================================================================
    Icons
 ============================================================================ */
 
@@ -418,15 +491,25 @@ function ChevronDownIcon(props: IconProps) {
 
 type TipProps = {
   label: string;
+  /** Raccourci clavier affiché à droite du libellé (optionnel). */
+  shortcut?: string;
   /** Tooltip actif uniquement quand la sidebar est réduite. */
   enabled: boolean;
   menuClass: string;
+  countClass: string;
   children: ReactNode;
 };
 
 const TIP_DELAY_MS = 280;
 
-function Tip({ label, enabled, menuClass, children }: TipProps) {
+function Tip({
+  label,
+  shortcut,
+  enabled,
+  menuClass,
+  countClass,
+  children,
+}: TipProps) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | undefined>(undefined);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -473,12 +556,14 @@ function Tip({ label, enabled, menuClass, children }: TipProps) {
             style={{ top: pos.top, left: pos.left }}
             className={[
               "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
+              "flex items-center gap-2",
               "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
               "text-[11.5px] font-medium",
               menuClass,
             ].join(" ")}
           >
             {label}
+            {shortcut && <Kbd className={countClass}>{shortcut}</Kbd>}
           </span>,
           document.body
         )}
@@ -560,6 +645,7 @@ function NavItemViewImpl({
   const Icon = item.icon;
 
   const hasChildren = Boolean(item.children?.length);
+  const shortcut = shortcutForRoute(item.route);
 
   const labelStyle = {
     transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
@@ -586,12 +672,21 @@ function NavItemViewImpl({
   };
 
   return (
-    <Tip label={item.label} enabled={isCollapsed} menuClass={t.menu}>
+    <Tip
+      label={item.label}
+      shortcut={shortcut}
+      enabled={isCollapsed}
+      menuClass={t.menu}
+      countClass={t.count}
+    >
       <button
         type="button"
         aria-label={item.label}
         aria-current={isActive ? "page" : undefined}
         aria-expanded={hasChildren ? isOpen : undefined}
+        aria-keyshortcuts={
+          shortcut ? shortcut.replace(/^⌥/, "Alt+").replace(/^Alt /, "Alt+") : undefined
+        }
         onClick={onClick}
         className={[
           "group relative flex h-9 w-full",
@@ -945,6 +1040,33 @@ function SidebarChannelsImpl({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
+  /* Alt + 1…9 : ouvre / ferme le canal n° N (l'ordre est celui de la sidebar). */
+  useEffect(() => {
+    const onShortcut = (event: Event) => {
+      const index = (event as CustomEvent<number>).detail;
+      const channel = channels[index];
+      if (!channel) return;
+
+      const groupKey = `channel:${channel.key}`;
+
+      if (isCollapsed) {
+        onExpand();
+        setOpenKeys((prev) =>
+          prev.includes(groupKey) ? prev : [...prev, groupKey]
+        );
+      } else {
+        setOpenKeys((prev) =>
+          prev.includes(groupKey)
+            ? prev.filter((k) => k !== groupKey)
+            : [...prev, groupKey]
+        );
+      }
+    };
+
+    window.addEventListener(CHANNEL_SHORTCUT_EVENT, onShortcut);
+    return () => window.removeEventListener(CHANNEL_SHORTCUT_EVENT, onShortcut);
+  }, [channels, isCollapsed, onExpand]);
+
   // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
@@ -986,7 +1108,8 @@ function SidebarChannelsImpl({
             type="button"
             tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
-            title="Connect a channel"
+            aria-keyshortcuts="Alt+N"
+            title={`Connect a channel (${shortcutLabel("n")})`}
             onClick={onConnect}
             className={headerButton}
           >
@@ -996,20 +1119,31 @@ function SidebarChannelsImpl({
       </div>
 
       <div className="flex flex-col gap-0.5">
-        {channels.map((channel) => {
+        {channels.map((channel, channelIndex) => {
           const id = getNetworkId(channel);
           const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
           const label = channel.handle || channel.name;
           const groupKey = `channel:${channel.key}`;
           const isOpen = openKeys.includes(groupKey) && !isCollapsed;
+          const channelShortcut =
+            channelIndex < 9 ? shortcutLabel(String(channelIndex + 1)) : undefined;
 
           return (
             <div key={channel.key}>
-              <Tip label={label} enabled={isCollapsed} menuClass={t.menu}>
+              <Tip
+                label={label}
+                shortcut={channelShortcut}
+                enabled={isCollapsed}
+                menuClass={t.menu}
+                countClass={t.count}
+              >
                 <button
                   type="button"
                   aria-expanded={isOpen}
                   aria-label={label.replace(/^@/, "")}
+                  aria-keyshortcuts={
+                    channelIndex < 9 ? `Alt+${channelIndex + 1}` : undefined
+                  }
                   onClick={() => {
                     if (isCollapsed) {
                       onExpand();
@@ -1136,6 +1270,7 @@ function SidebarChannelsImpl({
         <button
           type="button"
           onClick={onConnect}
+          aria-keyshortcuts="Alt+N"
           className={[
             "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-2.5 whitespace-nowrap",
             "rounded-lg border border-dashed px-3 text-[12.5px] font-medium",
@@ -1146,15 +1281,23 @@ function SidebarChannelsImpl({
           ].join(" ")}
         >
           <PlusIcon className="h-4 w-4 shrink-0" />
-          Connect a channel
+          <span className="flex-1 text-left">Connect a channel</span>
+          <Kbd className={t.count}>{shortcutLabel("n")}</Kbd>
         </button>
       )}
 
       {isCollapsed && (
-        <Tip label="Connect a channel" enabled menuClass={t.menu}>
+        <Tip
+          label="Connect a channel"
+          shortcut={shortcutLabel("n")}
+          enabled
+          menuClass={t.menu}
+          countClass={t.count}
+        >
           <button
             type="button"
             aria-label="Connect a channel"
+            aria-keyshortcuts="Alt+N"
             onClick={onConnect}
             className={[
               "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
@@ -1191,12 +1334,6 @@ function readStoredCollapsed(): boolean {
     return true;
   }
 }
-
-/** Libellé du raccourci clavier selon la plateforme. */
-const TOGGLE_SHORTCUT_LABEL =
-  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform)
-    ? "⌘B"
-    : "Ctrl B";
 
 const sidebarMemory = {
   collapsed: readStoredCollapsed(),
@@ -1749,15 +1886,7 @@ export default function DashboardSidebar({
         return;
       }
 
-      const target = event.target as HTMLElement | null;
-
-      if (
-        target &&
-        (target.isContentEditable ||
-          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      ) {
-        return;
-      }
+      if (isTypingTarget(event.target)) return;
 
       event.preventDefault();
       toggleCollapsed();
@@ -1786,6 +1915,61 @@ export default function DashboardSidebar({
   }, []);
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
+
+  /* Raccourcis Alt + touche (ignorés pendant la saisie ou si le modal est ouvert).
+       Alt P      menu du compte
+       Alt N      modal « Connect a channel »
+       Alt 1…9    ouvre / ferme le canal n° N
+       Alt H/C/T  Home / Calendar / Templates
+       Alt S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      if (connectOpen || isTypingTarget(event.target)) return;
+
+      const key = shortcutKey(event);
+      if (!key) return;
+
+      // Menu du compte
+      if (key === "p") {
+        event.preventDefault();
+        setMenuOpen((value) => !value);
+        return;
+      }
+
+      // Modal de connexion d'un canal
+      if (key === "n") {
+        event.preventDefault();
+        openConnect();
+        return;
+      }
+
+      // Canal n° 1..9
+      if (/^[1-9]$/.test(key)) {
+        event.preventDefault();
+        setMenuOpen(false);
+        window.dispatchEvent(
+          new CustomEvent(CHANNEL_SHORTCUT_EVENT, { detail: Number(key) - 1 })
+        );
+        return;
+      }
+
+      // Pages
+      const route = SHORTCUT_ROUTES[key];
+
+      if (route) {
+        event.preventDefault();
+        setMenuOpen(false);
+        navigate(route);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [connectOpen, openConnect]);
 
   const handleExpandAndOpen = useCallback((label: string) => {
     setIsCollapsed(false);
@@ -2197,14 +2381,7 @@ export default function DashboardSidebar({
                 ].join(" ")}
               >
                 {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                <kbd
-                  className={[
-                    "rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
-                    t.count,
-                  ].join(" ")}
-                >
-                  {TOGGLE_SHORTCUT_LABEL}
-                </kbd>
+                <Kbd className={t.count}>{TOGGLE_SHORTCUT_LABEL}</Kbd>
               </span>
             </button>
 
@@ -2251,6 +2428,7 @@ export default function DashboardSidebar({
                     <button
                       type="button"
                       role="menuitem"
+                      aria-keyshortcuts="Alt+U"
                       onClick={() => {
                         setMenuOpen(false);
                         navigate("pricing");
@@ -2297,6 +2475,7 @@ export default function DashboardSidebar({
                         const Icon = item.icon;
                         const delay = 60 + menuItemIndex++ * 25;
                         const isLogout = item.action === "logout";
+                        const shortcut = shortcutForRoute(item.route);
 
                         return (
                           <button
@@ -2351,6 +2530,10 @@ export default function DashboardSidebar({
                                 : item.label}
                             </span>
 
+                            {shortcut && (
+                              <Kbd className={t.count}>{shortcut}</Kbd>
+                            )}
+
                             {item.badge && (
                               <span
                                 className={[
@@ -2380,8 +2563,13 @@ export default function DashboardSidebar({
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 aria-controls={menuOpen ? "account-menu" : undefined}
+                aria-keyshortcuts="Alt+P"
                 aria-label="Open account menu"
-                title={isCollapsed ? account.name : undefined}
+                title={
+                  isCollapsed
+                    ? `${account.name} (${shortcutLabel("p")})`
+                    : `Account menu (${shortcutLabel("p")})`
+                }
                 onClick={() => setMenuOpen((value) => !value)}
                 className={[
                   "group flex h-11 w-full",
