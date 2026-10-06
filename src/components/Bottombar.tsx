@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type BottomBarTab = "files" | "add";
@@ -59,25 +60,69 @@ function SearchIcon() {
   );
 }
 
-/** Animation jouée par la loupe quand la recherche se replie. */
-const SEARCH_POP_KEYFRAMES = `
-@keyframes bottomBarSearchPop {
-  0%   { transform: scale(1)    rotate(0deg); }
-  35%  { transform: scale(0.78) rotate(-18deg); }
-  70%  { transform: scale(1.12) rotate(6deg); }
-  100% { transform: scale(1)    rotate(0deg); }
+const SEARCH_KEYFRAMES = `
+@keyframes searchIconOpen {
+  0% {
+    transform: scale(.82) rotate(-12deg);
+    opacity: .65;
+  }
+
+  55% {
+    transform: scale(1.08) rotate(3deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes searchContentIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes searchContentOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+@keyframes searchGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  45% {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, .035);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
 }
 `;
 
 type BottomBarProps = {
   isDark?: boolean;
   onChange?: (id: BottomBarTab) => void;
-  /** Onglet actuellement actif (contrôlé par le parent). */
   active?: BottomBarTab | null;
-  /** Valeur du champ de recherche. */
   query: string;
   onQueryChange: (value: string) => void;
-  /** Décalage gauche (px) pour centrer la barre sur la zone de contenu. */
   offsetLeft?: number;
 };
 
@@ -90,29 +135,40 @@ export default function BottomBar({
   offsetLeft = 0,
 }: BottomBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isSearchPopping, setIsSearchPopping] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Au dépliage, le champ prend le focus directement.
   useEffect(() => {
-    if (isSearchOpen) inputRef.current?.focus();
+    if (isSearchOpen) {
+      const timer = window.setTimeout(() => {
+        inputRef.current?.focus();
+      }, 180);
+
+      return () => window.clearTimeout(timer);
+    }
   }, [isSearchOpen]);
 
-  // On coupe l'animation une fois qu'elle est terminée.
-  useEffect(() => {
-    if (!isSearchPopping) return;
-    const timer = window.setTimeout(() => setIsSearchPopping(false), 460);
-    return () => window.clearTimeout(timer);
-  }, [isSearchPopping]);
-
-  const openSearch = () => setIsSearchOpen(true);
-
-  const closeSearch = () => {
-    setIsSearchOpen(false);
-    setIsSearchPopping(true); // déclenche le "pop" de la loupe
+  const openSearch = () => {
+    setIsClosing(false);
+    setIsSearchOpen(true);
   };
 
-  const renderButton = ({ id, label, icon, primary }: Item) => {
+  const closeSearch = () => {
+    setIsClosing(true);
+
+    window.setTimeout(() => {
+      setIsSearchOpen(false);
+      setIsClosing(false);
+    }, 220);
+  };
+
+  const renderButton = ({
+    id,
+    label,
+    icon,
+    primary,
+  }: Item) => {
     const isActive = active === id;
 
     const tone = primary
@@ -136,8 +192,10 @@ export default function BottomBar({
           aria-current={isActive ? "true" : undefined}
           onClick={() => onChange?.(id)}
           className={[
-            "flex h-12 w-12 items-center justify-center rounded-full transition duration-150 active:scale-90",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+            "flex h-12 w-12 items-center justify-center rounded-full",
+            "transition duration-150 active:scale-90",
+            "focus-visible:outline-none focus-visible:ring-2",
+            "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
             tone,
           ].join(" ")}
         >
@@ -156,7 +214,7 @@ export default function BottomBar({
         paddingBottom: "max(16px, env(safe-area-inset-bottom))",
       }}
     >
-      <style>{SEARCH_POP_KEYFRAMES}</style>
+      <style>{SEARCH_KEYFRAMES}</style>
 
       <ul
         className={[
@@ -169,80 +227,107 @@ export default function BottomBar({
         {renderButton(FILES_ITEM)}
 
         <li>
-          {/* La pilule s'élargit / se rétracte : largeur animée + overflow caché */}
           <div
             className={[
-              "flex h-12 items-center overflow-hidden rounded-full border",
-              "transition-[width,padding] duration-300 ease-out motion-reduce:transition-none",
+              "relative flex h-12 items-center overflow-hidden rounded-full border",
+              "transition-[width,background-color,border-color,box-shadow]",
+              "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
               isDark
                 ? "border-white/10 bg-[#141416] text-neutral-300"
                 : "border-black/10 bg-white text-black/80",
-              isSearchOpen ? "w-[190px] pr-4 sm:w-[280px]" : "w-12",
+
+              isSearchOpen
+                ? "w-[190px] sm:w-[280px]"
+                : "w-12",
+
+              isSearchOpen &&
+                !isClosing &&
+                "animate-[searchGlow_500ms_ease-out]",
+
+              isClosing && "w-12",
             ].join(" ")}
           >
+            {/* Loupe */}
             <button
               type="button"
               aria-label="Rechercher"
               aria-expanded={isSearchOpen}
               title="Rechercher"
-              // Garde le focus dans le champ quand on clique sur la loupe ouverte.
               onMouseDown={(event) => {
-                if (isSearchOpen) event.preventDefault();
+                if (isSearchOpen) {
+                  event.preventDefault();
+                }
               }}
               onClick={() => {
-                if (isSearchOpen) inputRef.current?.focus();
-                else openSearch();
+                if (isSearchOpen) {
+                  inputRef.current?.focus();
+                } else {
+                  openSearch();
+                }
               }}
               className={[
-                "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+                "relative z-10 flex h-12 w-12 shrink-0",
+                "items-center justify-center rounded-full",
+                "focus-visible:outline-none focus-visible:ring-2",
+                "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
                 !isSearchOpen && "transition duration-150 active:scale-90",
               ].join(" ")}
             >
               <span
-                className="flex items-center justify-center will-change-transform"
-                style={
-                  isSearchPopping
-                    ? {
-                        animation:
-                          "bottomBarSearchPop 460ms cubic-bezier(0.34, 1.4, 0.64, 1)",
-                      }
-                    : undefined
-                }
+                className={[
+                  "flex items-center justify-center",
+                  isSearchOpen && !isClosing
+                    ? "animate-[searchIconOpen_420ms_cubic-bezier(0.22,1,0.36,1)]"
+                    : "",
+                ].join(" ")}
               >
                 <SearchIcon />
               </span>
             </button>
 
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              onBlur={() => {
-                // On replie le champ seulement s'il est vide.
-                if (query.trim() === "") closeSearch();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  onQueryChange("");
-                  closeSearch();
-                  inputRef.current?.blur();
-                }
-              }}
-              placeholder="Search everything"
-              aria-label="Search everything"
-              aria-hidden={!isSearchOpen}
-              tabIndex={isSearchOpen ? 0 : -1}
+            {/* Zone de recherche */}
+            <div
               className={[
-                "min-w-0 flex-1 bg-transparent text-[13px] outline-none",
-                "transition-opacity duration-200 motion-reduce:transition-none",
-                "placeholder:text-inherit placeholder:opacity-60",
-                isDark ? "text-white" : "text-neutral-800",
-                isSearchOpen
+                "flex min-w-0 flex-1 items-center",
+                "transition-opacity duration-200",
+                isSearchOpen && !isClosing
                   ? "opacity-100"
                   : "pointer-events-none opacity-0",
               ].join(" ")}
-            />
+            >
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(event) =>
+                  onQueryChange(event.target.value)
+                }
+                onBlur={() => {
+                  if (query.trim() === "") {
+                    closeSearch();
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    onQueryChange("");
+                    closeSearch();
+                    inputRef.current?.blur();
+                  }
+                }}
+                placeholder="Search everything"
+                aria-label="Search everything"
+                aria-hidden={!isSearchOpen}
+                tabIndex={isSearchOpen ? 0 : -1}
+                className={[
+                  "w-full min-w-0 bg-transparent",
+                  "pr-4 text-[13px] outline-none",
+                  "placeholder:text-inherit placeholder:opacity-50",
+                  "animate-[searchContentIn_300ms_150ms_both]",
+                  isDark
+                    ? "text-white"
+                    : "text-neutral-800",
+                ].join(" ")}
+              />
+            </div>
           </div>
         </li>
 
