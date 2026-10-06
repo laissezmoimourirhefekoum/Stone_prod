@@ -12,7 +12,6 @@ import IntegrationsPage from "./pages/integration";
 import Settings from "./pages/settings";
 import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
-import Analytics from "./pages/analytics";
 import Insights from "./pages/Insights";
 import Community from "./pages/Community";
 import Channels from "./pages/channels";
@@ -343,7 +342,6 @@ const PROTECTED_ROUTES = new Set([
   "beta",
   "refer",
   "create",
-  "analytics",
   "insights",
   "community",
   "integrations",
@@ -567,14 +565,6 @@ function AppContent({ theme, toggle, route: rawRoute }: AppContentProps) {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
         <Schedule />
-      </div>
-    );
-  }
-
-  if (route === "analytics") {
-    return (
-      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
-        <Analytics />
       </div>
     );
   }
