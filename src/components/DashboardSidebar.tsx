@@ -1250,26 +1250,6 @@ function SidebarChannelsImpl({
         })}
       </div>
 
-      {channels.length === 0 && !isCollapsed && (
-        <button
-          type="button"
-          onClick={onConnect}
-          aria-keyshortcuts="Control+N"
-          className={[
-            "mx-1 flex h-9 w-[calc(100%-8px)] select-none items-center gap-2.5 whitespace-nowrap",
-            "rounded-lg border border-dashed px-3 text-[12.5px] font-medium",
-            "transition-colors duration-150 motion-reduce:transition-none",
-            t.rail,
-            focus,
-            t.navIdle,
-          ].join(" ")}
-        >
-          <PlusIcon className="h-4 w-4 shrink-0" />
-          <span className="flex-1 text-left">Connect a channel</span>
-          <Kbd className={t.count}>{shortcutLabel("n")}</Kbd>
-        </button>
-      )}
-
       {isCollapsed && (
         <Tip
           label="Connect a channel"
