@@ -43,7 +43,7 @@ import {
   REAL_OAUTH,
   type ChannelKey,
   type ConnectionState,
-} from "./Channels";
+} from "./channels";
 
 import {
   getTikTokStatus,
