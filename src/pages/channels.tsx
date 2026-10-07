@@ -122,37 +122,6 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   THEME
-============================================================================ */
-
-type ThemeTokens = {
-  page: string;
-  text: string;
-  muted: string;
-
-  surface: string;
-  surfaceStrong: string;
-  border: string;
-  borderHover: string;
-
-  card: string;
-  cardHover: string;
-  cardConnected: string;
-
-  primary: string;
-  primaryHover: string;
-
-  icon: string;
-  iconSoft: string;
-
-  success: string;
-  danger: string;
-
-  input: string;
-  ring: string;
-};
-
-/* ============================================================================
    CONFIG
 ============================================================================ */
 
@@ -213,29 +182,12 @@ export const CHANNELS: Channel[] = [
 ];
 
 const initialConnections: ConnectionState = {
-  instagram: {
-    connected: false,
-  },
-
-  facebook: {
-    connected: false,
-  },
-
-  threads: {
-    connected: false,
-  },
-
-  youtube: {
-    connected: false,
-  },
-
-  tiktok: {
-    connected: false,
-  },
-
-  pinterest: {
-    connected: false,
-  },
+  instagram: { connected: false },
+  facebook: { connected: false },
+  threads: { connected: false },
+  youtube: { connected: false },
+  tiktok: { connected: false },
+  pinterest: { connected: false },
 };
 
 /* ============================================================================
@@ -272,15 +224,6 @@ function PlusIcon(props: IconProps) {
   );
 }
 
-function ArrowUpRightIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M7 17 17 7" />
-      <path d="M7 7h10v10" />
-    </Svg>
-  );
-}
-
 function CheckIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -295,21 +238,21 @@ function MoreIcon(props: IconProps) {
       <circle
         cx="5"
         cy="12"
-        r="1"
+        r="1.3"
         fill="currentColor"
         stroke="none"
       />
       <circle
         cx="12"
         cy="12"
-        r="1"
+        r="1.3"
         fill="currentColor"
         stroke="none"
       />
       <circle
         cx="19"
         cy="12"
-        r="1"
+        r="1.3"
         fill="currentColor"
         stroke="none"
       />
@@ -317,30 +260,11 @@ function MoreIcon(props: IconProps) {
   );
 }
 
-function DisconnectIcon(props: IconProps) {
+function ArrowIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M8 12h8" />
-      <path d="M10 7 5 12l5 5" />
-      <path d="M14 7 19 12l-5 5" />
-    </Svg>
-  );
-}
-
-function SparkIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z" />
-    </Svg>
-  );
-}
-
-function WarningIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M12 3 21 19H3L12 3Z" />
-      <path d="M12 9v4" />
-      <path d="M12 16h.01" />
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
     </Svg>
   );
 }
@@ -372,7 +296,7 @@ function formatOAuthError(
       raw
     )
   ) {
-    return "Unable to reach the server. Check your backend and VITE_API_URL.";
+    return "Unable to reach the server. Check that the backend is running.";
   }
 
   return raw
@@ -388,11 +312,11 @@ function mockHandleFor(
     string
   > = {
     instagram: "@ronan.studio",
+    facebook: "Ronan Studio",
+    threads: "@ronan.studio",
     tiktok: "",
     youtube: "",
-    facebook: "Ronan Studio",
     pinterest: "",
-    threads: "@ronan.studio",
   };
 
   return handles[key];
@@ -423,124 +347,56 @@ function toConnection(
 }
 
 /* ============================================================================
-   CHANNEL ICON
+   CHANNEL CARD
 ============================================================================ */
 
-function ChannelLogo({
-  channel,
-  connection,
-  size = "normal",
-}: {
-  channel: Channel;
-  connection: Connection;
-  size?: "normal" | "large";
-}) {
-  const Icon = channel.icon;
-
-  const [failed, setFailed] =
-    useState(false);
-
-  const showAvatar =
-    Boolean(
-      connection.connected &&
-        connection.avatarUrl
-    ) && !failed;
-
-  const dimensions =
-    size === "large"
-      ? "h-14 w-14"
-      : "h-11 w-11";
-
-  return (
-    <div
-      className={[
-        "relative shrink-0",
-        dimensions,
-      ].join(" ")}
-    >
-      {showAvatar ? (
-        <img
-          src={connection.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          onError={() =>
-            setFailed(true)
-          }
-          className={[
-            "h-full w-full rounded-[18px]",
-            "object-cover",
-          ].join(" ")}
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center",
-            "rounded-[18px]",
-            "border",
-            "transition-transform duration-300",
-            "group-hover:scale-[1.04]",
-          ].join(" ")}
-        >
-          <Icon
-            className={
-              size === "large"
-                ? "h-7 w-7"
-                : "h-5 w-5"
-            }
-            size={
-              size === "large"
-                ? 28
-                : 20
-            }
-          />
-        </div>
-      )}
-
-      {connection.connected &&
-        showAvatar && (
-          <span
-            className={[
-              "absolute -bottom-1 -right-1",
-              "flex h-5 w-5 items-center justify-center",
-              "rounded-full",
-              "border-2",
-              "border-white",
-              "bg-emerald-500",
-              "text-white",
-              "shadow-sm",
-            ].join(" ")}
-          >
-            <CheckIcon className="h-2.5 w-2.5" />
-          </span>
-        )}
-    </div>
-  );
-}
-
-/* ============================================================================
-   CONNECTED CARD
-============================================================================ */
-
-type ConnectedCardProps = {
+type ChannelCardProps = {
   channel: Channel;
   connection: Connection;
   pending: boolean;
-  t: ThemeTokens;
-  onDisconnect: () => void;
+  disabled: boolean;
+  dark: boolean;
+  onToggle: () => void;
 };
 
-function ConnectedCard({
+function ChannelCard({
   channel,
   connection,
   pending,
-  t,
-  onDisconnect,
-}: ConnectedCardProps) {
-  const [menuOpen, setMenuOpen] =
-    useState(false);
+  disabled,
+  dark,
+  onToggle,
+}: ChannelCardProps) {
+  const Icon = channel.icon;
+
+  const [
+    imageFailed,
+    setImageFailed,
+  ] = useState(false);
+
+  const [
+    menuOpen,
+    setMenuOpen,
+  ] = useState(false);
 
   const menuRef =
     useRef<HTMLDivElement>(null);
+
+  const connected =
+    connection.connected;
+
+  const label =
+    connection.handle ||
+    channel.name;
+
+  const showAvatar =
+    connected &&
+    Boolean(connection.avatarUrl) &&
+    !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [connection.avatarUrl]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -589,44 +445,170 @@ function ConnectedCard({
   }, [menuOpen]);
 
   return (
-    <article
+    <div
       className={[
-        "group relative overflow-visible",
-        "rounded-[26px]",
-        "border",
-        "p-5",
-        "transition-all duration-300",
-        "hover:-translate-y-0.5",
-        t.card,
-        t.border,
-        "hover:shadow-[0_18px_50px_rgba(0,0,0,0.08)]",
+        "group relative flex min-h-[112px]",
+        "items-center gap-3.5",
+        "rounded-[22px] border px-4 py-3.5",
+        "transition-all duration-200",
+        connected
+          ? dark
+            ? "border-white/[0.09] bg-white/[0.035]"
+            : "border-black/[0.07] bg-white"
+          : dark
+            ? "border-white/[0.07] bg-white/[0.018]"
+            : "border-black/[0.06] bg-white/70",
+        !disabled &&
+          "hover:-translate-y-[1px]",
+        !disabled &&
+          (dark
+            ? "hover:border-white/[0.14] hover:bg-white/[0.04]"
+            : "hover:border-black/[0.11] hover:bg-white"),
+        disabled &&
+          "cursor-not-allowed opacity-45",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-4">
-        <ChannelLogo
-          channel={channel}
-          connection={connection}
-          size="large"
-        />
+      {/* Logo */}
 
+      <div className="relative shrink-0">
+        {showAvatar ? (
+          <img
+            src={connection.avatarUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() =>
+              setImageFailed(true)
+            }
+            className={[
+              "h-11 w-11 rounded-[15px]",
+              "object-cover",
+            ].join(" ")}
+          />
+        ) : (
+          <div
+            className={[
+              "flex h-11 w-11 items-center justify-center",
+              "rounded-[15px] border",
+              dark
+                ? "border-white/[0.08] bg-white/[0.045] text-white/75"
+                : "border-black/[0.06] bg-black/[0.025] text-black/60",
+              "transition-transform duration-200",
+              "group-hover:scale-[1.03]",
+            ].join(" ")}
+          >
+            <Icon
+              className="h-5 w-5"
+              size={20}
+            />
+          </div>
+        )}
+
+        {connected && (
+          <span
+            className={[
+              "absolute -bottom-1 -right-1",
+              "flex h-[17px] w-[17px]",
+              "items-center justify-center",
+              "rounded-full",
+              "border-2",
+              dark
+                ? "border-[#09090b] bg-emerald-500"
+                : "border-white bg-emerald-500",
+              "text-white",
+            ].join(" ")}
+          >
+            <CheckIcon className="h-2.5 w-2.5" />
+          </span>
+        )}
+      </div>
+
+      {/* Info */}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p
+            className={[
+              "truncate text-[13px] font-semibold",
+              dark
+                ? "text-white"
+                : "text-zinc-950",
+            ].join(" ")}
+          >
+            {label}
+          </p>
+
+          {connected && (
+            <span
+              className={[
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                "bg-emerald-500",
+              ].join(" ")}
+            />
+          )}
+        </div>
+
+        <p
+          className={[
+            "mt-1 truncate text-[10.5px]",
+            dark
+              ? "text-zinc-500"
+              : "text-zinc-500",
+          ].join(" ")}
+        >
+          {connected
+            ? channel.accountLabel
+            : channel.subtitle}
+        </p>
+      </div>
+
+      {/* Action */}
+
+      {!connected ? (
+        <button
+          type="button"
+          disabled={
+            pending || disabled
+          }
+          onClick={onToggle}
+          className={[
+            "flex shrink-0 items-center gap-1.5",
+            "rounded-xl border px-3 py-2",
+            "text-[10.5px] font-semibold",
+            "transition-all duration-200",
+            "active:scale-[0.97]",
+            dark
+              ? "border-white/[0.1] bg-white/[0.045] text-white hover:bg-white/[0.08]"
+              : "border-black/[0.08] bg-black/[0.025] text-zinc-900 hover:bg-black/[0.05]",
+            "disabled:cursor-not-allowed disabled:opacity-40",
+          ].join(" ")}
+        >
+          {pending
+            ? "..."
+            : "Connect"}
+
+          {!pending && (
+            <ArrowIcon className="h-3 w-3" />
+          )}
+        </button>
+      ) : (
         <div
           ref={menuRef}
-          className="relative"
+          className="relative shrink-0"
         >
           <button
             type="button"
-            aria-label={`More options for ${channel.name}`}
+            aria-label={`Options for ${channel.name}`}
             onClick={() =>
               setMenuOpen(
                 (value) => !value
               )
             }
             className={[
-              "flex h-9 w-9 items-center justify-center",
-              "rounded-xl",
-              "transition-all duration-200",
-              t.iconSoft,
-              t.ring,
+              "flex h-8 w-8 items-center justify-center",
+              "rounded-xl transition-colors",
+              dark
+                ? "text-zinc-500 hover:bg-white/[0.06] hover:text-white"
+                : "text-zinc-400 hover:bg-black/[0.05] hover:text-zinc-900",
             ].join(" ")}
           >
             <MoreIcon className="h-4 w-4" />
@@ -635,12 +617,12 @@ function ConnectedCard({
           {menuOpen && (
             <div
               className={[
-                "absolute right-0 top-11 z-30",
-                "w-44 overflow-hidden",
-                "rounded-2xl border",
-                "p-1.5 shadow-2xl",
-                t.surfaceStrong,
-                t.border,
+                "absolute right-0 top-10 z-30",
+                "w-32 rounded-xl border p-1",
+                "shadow-xl",
+                dark
+                  ? "border-white/[0.08] bg-[#18181b]"
+                  : "border-black/[0.08] bg-white",
               ].join(" ")}
             >
               <button
@@ -648,210 +630,22 @@ function ConnectedCard({
                 disabled={pending}
                 onClick={() => {
                   setMenuOpen(false);
-                  onDisconnect();
+                  onToggle();
                 }}
                 className={[
-                  "flex w-full items-center gap-2.5",
-                  "rounded-xl px-3 py-2.5",
-                  "text-left text-xs font-medium",
-                  "transition-colors",
-                  "text-red-500",
-                  "hover:bg-red-500/10",
-                  "disabled:opacity-40",
+                  "w-full rounded-lg px-2.5 py-2",
+                  "text-left text-[10px]",
+                  "font-medium text-red-500",
+                  "hover:bg-red-500/[0.08]",
                 ].join(" ")}
               >
-                <DisconnectIcon className="h-4 w-4" />
                 Disconnect
               </button>
             </div>
           )}
         </div>
-      </div>
-
-      <div className="mt-5">
-        <div className="flex items-center gap-2">
-          <h3
-            className={[
-              "truncate text-[15px] font-semibold",
-              t.text,
-            ].join(" ")}
-          >
-            {connection.handle ||
-              channel.name}
-          </h3>
-
-          <span
-            className={[
-              "h-1.5 w-1.5 shrink-0 rounded-full",
-              "bg-emerald-500",
-            ].join(" ")}
-          />
-        </div>
-
-        <p
-          className={[
-            "mt-1 text-xs",
-            t.muted,
-          ].join(" ")}
-        >
-          {channel.accountLabel}
-        </p>
-      </div>
-
-      <div
-        className={[
-          "mt-5 flex items-center justify-between",
-          "rounded-2xl border px-3.5 py-3",
-          t.surface,
-          t.border,
-        ].join(" ")}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={[
-              "flex h-6 w-6 items-center justify-center",
-              "rounded-full",
-              "bg-emerald-500/10",
-              "text-emerald-500",
-            ].join(" ")}
-          >
-            <CheckIcon className="h-3 w-3" />
-          </span>
-
-          <span
-            className={[
-              "text-[11px] font-medium",
-              t.text,
-            ].join(" ")}
-          >
-            {pending
-              ? "Updating..."
-              : "Connected"}
-          </span>
-        </div>
-
-        <span
-          className={[
-            "text-[10px]",
-            t.muted,
-          ].join(" ")}
-        >
-          Active
-        </span>
-      </div>
-    </article>
-  );
-}
-
-/* ============================================================================
-   AVAILABLE CARD
-============================================================================ */
-
-type AvailableCardProps = {
-  channel: Channel;
-  connection: Connection;
-  pending: boolean;
-  disabled: boolean;
-  t: ThemeTokens;
-  onConnect: () => void;
-};
-
-function AvailableCard({
-  channel,
-  connection,
-  pending,
-  disabled,
-  t,
-  onConnect,
-}: AvailableCardProps) {
-  return (
-    <article
-      className={[
-        "group relative overflow-hidden",
-        "rounded-[26px]",
-        "border",
-        "p-5",
-        "transition-all duration-300",
-        disabled
-          ? "opacity-55"
-          : "hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(0,0,0,0.07)]",
-        t.card,
-        t.border,
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <ChannelLogo
-          channel={channel}
-          connection={connection}
-          size="large"
-        />
-
-        <span
-          className={[
-            "rounded-full border px-2.5 py-1",
-            "text-[9px] font-semibold uppercase tracking-[0.12em]",
-            t.border,
-            t.muted,
-          ].join(" ")}
-        >
-          Available
-        </span>
-      </div>
-
-      <div className="mt-5">
-        <h3
-          className={[
-            "text-[15px] font-semibold",
-            t.text,
-          ].join(" ")}
-        >
-          {channel.name}
-        </h3>
-
-        <p
-          className={[
-            "mt-1 text-xs",
-            t.muted,
-          ].join(" ")}
-        >
-          {channel.subtitle}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        disabled={
-          pending || disabled
-        }
-        onClick={onConnect}
-        className={[
-          "mt-5 flex w-full items-center justify-between",
-          "rounded-2xl border px-4 py-3",
-          "text-xs font-semibold",
-          "transition-all duration-200",
-          disabled
-            ? "cursor-not-allowed"
-            : "hover:-translate-y-px",
-          t.surface,
-          t.border,
-          t.text,
-          t.ring,
-        ].join(" ")}
-      >
-        <span>
-          {pending
-            ? "Connecting..."
-            : disabled
-              ? "Upgrade to connect"
-              : "Connect"}
-        </span>
-
-        {!disabled &&
-          !pending && (
-            <ArrowUpRightIcon className="h-4 w-4" />
-          )}
-      </button>
-    </article>
+      )}
+    </div>
   );
 }
 
@@ -888,7 +682,7 @@ export default function Channels({
     user?.id ?? null;
 
   /* --------------------------------------------------------------------------
-     CONNECTION STATE
+     STATE
   -------------------------------------------------------------------------- */
 
   const [
@@ -978,7 +772,7 @@ export default function Channels({
     useRef(false);
 
   /* --------------------------------------------------------------------------
-     DERIVED DATA
+     DERIVED
   -------------------------------------------------------------------------- */
 
   const connectedChannels =
@@ -1018,16 +812,8 @@ export default function Channels({
     connectedCount >=
     PLAN.maxChannels;
 
-  const progress =
-    Math.min(
-      100,
-      (connectedCount /
-        PLAN.maxChannels) *
-        100
-    );
-
   /* --------------------------------------------------------------------------
-     OAUTH RETURN + STATUS SYNC
+     OAUTH STATUS
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -1198,9 +984,7 @@ export default function Channels({
           const status =
             await fetchStatus();
 
-          if (cancelled) {
-            return;
-          }
+          if (cancelled) return;
 
           const connection =
             toConnection(
@@ -1262,135 +1046,13 @@ export default function Channels({
   }, [userId]);
 
   /* --------------------------------------------------------------------------
-     THEME
-  -------------------------------------------------------------------------- */
-
-  const t =
-    useMemo<ThemeTokens>(
-      () =>
-        isDark
-          ? {
-              page:
-                "bg-[#09090b] text-white",
-
-              text:
-                "text-white",
-
-              muted:
-                "text-zinc-500",
-
-              surface:
-                "bg-white/[0.035]",
-
-              surfaceStrong:
-                "bg-[#17171a]",
-
-              border:
-                "border-white/[0.08]",
-
-              borderHover:
-                "hover:border-white/[0.16]",
-
-              card:
-                "bg-white/[0.025]",
-
-              cardHover:
-                "hover:bg-white/[0.045]",
-
-              cardConnected:
-                "bg-white/[0.04]",
-
-              primary:
-                "bg-white text-black",
-
-              primaryHover:
-                "hover:bg-zinc-200",
-
-              icon:
-                "border-white/[0.08] bg-white/[0.055] text-white",
-
-              iconSoft:
-                "text-zinc-500 hover:bg-white/[0.07] hover:text-white",
-
-              success:
-                "text-emerald-400",
-
-              danger:
-                "text-red-400",
-
-              input:
-                "bg-white/[0.04]",
-
-              ring:
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
-            }
-          : {
-              page:
-                "bg-[#f7f7f5] text-zinc-950",
-
-              text:
-                "text-zinc-950",
-
-              muted:
-                "text-zinc-500",
-
-              surface:
-                "bg-black/[0.025]",
-
-              surfaceStrong:
-                "bg-white",
-
-              border:
-                "border-black/[0.08]",
-
-              borderHover:
-                "hover:border-black/[0.15]",
-
-              card:
-                "bg-white/75",
-
-              cardHover:
-                "hover:bg-white",
-
-              cardConnected:
-                "bg-white",
-
-              primary:
-                "bg-zinc-950 text-white",
-
-              primaryHover:
-                "hover:bg-zinc-800",
-
-              icon:
-                "border-black/[0.07] bg-black/[0.035] text-zinc-700",
-
-              iconSoft:
-                "text-zinc-400 hover:bg-black/[0.05] hover:text-zinc-950",
-
-              success:
-                "text-emerald-600",
-
-              danger:
-                "text-red-600",
-
-              input:
-                "bg-black/[0.025]",
-
-              ring:
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
-            },
-      [isDark]
-    );
-
-  /* --------------------------------------------------------------------------
-     OAUTH HANDLERS
+     TIKTOK
   -------------------------------------------------------------------------- */
 
   const handleTikTokToggle =
     async () => {
-      if (tiktokBusy.current) {
+      if (tiktokBusy.current)
         return;
-      }
 
       tiktokBusy.current = true;
 
@@ -1423,7 +1085,6 @@ export default function Channels({
           );
         } else {
           await startTikTokLogin();
-
           redirecting = true;
         }
       } catch (error) {
@@ -1447,13 +1108,16 @@ export default function Channels({
       }
     };
 
+  /* --------------------------------------------------------------------------
+     PINTEREST
+  -------------------------------------------------------------------------- */
+
   const handlePinterestToggle =
     async () => {
       if (
         pinterestBusy.current
-      ) {
+      )
         return;
-      }
 
       pinterestBusy.current =
         true;
@@ -1535,7 +1199,6 @@ export default function Channels({
           );
         } else {
           await startPinterestLogin();
-
           redirecting = true;
         }
       } catch (error) {
@@ -1559,13 +1222,16 @@ export default function Channels({
       }
     };
 
+  /* --------------------------------------------------------------------------
+     YOUTUBE
+  -------------------------------------------------------------------------- */
+
   const handleYouTubeToggle =
     async () => {
       if (
         youtubeBusy.current
-      ) {
+      )
         return;
-      }
 
       youtubeBusy.current = true;
 
@@ -1598,7 +1264,6 @@ export default function Channels({
           );
         } else {
           await startYouTubeLogin();
-
           redirecting = true;
         }
       } catch (error) {
@@ -1623,7 +1288,7 @@ export default function Channels({
     };
 
   /* --------------------------------------------------------------------------
-     PLACEHOLDER PROVIDERS
+     PLACEHOLDER
   -------------------------------------------------------------------------- */
 
   const handlePlaceholderToggle =
@@ -1650,8 +1315,12 @@ export default function Channels({
         );
 
         setPendingKey(null);
-      }, 500);
+      }, 450);
     };
+
+  /* --------------------------------------------------------------------------
+     GLOBAL TOGGLE
+  -------------------------------------------------------------------------- */
 
   const handleToggle =
     (key: ChannelKey) => {
@@ -1688,36 +1357,17 @@ export default function Channels({
     };
 
   /* --------------------------------------------------------------------------
-     ACTIONS
-  -------------------------------------------------------------------------- */
-
-  const handleUpgrade =
-    () => {
-      console.log(
-        "[Stone] Upgrade plan clicked"
-      );
-    };
-
-  const openModal = () => {
-    setErrorMessage(null);
-    setShowConnectModal(true);
-  };
-
-  const closeModal = () => {
-    setShowConnectModal(false);
-  };
-
-  /* ==========================================================================
      RENDER
-  ========================================================================== */
+  -------------------------------------------------------------------------- */
 
   return (
     <div
       className={[
-        "relative h-full w-full",
-        "overflow-hidden",
+        "relative h-full w-full overflow-hidden",
         "transition-colors duration-300",
-        t.page,
+        isDark
+          ? "bg-[#09090b] text-white"
+          : "bg-[#f7f7f5] text-zinc-950",
       ].join(" ")}
     >
       <DashboardSidebar
@@ -1729,10 +1379,7 @@ export default function Channels({
 
       <main
         className={[
-          "h-full overflow-y-auto",
-          "overflow-x-hidden",
-          "[scrollbar-width:none]",
-          "[&::-webkit-scrollbar]:hidden",
+          "h-full overflow-hidden",
           "transition-[padding-left]",
           "duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
@@ -1744,244 +1391,140 @@ export default function Channels({
       >
         <div
           className={[
-            "mx-auto w-full",
-            "max-w-[1120px]",
-            "px-[clamp(18px,4vw,48px)]",
-            "pb-24",
-            "pt-[clamp(26px,5vw,58px)]",
+            "mx-auto flex h-full w-full",
+            "max-w-[1080px]",
+            "flex-col",
+            "px-[clamp(18px,4vw,44px)]",
+            "py-[clamp(22px,4vh,40px)]",
           ].join(" ")}
         >
           {/* ================================================================
               HEADER
           ================================================================ */}
 
-          <header>
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div
-                  className={[
-                    "mb-3 flex items-center gap-2",
-                    "text-[10px] font-semibold uppercase",
-                    "tracking-[0.16em]",
-                    t.muted,
-                  ].join(" ")}
-                >
-                  <span
-                    className={[
-                      "h-1.5 w-1.5 rounded-full",
-                      connectedCount > 0
-                        ? "bg-emerald-500"
-                        : "bg-zinc-400",
-                    ].join(" ")}
-                  />
-
-                  Social workspace
-                </div>
-
+          <header className="flex shrink-0 items-center justify-between gap-5">
+            <div>
+              <div className="flex items-center gap-2">
                 <h1
                   className={[
-                    "text-[clamp(30px,4vw,42px)]",
-                    "font-semibold",
-                    "tracking-[-0.055em]",
-                    t.text,
+                    "text-[27px] font-semibold",
+                    "tracking-[-0.045em]",
+                    isDark
+                      ? "text-white"
+                      : "text-zinc-950",
                   ].join(" ")}
                 >
                   Channels
                 </h1>
 
-                <p
+                <span
                   className={[
-                    "mt-2 max-w-[520px]",
-                    "text-[13px] leading-relaxed",
-                    t.muted,
+                    "rounded-full px-2 py-0.5",
+                    "text-[9px] font-semibold",
+                    isDark
+                      ? "bg-white/[0.06] text-zinc-400"
+                      : "bg-black/[0.04] text-zinc-500",
                   ].join(" ")}
                 >
-                  Connect your social accounts
-                  and manage everything from
-                  one place.
-                </p>
+                  {connectedCount}/
+                  {PLAN.maxChannels}
+                </span>
               </div>
 
-              <button
-                type="button"
-                onClick={openModal}
+              <p
                 className={[
-                  "inline-flex shrink-0 items-center",
-                  "justify-center gap-2",
-                  "rounded-2xl px-5 py-3",
-                  "text-[12px] font-semibold",
-                  "shadow-sm",
-                  "transition-all duration-200",
-                  "hover:-translate-y-0.5",
-                  "hover:shadow-lg",
-                  "active:scale-[0.98]",
-                  t.primary,
-                  t.primaryHover,
-                  t.ring,
+                  "mt-1 text-[11px]",
+                  isDark
+                    ? "text-zinc-500"
+                    : "text-zinc-500",
                 ].join(" ")}
               >
-                <PlusIcon className="h-4 w-4" />
-                Add channel
-              </button>
+                Connect the platforms
+                you publish to.
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setShowConnectModal(
+                  true
+                )
+              }
+              className={[
+                "flex h-9 shrink-0 items-center gap-2",
+                "rounded-xl px-3.5",
+                "text-[11px] font-semibold",
+                "transition-all duration-200",
+                "active:scale-[0.97]",
+                isDark
+                  ? "bg-white text-black hover:bg-zinc-200"
+                  : "bg-zinc-950 text-white hover:bg-zinc-800",
+              ].join(" ")}
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Add channel
+            </button>
           </header>
 
           {/* ================================================================
-              WORKSPACE SUMMARY
+              SIMPLE STATUS
           ================================================================ */}
 
-          <section
+          <div
             className={[
-              "relative mt-9 overflow-hidden",
-              "rounded-[30px]",
-              "border",
-              "p-6 sm:p-7",
-              t.cardConnected,
-              t.border,
+              "mt-5 flex h-11 shrink-0 items-center",
+              "justify-between rounded-2xl border px-4",
+              isDark
+                ? "border-white/[0.07] bg-white/[0.02]"
+                : "border-black/[0.06] bg-white/60",
             ].join(" ")}
           >
-            {/* decorative glow */}
+            <div className="flex items-center gap-2.5">
+              <span
+                className={[
+                  "h-1.5 w-1.5 rounded-full",
+                  connectedCount > 0
+                    ? "bg-emerald-500"
+                    : isDark
+                      ? "bg-zinc-600"
+                      : "bg-zinc-300",
+                ].join(" ")}
+              />
 
-            <div
-              className={[
-                "pointer-events-none absolute",
-                "-right-24 -top-24",
-                "h-64 w-64 rounded-full",
-                "blur-3xl",
-                isDark
-                  ? "bg-white/[0.025]"
-                  : "bg-black/[0.025]",
-              ].join(" ")}
-            />
-
-            <div className="relative">
-              <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div
-                    className={[
-                      "flex items-center gap-2",
-                      "text-[10px] font-semibold",
-                      "uppercase tracking-[0.15em]",
-                      t.muted,
-                    ].join(" ")}
-                  >
-                    <SparkIcon className="h-3.5 w-3.5" />
-
-                    Your workspace
-                  </div>
-
-                  <div className="mt-3 flex items-end gap-2">
-                    <span
-                      className={[
-                        "text-4xl font-semibold",
-                        "tracking-[-0.055em]",
-                        t.text,
-                      ].join(" ")}
-                    >
-                      {connectedCount}
-                    </span>
-
-                    <span
-                      className={[
-                        "mb-1.5 text-sm",
-                        t.muted,
-                      ].join(" ")}
-                    >
-                      / {PLAN.maxChannels} connected
-                    </span>
-                  </div>
-
-                  <p
-                    className={[
-                      "mt-1 text-xs",
-                      t.muted,
-                    ].join(" ")}
-                  >
-                    {connectedCount === 0
-                      ? "Connect your first social network to get started."
-                      : connectedCount ===
-                          PLAN.maxChannels
-                        ? "Your workspace is fully connected."
-                        : `${slotsLeft} ${
-                            slotsLeft === 1
-                              ? "slot"
-                              : "slots"
-                          } remaining on your ${PLAN.name} plan.`}
-                  </p>
-                </div>
-
-                <div
-                  className={[
-                    "w-full lg:w-[300px]",
-                  ].join(" ")}
-                >
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <span
-                      className={[
-                        "text-[10px] font-medium",
-                        t.muted,
-                      ].join(" ")}
-                    >
-                      {PLAN.name} plan
-                    </span>
-
-                    <span
-                      className={[
-                        "text-[10px] font-semibold",
-                        t.text,
-                      ].join(" ")}
-                    >
-                      {Math.round(
-                        progress
-                      )}
-                      %
-                    </span>
-                  </div>
-
-                  <div
-                    className={[
-                      "h-2 overflow-hidden",
-                      "rounded-full",
-                      isDark
-                        ? "bg-white/[0.07]"
-                        : "bg-black/[0.06]",
-                    ].join(" ")}
-                  >
-                    <div
-                      className={[
-                        "h-full rounded-full",
-                        "transition-all duration-700",
-                        isDark
-                          ? "bg-white"
-                          : "bg-zinc-950",
-                      ].join(" ")}
-                      style={{
-                        width: `${progress}%`,
-                      }}
-                    />
-                  </div>
-
-                  {limitReached && (
-                    <button
-                      type="button"
-                      onClick={
-                        handleUpgrade
-                      }
-                      className={[
-                        "mt-3 text-[11px]",
-                        "font-semibold",
-                        "underline underline-offset-4",
-                        t.text,
-                        t.ring,
-                      ].join(" ")}
-                    >
-                      Upgrade your plan →
-                    </button>
-                  )}
-                </div>
-              </div>
+              <span
+                className={[
+                  "text-[10.5px] font-medium",
+                  isDark
+                    ? "text-zinc-400"
+                    : "text-zinc-500",
+                ].join(" ")}
+              >
+                {connectedCount === 0
+                  ? "No channels connected"
+                  : `${connectedCount} ${
+                      connectedCount === 1
+                        ? "channel"
+                        : "channels"
+                    } connected`}
+              </span>
             </div>
-          </section>
+
+            <span
+              className={[
+                "text-[10px]",
+                isDark
+                  ? "text-zinc-600"
+                  : "text-zinc-400",
+              ].join(" ")}
+            >
+              {slotsLeft}{" "}
+              {slotsLeft === 1
+                ? "slot"
+                : "slots"}{" "}
+              left
+            </span>
+          </div>
 
           {/* ================================================================
               ERROR
@@ -1989,261 +1532,108 @@ export default function Channels({
 
           {errorMessage && (
             <div
-              role="alert"
               className={[
-                "mt-5 flex items-start gap-3",
-                "rounded-2xl border",
-                "px-4 py-3.5",
-                "text-xs",
+                "mt-3 flex shrink-0 items-center gap-2",
+                "rounded-xl border px-3 py-2.5",
+                "text-[10px]",
                 "border-red-500/20",
-                "bg-red-500/[0.07]",
+                "bg-red-500/[0.06]",
                 "text-red-500",
               ].join(" ")}
             >
-              <WarningIcon className="mt-0.5 h-4 w-4 shrink-0" />
-
-              <span className="flex-1 leading-relaxed">
+              <span className="flex-1">
                 {errorMessage}
               </span>
 
               <button
                 type="button"
-                aria-label="Dismiss"
                 onClick={() =>
                   setErrorMessage(null)
                 }
-                className={[
-                  "rounded-lg p-1",
-                  "transition-colors",
-                  "hover:bg-red-500/10",
-                  t.ring,
-                ].join(" ")}
+                className="rounded-md p-1 hover:bg-red-500/10"
               >
-                <CloseIcon className="h-4 w-4" />
+                <CloseIcon className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
           {/* ================================================================
-              CONNECTED
+              ALL CHANNELS
           ================================================================ */}
 
-          {connectedChannels.length >
-            0 && (
-            <section className="mt-12">
-              <div className="mb-5 flex items-end justify-between">
-                <div>
-                  <h2
-                    className={[
-                      "text-[16px] font-semibold",
-                      t.text,
-                    ].join(" ")}
-                  >
-                    Connected
-                  </h2>
-
-                  <p
-                    className={[
-                      "mt-1 text-[11px]",
-                      t.muted,
-                    ].join(" ")}
-                  >
-                    Your active publishing
-                    destinations.
-                  </p>
-                </div>
-
-                <span
-                  className={[
-                    "rounded-full border",
-                    "px-2.5 py-1",
-                    "text-[9px] font-semibold",
-                    t.border,
-                    t.muted,
-                  ].join(" ")}
-                >
-                  {connectedCount} active
-                </span>
-              </div>
-
-              <div
-                className={[
-                  "grid gap-3.5",
-                  "sm:grid-cols-2",
-                  "lg:grid-cols-3",
-                ].join(" ")}
-              >
-                {connectedChannels.map(
-                  (channel) => (
-                    <ConnectedCard
-                      key={
-                        channel.key
-                      }
-                      channel={
-                        channel
-                      }
-                      connection={
-                        connections[
-                          channel.key
-                        ]
-                      }
-                      pending={
-                        pendingKey ===
-                        channel.key
-                      }
-                      t={t}
-                      onDisconnect={() =>
-                        handleToggle(
-                          channel.key
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* ================================================================
-              AVAILABLE
-          ================================================================ */}
-
-          {availableChannels.length >
-            0 && (
-            <section
-              className={
-                connectedChannels.length >
-                0
-                  ? "mt-12"
-                  : "mt-9"
-              }
-            >
-              <div className="mb-5">
-                <h2
-                  className={[
-                    "text-[16px] font-semibold",
-                    t.text,
-                  ].join(" ")}
-                >
-                  Add a channel
-                </h2>
-
-                <p
-                  className={[
-                    "mt-1 text-[11px]",
-                    t.muted,
-                  ].join(" ")}
-                >
-                  Choose where you want
-                  Stone to publish.
-                </p>
-              </div>
-
-              <div
-                className={[
-                  "grid gap-3.5",
-                  "sm:grid-cols-2",
-                  "lg:grid-cols-3",
-                ].join(" ")}
-              >
-                {availableChannels.map(
-                  (channel) => (
-                    <AvailableCard
-                      key={
-                        channel.key
-                      }
-                      channel={
-                        channel
-                      }
-                      connection={
-                        connections[
-                          channel.key
-                        ]
-                      }
-                      pending={
-                        pendingKey ===
-                        channel.key
-                      }
-                      disabled={
-                        limitReached
-                      }
-                      t={t}
-                      onConnect={() =>
-                        handleToggle(
-                          channel.key
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* ================================================================
-              BOTTOM INFO
-          ================================================================ */}
-
-          <section
-            className={[
-              "mt-10 flex flex-col gap-4",
-              "rounded-[24px]",
-              "border p-5",
-              "sm:flex-row sm:items-center",
-              "sm:justify-between",
-              t.surface,
-              t.border,
-            ].join(" ")}
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className={[
-                  "flex h-9 w-9 shrink-0",
-                  "items-center justify-center",
-                  "rounded-xl",
-                  t.icon,
-                ].join(" ")}
-              >
-                <SparkIcon className="h-4 w-4" />
-              </span>
-
-              <div>
-                <p
-                  className={[
-                    "text-xs font-semibold",
-                    t.text,
-                  ].join(" ")}
-                >
-                  One place. Every network.
-                </p>
-
-                <p
-                  className={[
-                    "mt-0.5 text-[10px]",
-                    t.muted,
-                  ].join(" ")}
-                >
-                  Stone keeps your publishing
-                  workflow in one workspace.
-                </p>
-              </div>
-            </div>
-
+          <section className="mt-5 min-h-0 flex-1">
             <div
               className={[
-                "text-[10px]",
-                t.muted,
+                "grid h-full",
+                "grid-cols-2",
+                "gap-2.5",
+                "lg:grid-cols-3",
+                "grid-rows-3",
               ].join(" ")}
             >
-              OAuth is secured by each
-              platform.
+              {CHANNELS.map(
+                (channel) => (
+                  <ChannelCard
+                    key={
+                      channel.key
+                    }
+                    channel={
+                      channel
+                    }
+                    connection={
+                      connections[
+                        channel.key
+                      ]
+                    }
+                    pending={
+                      pendingKey ===
+                      channel.key
+                    }
+                    disabled={
+                      !connections[
+                        channel.key
+                      ].connected &&
+                      limitReached
+                    }
+                    dark={isDark}
+                    onToggle={() =>
+                      handleToggle(
+                        channel.key
+                      )
+                    }
+                  />
+                )
+              )}
             </div>
           </section>
+
+          {/* ================================================================
+              FOOTER
+          ================================================================ */}
+
+          <div
+            className={[
+              "mt-4 flex shrink-0 items-center",
+              "justify-between",
+              "text-[9px]",
+              isDark
+                ? "text-zinc-600"
+                : "text-zinc-400",
+            ].join(" ")}
+          >
+            <span>
+              Stone · {PLAN.name} plan
+            </span>
+
+            <span>
+              Secure OAuth connections
+            </span>
+          </div>
         </div>
       </main>
 
       {/* ================================================================
-          CONNECT MODAL
+          MODAL
       ================================================================ */}
 
       {showConnectModal && (
@@ -2251,13 +1641,25 @@ export default function Channels({
           channels={CHANNELS}
           connections={connections}
           pendingKey={pendingKey}
-          limitReached={limitReached}
+          limitReached={
+            limitReached
+          }
           planName={PLAN.name}
-          realOAuthKeys={REAL_OAUTH}
-          errorMessage={errorMessage}
+          realOAuthKeys={
+            REAL_OAUTH
+          }
+          errorMessage={
+            errorMessage
+          }
           isDark={isDark}
-          onToggle={handleToggle}
-          onClose={closeModal}
+          onToggle={
+            handleToggle
+          }
+          onClose={() =>
+            setShowConnectModal(
+              false
+            )
+          }
         />
       )}
     </div>
