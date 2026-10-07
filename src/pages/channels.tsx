@@ -80,7 +80,6 @@ type ChannelsProps = {
 
 type IconProps = { className?: string };
 
-// Réponse commune des endpoints /status (TikTok, Pinterest, YouTube).
 type StatusResponse = {
   connected: boolean;
   account:
@@ -93,42 +92,33 @@ type StatusResponse = {
     | undefined;
 };
 
-/* ============================================================================
-   Design tokens — palette douce, hovers systématiques sur tout élément cliquable
-============================================================================ */
-
 type ThemeTokens = {
   page: string;
   title: string;
   muted: string;
-  card: string;
-  cardHover: string;
-  surface: string;
-  connectBtn: string;
-  connectBtnHover: string;
-  secondaryBtn: string;
-  progressOn: string;
-  progressOff: string;
+  row: string;
+  rowHover: string;
+  rowConnected: string;
+  iconTile: string;
+  primaryBtn: string;
+  ghostBtn: string;
   iconBtn: string;
   menu: string;
   menuItem: string;
   danger: string;
   ring: string;
-  dashed: string;
-  tile: string;
   success: string;
   pill: string;
   pillNeutral: string;
-  ghostHover: string;
+  alert: string;
 };
 
 /* ============================================================================
-   Config : plan + réseaux + état initial
+   Config
 ============================================================================ */
 
 export const PLAN = { name: "Free", maxChannels: 3 };
 
-/** Réseaux branchés sur un vrai OAuth (les autres sont des placeholders). */
 export const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest", "youtube"];
 
 export const CHANNELS: Channel[] = [
@@ -234,15 +224,6 @@ function AlertIcon(props: IconProps) {
   );
 }
 
-function GearIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.62.8 1.03 1.56 1.03H21a2 2 0 1 1 0 4h-.09c-.76 0-1.36.41-1.51 1Z" />
-    </Svg>
-  );
-}
-
 function DotsIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg
@@ -255,6 +236,15 @@ function DotsIcon({ className = "h-4 w-4" }: IconProps) {
       <circle cx="12" cy="12" r="1.8" />
       <circle cx="12" cy="19" r="1.8" />
     </svg>
+  );
+}
+
+function GearIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.62.8 1.03 1.56 1.03H21a2 2 0 1 1 0 4h-.09c-.76 0-1.36.41-1.51 1Z" />
+    </Svg>
   );
 }
 
@@ -308,68 +298,7 @@ function toConnection(status: StatusResponse): Connection {
 }
 
 /* ============================================================================
-   Avatar (photo de profil + badge du réseau en bas à droite)
-============================================================================ */
-
-type AvatarProps = {
-  channel: Channel;
-  connection: Connection;
-  isDark: boolean;
-  connected: boolean;
-};
-
-function Avatar({ channel, connection, isDark, connected }: AvatarProps) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const Icon = channel.icon;
-
-  const label = connection.handle || channel.name;
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const showImage = Boolean(connection.avatarUrl) && !imgFailed;
-
-  useEffect(() => {
-    setImgFailed(false);
-  }, [connection.avatarUrl]);
-
-  return (
-    <span className="relative flex h-12 w-12 shrink-0">
-      {connected && showImage ? (
-        <img
-          src={connection.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          onError={() => setImgFailed(true)}
-          className="h-12 w-12 rounded-full object-cover"
-        />
-      ) : (
-        <span
-          className={[
-            "flex h-12 w-12 items-center justify-center rounded-2xl",
-            isDark
-              ? "bg-white/[0.06] text-white/70"
-              : "bg-black/[0.04] text-black/50",
-          ].join(" ")}
-        >
-          <Icon className="h-5 w-5" size={20} />
-        </span>
-      )}
-
-      {connected && (
-        <span
-          className={[
-            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
-            "rounded-full bg-white ring-2 transition-transform duration-150",
-            isDark ? "ring-[#161619]" : "ring-white",
-          ].join(" ")}
-        >
-          <Icon className="h-3 w-3" size={12} />
-        </span>
-      )}
-    </span>
-  );
-}
-
-/* ============================================================================
-   Menu "⋮" d'une carte (Disconnect)
+   Menu "⋮" d'une ligne (Disconnect)
 ============================================================================ */
 
 type RowMenuProps = {
@@ -410,8 +339,8 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
         className={[
-          "flex h-8 w-8 items-center justify-center rounded-lg",
-          "transition-all duration-150 enabled:hover:scale-105 disabled:opacity-50",
+          "flex h-9 w-9 items-center justify-center rounded-xl",
+          "transition-all duration-150 enabled:hover:scale-110 disabled:opacity-50",
           t.iconBtn,
           t.ring,
         ].join(" ")}
@@ -423,8 +352,8 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
         <div
           role="menu"
           className={[
-            "absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden",
-            "rounded-xl border p-1.5 shadow-2xl",
+            "absolute right-0 top-full z-20 mt-1.5 w-44 overflow-hidden",
+            "rounded-2xl border p-1.5 shadow-2xl",
             t.menu,
           ].join(" ")}
         >
@@ -436,7 +365,7 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
               onDisconnect();
             }}
             className={[
-              "w-full rounded-lg px-3 py-2 text-left text-[12px] font-medium",
+              "w-full rounded-xl px-3 py-2 text-left text-[12px] font-medium",
               "transition-colors duration-150",
               t.menuItem,
               t.danger,
@@ -447,6 +376,163 @@ function RowMenu({ t, disabled, onDisconnect }: RowMenuProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ============================================================================
+   Une ligne de canal (liste, pas de cartes)
+============================================================================ */
+
+type ChannelRowProps = {
+  channel: Channel;
+  connection: Connection;
+  isPending: boolean;
+  disabledByPlan: boolean;
+  t: ThemeTokens;
+  onToggle: () => void;
+  onSettings: () => void;
+};
+
+function ChannelRow({
+  channel,
+  connection,
+  isPending,
+  disabledByPlan,
+  t,
+  onToggle,
+  onSettings,
+}: ChannelRowProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const Icon = channel.icon;
+  const isConnected = connection.connected;
+
+  const label = connection.handle || channel.name;
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const showImage = isConnected && Boolean(connection.avatarUrl) && !imgFailed;
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [connection.avatarUrl]);
+
+  return (
+    <li
+      className={[
+        "group flex items-center gap-4 rounded-2xl px-4 py-3.5",
+        "transition-all duration-200 ease-out",
+        isConnected ? t.rowConnected : t.row,
+        t.rowHover,
+      ].join(" ")}
+    >
+      {/* Identité */}
+      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+        {showImage ? (
+          <img
+            src={connection.avatarUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
+            className="h-11 w-11 rounded-full object-cover"
+          />
+        ) : (
+          <span
+            className={[
+              "flex h-11 w-11 items-center justify-center rounded-2xl",
+              "transition-transform duration-200 group-hover:scale-105",
+              t.iconTile,
+            ].join(" ")}
+          >
+            {isConnected ? (
+              <span className="text-[15px] font-semibold">{initial}</span>
+            ) : (
+              <Icon className="h-5 w-5" size={20} />
+            )}
+          </span>
+        )}
+
+        {isConnected && showImage && (
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
+            <Icon className="h-3 w-3" size={12} />
+          </span>
+        )}
+      </span>
+
+      {/* Nom + statut */}
+      <div className="min-w-0 flex-1">
+        <p
+          className={["truncate text-[14px] font-semibold", t.title].join(" ")}
+          title={connection.handle || channel.name}
+        >
+          {connection.handle || channel.name}
+        </p>
+        <p className={["mt-0.5 flex items-center gap-2 text-[11.5px]", t.muted].join(" ")}>
+          {isConnected ? (
+            <>
+              <span className={["inline-flex items-center gap-1.5", t.pill].join(" ")}>
+                <span
+                  className={["h-1.5 w-1.5 rounded-full", t.success, isPending ? "animate-pulse" : ""].join(" ")}
+                  aria-hidden="true"
+                />
+                {isPending ? "Updating..." : "Connected"}
+              </span>
+              <span className="truncate">{channel.accountLabel}</span>
+            </>
+          ) : (
+            <>
+              <span className={t.pillNeutral}>Not connected</span>
+              <span className="truncate">{channel.subtitle}</span>
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex shrink-0 items-center gap-2">
+        {isConnected ? (
+          <>
+            <button
+              type="button"
+              aria-label={`${channel.name} settings`}
+              title="Settings"
+              disabled={isPending}
+              onClick={onSettings}
+              className={[
+                "hidden h-9 w-9 items-center justify-center rounded-xl",
+                "transition-all duration-150 enabled:hover:scale-110",
+                "sm:flex disabled:opacity-50",
+                t.iconBtn,
+                t.ring,
+              ].join(" ")}
+            >
+              <GearIcon className="h-4 w-4" />
+            </button>
+            <RowMenu t={t} disabled={isPending} onDisconnect={onToggle} />
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={isPending || disabledByPlan}
+            title={
+              disabledByPlan
+                ? `Your ${PLAN.name} plan is full — upgrade to add more channels.`
+                : undefined
+            }
+            className={[
+              "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2",
+              "text-[12px] font-semibold",
+              "transition-all duration-150",
+              "enabled:hover:-translate-y-px enabled:active:scale-[0.97]",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+              t.ghostBtn,
+              t.ring,
+            ].join(" ")}
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            {isPending ? "Working..." : "Connect"}
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -469,8 +555,6 @@ export default function Channels({
   const { user } = useUser();
   const userId = user?.id ?? null;
 
-  // État initial lu depuis le cache : les profils TikTok, Pinterest et YouTube
-  // s'affichent tout de suite quand on revient sur la page, sans clignotement.
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
 
@@ -494,11 +578,16 @@ export default function Channels({
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
 
-  const connectedCount = useMemo(
-    () =>
-      CHANNELS.filter((channel) => connections[channel.key].connected).length,
+  const connectedChannels = useMemo(
+    () => CHANNELS.filter((channel) => connections[channel.key].connected),
     [connections]
   );
+  const availableChannels = useMemo(
+    () => CHANNELS.filter((channel) => !connections[channel.key].connected),
+    [connections]
+  );
+
+  const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
 
   /* ── Retour OAuth + statut des comptes (avec cache) ── */
@@ -506,10 +595,6 @@ export default function Channels({
   useEffect(() => {
     if (!userId) return;
 
-    /* 1) Retour d'un réseau : /#/channels?tiktok=connected, ?pinterest=connected,
-          ?youtube=connected ou ?<réseau>_error=...
-          Avec le routage par hash, la query est DANS le hash, pas dans
-          window.location.search. */
     const hash = window.location.hash;
     const queryIndex = hash.indexOf("?");
     const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
@@ -563,8 +648,6 @@ export default function Channels({
 
     let cancelled = false;
 
-    /* 2) Pour chaque réseau : cache affiché immédiatement, aucun appel réseau
-          s'il est récent, sinon rechargement silencieux depuis le backend. */
     const sync = (
       provider: CacheProvider,
       justReturned: boolean,
@@ -619,59 +702,53 @@ export default function Channels({
     () =>
       isDark
         ? {
-            page: "bg-[#0b0b0d] text-white",
+            page: "bg-[#0a0a0b] text-white",
             title: "text-white",
             muted: "text-neutral-500",
-            card: "border-white/[0.07] bg-[#161619]",
-            cardHover: "hover:border-white/20 hover:-translate-y-0.5",
-            surface: "border-white/[0.07] bg-white/[0.03]",
-            connectBtn: "bg-white text-black",
-            connectBtnHover: "hover:bg-neutral-200 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]",
-            secondaryBtn:
-              "border border-white/10 text-white hover:bg-white/[0.07] hover:border-white/20",
-            progressOn: "bg-white",
-            progressOff: "bg-white/10",
+            row: "bg-white/[0.02] hover:bg-white/[0.06]",
+            rowHover: "hover:translate-x-0.5",
+            rowConnected: "bg-white/[0.05] hover:bg-white/[0.08]",
+            iconTile: "bg-white/[0.06] text-white/70",
+            primaryBtn:
+              "bg-white text-black hover:bg-neutral-200 hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]",
+            ghostBtn:
+              "border border-white/10 text-white hover:border-white/25 hover:bg-white/[0.06]",
             iconBtn: "text-neutral-500 hover:bg-white/[0.08] hover:text-white",
             menu: "border-white/10 bg-[#1c1c1f] text-white",
             menuItem: "hover:bg-red-500/10",
             danger: "text-red-400",
             ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-            dashed: "border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05]",
-            tile: "border-white/10 bg-white/[0.04]",
             success: "bg-emerald-400",
-            pill: "bg-emerald-500/10 text-emerald-300",
-            pillNeutral: "bg-white/[0.06] text-neutral-400",
-            ghostHover: "hover:bg-white/[0.07]",
+            pill: "text-emerald-300",
+            pillNeutral: "text-neutral-500",
+            alert: "border-red-400/30 bg-red-500/10 text-red-300",
           }
         : {
             page: "bg-[#f6f5f2] text-neutral-900",
             title: "text-neutral-900",
             muted: "text-neutral-500",
-            card: "border-black/[0.06] bg-white",
-            cardHover: "hover:border-black/20 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]",
-            surface: "border-black/[0.06] bg-white",
-            connectBtn: "bg-neutral-900 text-white",
-            connectBtnHover: "hover:bg-neutral-800 hover:shadow-[0_8px_20px_rgba(0,0,0,0.18)]",
-            secondaryBtn:
-              "border border-black/10 text-neutral-900 hover:bg-neutral-100 hover:border-black/20",
-            progressOn: "bg-neutral-900",
-            progressOff: "bg-black/10",
+            row: "bg-white/70 hover:bg-white",
+            rowHover: "hover:translate-x-0.5 hover:shadow-[0_6px_20px_rgba(0,0,0,0.07)]",
+            rowConnected: "bg-white hover:shadow-[0_6px_20px_rgba(0,0,0,0.07)]",
+            iconTile: "bg-black/[0.04] text-black/55",
+            primaryBtn:
+              "bg-neutral-900 text-white hover:bg-neutral-800 hover:shadow-[0_8px_22px_rgba(0,0,0,0.2)]",
+            ghostBtn:
+              "border border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.04]",
             iconBtn: "text-neutral-400 hover:bg-black/[0.06] hover:text-neutral-900",
             menu: "border-black/10 bg-white text-neutral-900",
             menuItem: "hover:bg-red-50",
             danger: "text-red-600",
             ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
-            dashed: "border-black/[0.15] bg-white/60 hover:bg-white",
-            tile: "border-black/[0.08] bg-black/[0.03]",
             success: "bg-emerald-500",
-            pill: "bg-emerald-50 text-emerald-700",
-            pillNeutral: "bg-black/[0.05] text-neutral-500",
-            ghostHover: "hover:bg-black/[0.05]",
+            pill: "text-emerald-600",
+            pillNeutral: "text-neutral-500",
+            alert: "border-red-300 bg-red-50 text-red-700",
           },
     [isDark]
   );
 
-  /* ── TikTok : vrai OAuth, aucune simulation ── */
+  /* ── OAuth handlers (logique inchangée) ── */
 
   const handleTikTokToggle = async () => {
     if (tiktokBusy.current) return;
@@ -707,8 +784,6 @@ export default function Channels({
       }
     }
   };
-
-  /* ── Pinterest : vrai OAuth (app en mode sandbox/trial) ── */
 
   const handlePinterestToggle = async () => {
     if (pinterestBusy.current) return;
@@ -763,8 +838,6 @@ export default function Channels({
     }
   };
 
-  /* ── YouTube : vrai OAuth Google ── */
-
   const handleYouTubeToggle = async () => {
     if (youtubeBusy.current) return;
     youtubeBusy.current = true;
@@ -799,8 +872,6 @@ export default function Channels({
       }
     }
   };
-
-  /* ── Autres réseaux : PLACEHOLDER uniquement ── */
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
     setPendingKey(key);
@@ -845,11 +916,8 @@ export default function Channels({
   };
 
   const handleUpgrade = () => {
+    // TODO: rediriger vers la page de facturation / des plans.
     console.log("[Stone] Upgrade plan clicked");
-  };
-
-  const handleSettings = (key: ChannelKey) => {
-    console.log("[Stone] Channel settings clicked:", key);
   };
 
   const openModal = () => {
@@ -859,7 +927,7 @@ export default function Channels({
 
   const closeModal = () => setShowConnectModal(false);
 
-  const remaining = Math.max(0, PLAN.maxChannels - connectedCount);
+  const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
 
   return (
     <div
@@ -883,130 +951,78 @@ export default function Channels({
       >
         <div
           className={[
-            "mx-auto flex w-full max-w-[1100px] flex-col",
-            "px-[clamp(18px,3vw,40px)]",
-            "pb-16 pt-[clamp(24px,4vw,40px)]",
+            "mx-auto flex w-full max-w-[720px] flex-col",
+            "px-[clamp(18px,4vw,48px)]",
+            "pb-16 pt-[clamp(28px,5vw,56px)]",
           ].join(" ")}
         >
-          {/* ── Header ── */}
-          <header className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p
-                className={[
-                  "mb-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
-                  t.muted,
-                ].join(" ")}
-              >
-                Workspace
-              </p>
+          {/* ── Header : titre + compteur intégré + CTA ── */}
+          <header className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <h1
                 className={[
-                  "text-[26px] font-semibold tracking-[-0.04em]",
+                  "text-[28px] font-semibold tracking-[-0.045em]",
                   t.title,
                 ].join(" ")}
               >
                 Channels
               </h1>
-              <p className={["mt-1 text-[13px]", t.muted].join(" ")}>
-                Connect the accounts you publish to —{" "}
-                {connectedCount}/{PLAN.maxChannels} active on the {PLAN.name}{" "}
-                plan.
-              </p>
+
+              <button
+                type="button"
+                onClick={openModal}
+                className={[
+                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5",
+                  "text-[12.5px] font-semibold",
+                  "transition-all duration-150 active:scale-[0.97]",
+                  t.primaryBtn,
+                  t.ring,
+                ].join(" ")}
+              >
+                <PlusIcon className="h-4 w-4" />
+                Connect channel
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={openModal}
-              className={[
-                "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5",
-                "text-[13px] font-semibold",
-                "transition-all duration-150 active:scale-[0.97]",
-                t.connectBtn,
-                t.connectBtnHover,
-                t.ring,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-4 w-4" />
-              Connect channel
-            </button>
+            <p className={["text-[13px]", t.muted].join(" ")}>
+              Publish everywhere from one place.{" "}
+              {connectedCount > 0 ? (
+                <>
+                  You have{" "}
+                  <span className={["font-semibold", t.title].join(" ")}>
+                    {connectedCount}
+                  </span>{" "}
+                  of {PLAN.maxChannels} slots used on the {PLAN.name} plan.
+                  {slotsLeft === 0 && (
+                    <button
+                      type="button"
+                      onClick={handleUpgrade}
+                      className={[
+                        "ml-1.5 inline-flex items-center gap-1 font-semibold underline",
+                        "underline-offset-2 transition-opacity duration-150 hover:opacity-70",
+                        t.title,
+                        t.ring,
+                      ].join(" ")}
+                    >
+                      Upgrade
+                      <ArrowRightIcon className="h-3 w-3" />
+                    </button>
+                  )}
+                </>
+              ) : (
+                "Pick a network below to get started."
+              )}
+            </p>
           </header>
 
-          {/* ── Bandeau plan ── */}
-          <section
-            aria-label="Plan usage"
-            className={[
-              "mt-8 flex flex-wrap items-center gap-x-6 gap-y-4",
-              "rounded-2xl border p-5",
-              "transition-colors duration-150",
-              t.surface,
-            ].join(" ")}
-          >
-            <div className="min-w-[240px] flex-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className={[
-                    "inline-flex items-center rounded-md px-2 py-0.5",
-                    "text-[10px] font-bold uppercase tracking-wider",
-                    isDark
-                      ? "bg-white/10 text-white"
-                      : "bg-neutral-900 text-white",
-                  ].join(" ")}
-                >
-                  {PLAN.name}
-                </span>
-                <span
-                  className={["text-[12px] tabular-nums", t.muted].join(" ")}
-                >
-                  {connectedCount} of {PLAN.maxChannels} channels used
-                </span>
-              </div>
-
-              <div
-                className="mt-3 flex gap-1.5"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={PLAN.maxChannels}
-                aria-valuenow={connectedCount}
-                aria-label="Channels used"
-              >
-                {Array.from({ length: PLAN.maxChannels }, (_, i) => (
-                  <span
-                    key={i}
-                    className={[
-                      "h-1.5 flex-1 rounded-full transition-all duration-300",
-                      i < connectedCount ? t.progressOn : t.progressOff,
-                    ].join(" ")}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleUpgrade}
-              className={[
-                "inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2",
-                "text-[12px] font-semibold",
-                "transition-all duration-150 active:scale-[0.97]",
-                t.secondaryBtn,
-                t.ring,
-              ].join(" ")}
-            >
-              Upgrade plan
-              <ArrowRightIcon className="h-3.5 w-3.5" />
-            </button>
-          </section>
-
-          {/* ── Erreur (page) ── */}
+          {/* ── Erreur ── */}
           {errorMessage && !showConnectModal && (
             <div
               role="alert"
               className={[
-                "mt-4 flex items-start gap-2.5",
-                "rounded-xl border px-4 py-3 text-[12px] leading-relaxed",
-                isDark
-                  ? "border-red-400/30 bg-red-500/10 text-red-300"
-                  : "border-red-300 bg-red-50 text-red-700",
+                "mt-6 flex items-start gap-2.5",
+                "rounded-2xl border px-4 py-3 text-[12px] leading-relaxed",
+                t.alert,
               ].join(" ")}
             >
               <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1018,9 +1034,7 @@ export default function Channels({
                 onClick={() => setErrorMessage(null)}
                 className={[
                   "rounded-md p-1 transition-colors duration-150",
-                  isDark
-                    ? "hover:bg-red-400/20"
-                    : "hover:bg-red-200/60",
+                  "hover:bg-black/10 dark:hover:bg-white/10",
                   t.ring,
                 ].join(" ")}
               >
@@ -1029,165 +1043,74 @@ export default function Channels({
             </div>
           )}
 
-          {/* ── Grille des canaux ── */}
-          <div className="mb-4 mt-10 flex items-center justify-between gap-4">
-            <h2 className={["text-[13px] font-semibold", t.title].join(" ")}>
-              All channels
+          {/* ── Canaux connectés ── */}
+          {connectedChannels.length > 0 && (
+            <section className="mt-10">
+              <h2
+                className={[
+                  "mb-3 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                  t.muted,
+                ].join(" ")}
+              >
+                Connected
+              </h2>
+
+              <ul className="flex flex-col gap-2.5">
+                {connectedChannels.map((channel) => (
+                  <ChannelRow
+                    key={channel.key}
+                    channel={channel}
+                    connection={connections[channel.key]}
+                    isPending={pendingKey === channel.key}
+                    disabledByPlan={false}
+                    t={t}
+                    onToggle={() => handleToggle(channel.key)}
+                    onSettings={() =>
+                      console.log("[Stone] Channel settings clicked:", channel.key)
+                    }
+                  />
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* ── Canaux disponibles ── */}
+          <section className={connectedChannels.length > 0 ? "mt-10" : "mt-6"}>
+            <h2
+              className={[
+                "mb-3 text-[11px] font-semibold uppercase tracking-[0.14em]",
+                t.muted,
+              ].join(" ")}
+            >
+              Available
+              {slotsLeft > 0 && (
+                <span className="ml-2 font-normal normal-case tracking-normal">
+                  · {slotsLeft} {slotsLeft === 1 ? "slot" : "slots"} left
+                </span>
+              )}
             </h2>
-            {remaining > 0 && (
-              <p className={["text-[11px]", t.muted].join(" ")}>
-                {remaining} {remaining === 1 ? "slot" : "slots"} left
-              </p>
-            )}
-          </div>
 
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {CHANNELS.map((channel) => {
-              const connection = connections[channel.key];
-              const isConnected = connection.connected;
-              const isPending = pendingKey === channel.key;
-              const isReal = REAL_OAUTH.includes(channel.key);
+            <ul className="flex flex-col gap-2.5">
+              {availableChannels.map((channel) => (
+                <ChannelRow
+                  key={channel.key}
+                  channel={channel}
+                  connection={connections[channel.key]}
+                  isPending={pendingKey === channel.key}
+                  disabledByPlan={limitReached}
+                  t={t}
+                  onToggle={() => handleToggle(channel.key)}
+                  onSettings={() =>
+                    console.log("[Stone] Channel settings clicked:", channel.key)
+                  }
+                />
+              ))}
+            </ul>
+          </section>
 
-              return (
-                <li key={channel.key}>
-                  <div
-                    className={[
-                      "group flex h-full flex-col rounded-2xl border p-5",
-                      "transition-all duration-200 ease-out",
-                      t.card,
-                      t.cardHover,
-                    ].join(" ")}
-                  >
-                    {/* Ligne 1 : identité + actions */}
-                    <div className="flex items-start justify-between gap-2">
-                      <Avatar
-                        channel={channel}
-                        connection={connection}
-                        isDark={isDark}
-                        connected={isConnected}
-                      />
-
-                      {isConnected && (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label={`${channel.name} settings`}
-                            title="Settings"
-                            disabled={isPending}
-                            onClick={() => handleSettings(channel.key)}
-                            className={[
-                              "flex h-8 w-8 items-center justify-center rounded-lg",
-                              "transition-all duration-150",
-                              "enabled:hover:scale-105 disabled:opacity-50",
-                              t.iconBtn,
-                              t.ring,
-                            ].join(" ")}
-                          >
-                            <GearIcon className="h-4 w-4" />
-                          </button>
-
-                          <RowMenu
-                            t={t}
-                            disabled={isPending}
-                            onDisconnect={() => handleToggle(channel.key)}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Ligne 2 : nom + handle */}
-                    <div className="mt-4 min-w-0">
-                      <p
-                        className={[
-                          "truncate text-[15px] font-semibold leading-tight",
-                          "tracking-[-0.01em]",
-                          t.title,
-                        ].join(" ")}
-                        title={connection.handle || channel.name}
-                      >
-                        {connection.handle || channel.name}
-                      </p>
-                      <p
-                        className={[
-                          "mt-0.5 truncate text-[11.5px]",
-                          t.muted,
-                        ].join(" ")}
-                      >
-                        {isConnected
-                          ? channel.accountLabel
-                          : channel.subtitle}
-                      </p>
-                    </div>
-
-                    {/* Ligne 3 : statut + action */}
-                    <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-                      {isConnected ? (
-                        <span
-                          className={[
-                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
-                            "text-[10.5px] font-semibold",
-                            t.pill,
-                          ].join(" ")}
-                        >
-                          <span
-                            className={[
-                              "h-1.5 w-1.5 rounded-full",
-                              t.success,
-                              isPending ? "animate-pulse" : "",
-                            ].join(" ")}
-                            aria-hidden="true"
-                          />
-                          {isPending ? "Updating..." : "Connected"}
-                        </span>
-                      ) : (
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-full px-2.5 py-1",
-                            "text-[10.5px] font-semibold",
-                            t.pillNeutral,
-                          ].join(" ")}
-                        >
-                          Not connected
-                        </span>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(channel.key)}
-                        disabled={isPending || (!isConnected && limitReached)}
-                        className={[
-                          "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5",
-                          "text-[11.5px] font-semibold",
-                          "transition-all duration-150",
-                          "enabled:hover:-translate-y-px enabled:active:scale-[0.97]",
-                          "disabled:cursor-not-allowed disabled:opacity-45",
-                          isConnected ? t.secondaryBtn : t.connectBtn,
-                          isConnected ? "" : t.connectBtnHover,
-                          t.ring,
-                        ].join(" ")}
-                      >
-                        {isPending ? (
-                          "Working..."
-                        ) : isConnected ? (
-                          "Disconnect"
-                        ) : (
-                          <>
-                            <PlusIcon className="h-3 w-3" />
-                            Connect
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* ── Aide ── */}
           <p
             className={[
-              "mt-6 text-center text-[11px] leading-relaxed",
+              "mt-8 text-center text-[11px] leading-relaxed",
               t.muted,
             ].join(" ")}
           >
