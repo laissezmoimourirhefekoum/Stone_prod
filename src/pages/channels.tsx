@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import type {
   ComponentType,
   ReactNode,
@@ -122,6 +123,33 @@ type StatusResponse = {
 };
 
 /* ============================================================================
+   THEME
+============================================================================ */
+
+type ThemeTokens = {
+  page: string;
+  text: string;
+  muted: string;
+
+  card: string;
+  cardHover: string;
+
+  border: string;
+  borderHover: string;
+
+  icon: string;
+  iconConnected: string;
+
+  button: string;
+  buttonHover: string;
+
+  danger: string;
+  success: string;
+
+  ring: string;
+};
+
+/* ============================================================================
    CONFIG
 ============================================================================ */
 
@@ -182,12 +210,24 @@ export const CHANNELS: Channel[] = [
 ];
 
 const initialConnections: ConnectionState = {
-  instagram: { connected: false },
-  facebook: { connected: false },
-  threads: { connected: false },
-  youtube: { connected: false },
-  tiktok: { connected: false },
-  pinterest: { connected: false },
+  instagram: {
+    connected: false,
+  },
+  facebook: {
+    connected: false,
+  },
+  tiktok: {
+    connected: false,
+  },
+  youtube: {
+    connected: false,
+  },
+  pinterest: {
+    connected: false,
+  },
+  threads: {
+    connected: false,
+  },
 };
 
 /* ============================================================================
@@ -219,7 +259,8 @@ function Svg({
 function PlusIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M12 5v14M5 12h14" />
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
     </Svg>
   );
 }
@@ -232,27 +273,36 @@ function CheckIcon(props: IconProps) {
   );
 }
 
+function ArrowIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </Svg>
+  );
+}
+
 function MoreIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <circle
         cx="5"
         cy="12"
-        r="1.3"
+        r="1.2"
         fill="currentColor"
         stroke="none"
       />
       <circle
         cx="12"
         cy="12"
-        r="1.3"
+        r="1.2"
         fill="currentColor"
         stroke="none"
       />
       <circle
         cx="19"
         cy="12"
-        r="1.3"
+        r="1.2"
         fill="currentColor"
         stroke="none"
       />
@@ -260,11 +310,12 @@ function MoreIcon(props: IconProps) {
   );
 }
 
-function ArrowIcon(props: IconProps) {
+function DisconnectIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
+      <path d="M9 7 4 12l5 5" />
+      <path d="M4 12h11" />
+      <path d="M15 7h3v10h-3" />
     </Svg>
   );
 }
@@ -296,7 +347,7 @@ function formatOAuthError(
       raw
     )
   ) {
-    return "Unable to reach the server. Check that the backend is running.";
+    return "Unable to reach the server. Check that the backend is running and VITE_API_URL is correct.";
   }
 
   return raw
@@ -347,6 +398,74 @@ function toConnection(
 }
 
 /* ============================================================================
+   CHANNEL ICON
+============================================================================ */
+
+function ChannelIcon({
+  channel,
+  connection,
+}: {
+  channel: Channel;
+  connection: Connection;
+}) {
+  const Icon = channel.icon;
+
+  const [imageFailed, setImageFailed] =
+    useState(false);
+
+  const hasAvatar =
+    Boolean(connection.avatarUrl) &&
+    !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [connection.avatarUrl]);
+
+  if (
+    connection.connected &&
+    hasAvatar
+  ) {
+    return (
+      <img
+        src={connection.avatarUrl}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() =>
+          setImageFailed(true)
+        }
+        className={[
+          "h-11 w-11",
+          "rounded-[14px]",
+          "object-cover",
+        ].join(" ")}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={[
+        "flex h-11 w-11 shrink-0",
+        "items-center justify-center",
+        "rounded-[14px]",
+        "border",
+        connection.connected
+          ? "border-emerald-500/20 bg-emerald-500/[0.07]"
+          : "border-black/[0.07] dark:border-white/[0.08]",
+        connection.connected
+          ? "text-emerald-500"
+          : "",
+      ].join(" ")}
+    >
+      <Icon
+        className="h-[21px] w-[21px]"
+        size={21}
+      />
+    </div>
+  );
+}
+
+/* ============================================================================
    CHANNEL CARD
 ============================================================================ */
 
@@ -355,7 +474,7 @@ type ChannelCardProps = {
   connection: Connection;
   pending: boolean;
   disabled: boolean;
-  dark: boolean;
+  t: ThemeTokens;
   onToggle: () => void;
 };
 
@@ -364,44 +483,22 @@ function ChannelCard({
   connection,
   pending,
   disabled,
-  dark,
+  t,
   onToggle,
 }: ChannelCardProps) {
-  const Icon = channel.icon;
+  const isConnected =
+    connection.connected;
 
-  const [
-    imageFailed,
-    setImageFailed,
-  ] = useState(false);
-
-  const [
-    menuOpen,
-    setMenuOpen,
-  ] = useState(false);
+  const [menuOpen, setMenuOpen] =
+    useState(false);
 
   const menuRef =
     useRef<HTMLDivElement>(null);
 
-  const connected =
-    connection.connected;
-
-  const label =
-    connection.handle ||
-    channel.name;
-
-  const showAvatar =
-    connected &&
-    Boolean(connection.avatarUrl) &&
-    !imageFailed;
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [connection.avatarUrl]);
-
   useEffect(() => {
     if (!menuOpen) return;
 
-    const handleClick = (
+    const onPointerDown = (
       event: MouseEvent
     ) => {
       if (
@@ -413,7 +510,7 @@ function ChannelCard({
       }
     };
 
-    const handleKey = (
+    const onKeyDown = (
       event: KeyboardEvent
     ) => {
       if (event.key === "Escape") {
@@ -423,229 +520,196 @@ function ChannelCard({
 
     document.addEventListener(
       "mousedown",
-      handleClick
+      onPointerDown
     );
 
     document.addEventListener(
       "keydown",
-      handleKey
+      onKeyDown
     );
 
     return () => {
       document.removeEventListener(
         "mousedown",
-        handleClick
+        onPointerDown
       );
 
       document.removeEventListener(
         "keydown",
-        handleKey
+        onKeyDown
       );
     };
   }, [menuOpen]);
 
   return (
-    <div
+    <article
       className={[
-        "group relative flex min-h-[112px]",
-        "items-center gap-3.5",
-        "rounded-[22px] border px-4 py-3.5",
+        "group relative",
+        "rounded-[20px]",
+        "border",
+        "px-4 py-4",
         "transition-all duration-200",
-        connected
-          ? dark
-            ? "border-white/[0.09] bg-white/[0.035]"
-            : "border-black/[0.07] bg-white"
-          : dark
-            ? "border-white/[0.07] bg-white/[0.018]"
-            : "border-black/[0.06] bg-white/70",
+        t.card,
+        t.border,
         !disabled &&
           "hover:-translate-y-[1px]",
         !disabled &&
-          (dark
-            ? "hover:border-white/[0.14] hover:bg-white/[0.04]"
-            : "hover:border-black/[0.11] hover:bg-white"),
-        disabled &&
-          "cursor-not-allowed opacity-45",
+          "hover:shadow-[0_12px_35px_rgba(0,0,0,0.06)]",
       ].join(" ")}
     >
-      {/* Logo */}
+      <div className="flex items-center gap-3.5">
+        <ChannelIcon
+          channel={channel}
+          connection={connection}
+        />
 
-      <div className="relative shrink-0">
-        {showAvatar ? (
-          <img
-            src={connection.avatarUrl}
-            alt=""
-            referrerPolicy="no-referrer"
-            onError={() =>
-              setImageFailed(true)
-            }
-            className={[
-              "h-11 w-11 rounded-[15px]",
-              "object-cover",
-            ].join(" ")}
-          />
-        ) : (
-          <div
-            className={[
-              "flex h-11 w-11 items-center justify-center",
-              "rounded-[15px] border",
-              dark
-                ? "border-white/[0.08] bg-white/[0.045] text-white/75"
-                : "border-black/[0.06] bg-black/[0.025] text-black/60",
-              "transition-transform duration-200",
-              "group-hover:scale-[1.03]",
-            ].join(" ")}
-          >
-            <Icon
-              className="h-5 w-5"
-              size={20}
-            />
-          </div>
-        )}
-
-        {connected && (
-          <span
-            className={[
-              "absolute -bottom-1 -right-1",
-              "flex h-[17px] w-[17px]",
-              "items-center justify-center",
-              "rounded-full",
-              "border-2",
-              dark
-                ? "border-[#09090b] bg-emerald-500"
-                : "border-white bg-emerald-500",
-              "text-white",
-            ].join(" ")}
-          >
-            <CheckIcon className="h-2.5 w-2.5" />
-          </span>
-        )}
-      </div>
-
-      {/* Info */}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p
-            className={[
-              "truncate text-[13px] font-semibold",
-              dark
-                ? "text-white"
-                : "text-zinc-950",
-            ].join(" ")}
-          >
-            {label}
-          </p>
-
-          {connected && (
-            <span
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p
               className={[
-                "h-1.5 w-1.5 shrink-0 rounded-full",
-                "bg-emerald-500",
-              ].join(" ")}
-            />
-          )}
-        </div>
-
-        <p
-          className={[
-            "mt-1 truncate text-[10.5px]",
-            dark
-              ? "text-zinc-500"
-              : "text-zinc-500",
-          ].join(" ")}
-        >
-          {connected
-            ? channel.accountLabel
-            : channel.subtitle}
-        </p>
-      </div>
-
-      {/* Action */}
-
-      {!connected ? (
-        <button
-          type="button"
-          disabled={
-            pending || disabled
-          }
-          onClick={onToggle}
-          className={[
-            "flex shrink-0 items-center gap-1.5",
-            "rounded-xl border px-3 py-2",
-            "text-[10.5px] font-semibold",
-            "transition-all duration-200",
-            "active:scale-[0.97]",
-            dark
-              ? "border-white/[0.1] bg-white/[0.045] text-white hover:bg-white/[0.08]"
-              : "border-black/[0.08] bg-black/[0.025] text-zinc-900 hover:bg-black/[0.05]",
-            "disabled:cursor-not-allowed disabled:opacity-40",
-          ].join(" ")}
-        >
-          {pending
-            ? "..."
-            : "Connect"}
-
-          {!pending && (
-            <ArrowIcon className="h-3 w-3" />
-          )}
-        </button>
-      ) : (
-        <div
-          ref={menuRef}
-          className="relative shrink-0"
-        >
-          <button
-            type="button"
-            aria-label={`Options for ${channel.name}`}
-            onClick={() =>
-              setMenuOpen(
-                (value) => !value
-              )
-            }
-            className={[
-              "flex h-8 w-8 items-center justify-center",
-              "rounded-xl transition-colors",
-              dark
-                ? "text-zinc-500 hover:bg-white/[0.06] hover:text-white"
-                : "text-zinc-400 hover:bg-black/[0.05] hover:text-zinc-900",
-            ].join(" ")}
-          >
-            <MoreIcon className="h-4 w-4" />
-          </button>
-
-          {menuOpen && (
-            <div
-              className={[
-                "absolute right-0 top-10 z-30",
-                "w-32 rounded-xl border p-1",
-                "shadow-xl",
-                dark
-                  ? "border-white/[0.08] bg-[#18181b]"
-                  : "border-black/[0.08] bg-white",
+                "truncate text-[13px]",
+                "font-semibold tracking-[-0.01em]",
+                t.text,
               ].join(" ")}
             >
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onToggle();
-                }}
+              {isConnected
+                ? connection.handle ||
+                  channel.name
+                : channel.name}
+            </p>
+
+            {isConnected && (
+              <span
                 className={[
-                  "w-full rounded-lg px-2.5 py-2",
-                  "text-left text-[10px]",
-                  "font-medium text-red-500",
-                  "hover:bg-red-500/[0.08]",
+                  "h-1.5 w-1.5 shrink-0",
+                  "rounded-full",
+                  "bg-emerald-500",
+                ].join(" ")}
+              />
+            )}
+          </div>
+
+          <p
+            className={[
+              "mt-0.5 truncate",
+              "text-[10px]",
+              t.muted,
+            ].join(" ")}
+          >
+            {isConnected
+              ? channel.accountLabel
+              : channel.subtitle}
+          </p>
+        </div>
+
+        {isConnected ? (
+          <div
+            ref={menuRef}
+            className="relative shrink-0"
+          >
+            <button
+              type="button"
+              aria-label={`Options for ${channel.name}`}
+              onClick={() =>
+                setMenuOpen(
+                  (value) => !value
+                )
+              }
+              className={[
+                "flex h-8 w-8 items-center",
+                "justify-center rounded-lg",
+                "transition-colors",
+                t.muted,
+                "hover:bg-black/[0.05]",
+                "dark:hover:bg-white/[0.06]",
+                t.ring,
+              ].join(" ")}
+            >
+              <MoreIcon className="h-4 w-4" />
+            </button>
+
+            {menuOpen && (
+              <div
+                className={[
+                  "absolute right-0 top-10 z-50",
+                  "w-40 rounded-xl",
+                  "border p-1",
+                  "shadow-xl",
+                  t.card,
+                  t.border,
                 ].join(" ")}
               >
-                Disconnect
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onToggle();
+                  }}
+                  className={[
+                    "flex w-full items-center gap-2",
+                    "rounded-lg px-3 py-2",
+                    "text-left text-[11px]",
+                    "font-medium",
+                    "text-red-500",
+                    "hover:bg-red-500/[0.07]",
+                    "disabled:opacity-40",
+                  ].join(" ")}
+                >
+                  <DisconnectIcon className="h-3.5 w-3.5" />
+                  Disconnect
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={
+              pending || disabled
+            }
+            onClick={onToggle}
+            className={[
+              "inline-flex shrink-0",
+              "items-center gap-1.5",
+              "rounded-lg",
+              "border",
+              "px-3 py-2",
+              "text-[10px] font-semibold",
+              "transition-all duration-150",
+              t.button,
+              t.border,
+              t.text,
+              "hover:-translate-y-px",
+              "disabled:cursor-not-allowed",
+              "disabled:opacity-40",
+              t.ring,
+            ].join(" ")}
+          >
+            {pending
+              ? "..."
+              : disabled
+                ? "Upgrade"
+                : "Connect"}
+
+            {!disabled &&
+              !pending && (
+                <ArrowIcon className="h-3 w-3" />
+              )}
+          </button>
+        )}
+      </div>
+
+      {isConnected && (
+        <div
+          className={[
+            "absolute right-4 top-1/2",
+            "-translate-y-1/2",
+            "pointer-events-none",
+          ].join(" ")}
+        />
       )}
-    </div>
+    </article>
   );
 }
 
@@ -775,7 +839,7 @@ export default function Channels({
      DERIVED
   -------------------------------------------------------------------------- */
 
-  const connectedChannels =
+  const connectedCount =
     useMemo(
       () =>
         CHANNELS.filter(
@@ -783,24 +847,13 @@ export default function Channels({
             connections[
               channel.key
             ].connected
-        ),
+        ).length,
       [connections]
     );
 
-  const availableChannels =
-    useMemo(
-      () =>
-        CHANNELS.filter(
-          (channel) =>
-            !connections[
-              channel.key
-            ].connected
-        ),
-      [connections]
-    );
-
-  const connectedCount =
-    connectedChannels.length;
+  const limitReached =
+    connectedCount >=
+    PLAN.maxChannels;
 
   const slotsLeft = Math.max(
     0,
@@ -808,12 +861,8 @@ export default function Channels({
       connectedCount
   );
 
-  const limitReached =
-    connectedCount >=
-    PLAN.maxChannels;
-
   /* --------------------------------------------------------------------------
-     OAUTH STATUS
+     SYNC OAUTH
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -866,9 +915,7 @@ export default function Channels({
         Boolean(tiktokError),
 
       pinterest:
-        params.has(
-          "pinterest"
-        ) ||
+        params.has("pinterest") ||
         Boolean(pinterestError),
 
       youtube:
@@ -945,8 +992,7 @@ export default function Channels({
       );
     }
 
-    let cancelled =
-      false;
+    let cancelled = false;
 
     const sync = (
       provider: CacheProvider,
@@ -1046,25 +1092,121 @@ export default function Channels({
   }, [userId]);
 
   /* --------------------------------------------------------------------------
-     TIKTOK
+     THEME
+  -------------------------------------------------------------------------- */
+
+  const t =
+    useMemo<ThemeTokens>(
+      () =>
+        isDark
+          ? {
+              page:
+                "bg-[#0a0a0b] text-white",
+
+              text:
+                "text-white",
+
+              muted:
+                "text-zinc-500",
+
+              card:
+                "bg-white/[0.025]",
+
+              cardHover:
+                "hover:bg-white/[0.04]",
+
+              border:
+                "border-white/[0.08]",
+
+              borderHover:
+                "hover:border-white/[0.15]",
+
+              icon:
+                "border-white/[0.08] bg-white/[0.045] text-zinc-300",
+
+              iconConnected:
+                "border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-400",
+
+              button:
+                "bg-white/[0.035] hover:bg-white/[0.08]",
+
+              buttonHover:
+                "hover:bg-white/[0.08]",
+
+              danger:
+                "text-red-400",
+
+              success:
+                "text-emerald-400",
+
+              ring:
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+            }
+          : {
+              page:
+                "bg-[#f7f7f5] text-zinc-950",
+
+              text:
+                "text-zinc-950",
+
+              muted:
+                "text-zinc-500",
+
+              card:
+                "bg-white/75",
+
+              cardHover:
+                "hover:bg-white",
+
+              border:
+                "border-black/[0.075]",
+
+              borderHover:
+                "hover:border-black/[0.14]",
+
+              icon:
+                "border-black/[0.07] bg-black/[0.025] text-zinc-600",
+
+              iconConnected:
+                "border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-600",
+
+              button:
+                "bg-black/[0.025] hover:bg-black/[0.055]",
+
+              buttonHover:
+                "hover:bg-black/[0.055]",
+
+              danger:
+                "text-red-600",
+
+              success:
+                "text-emerald-600",
+
+              ring:
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+            },
+      [isDark]
+    );
+
+  /* --------------------------------------------------------------------------
+     OAUTH
   -------------------------------------------------------------------------- */
 
   const handleTikTokToggle =
     async () => {
-      if (tiktokBusy.current)
+      if (tiktokBusy.current) {
         return;
+      }
 
       tiktokBusy.current = true;
 
       setPendingKey("tiktok");
 
-      let redirecting =
-        false;
+      let redirecting = false;
 
       try {
         if (
-          connections.tiktok
-            .connected
+          connections.tiktok.connected
         ) {
           await disconnectTikTok();
 
@@ -1108,26 +1250,21 @@ export default function Channels({
       }
     };
 
-  /* --------------------------------------------------------------------------
-     PINTEREST
-  -------------------------------------------------------------------------- */
-
   const handlePinterestToggle =
     async () => {
       if (
         pinterestBusy.current
-      )
+      ) {
         return;
+      }
 
-      pinterestBusy.current =
-        true;
+      pinterestBusy.current = true;
 
       setPendingKey(
         "pinterest"
       );
 
-      let redirecting =
-        false;
+      let redirecting = false;
 
       try {
         if (
@@ -1222,23 +1359,19 @@ export default function Channels({
       }
     };
 
-  /* --------------------------------------------------------------------------
-     YOUTUBE
-  -------------------------------------------------------------------------- */
-
   const handleYouTubeToggle =
     async () => {
       if (
         youtubeBusy.current
-      )
+      ) {
         return;
+      }
 
       youtubeBusy.current = true;
 
       setPendingKey("youtube");
 
-      let redirecting =
-        false;
+      let redirecting = false;
 
       try {
         if (
@@ -1288,7 +1421,7 @@ export default function Channels({
     };
 
   /* --------------------------------------------------------------------------
-     PLACEHOLDER
+     PLACEHOLDERS
   -------------------------------------------------------------------------- */
 
   const handlePlaceholderToggle =
@@ -1318,17 +1451,12 @@ export default function Channels({
       }, 450);
     };
 
-  /* --------------------------------------------------------------------------
-     GLOBAL TOGGLE
-  -------------------------------------------------------------------------- */
-
   const handleToggle =
     (key: ChannelKey) => {
       setErrorMessage(null);
 
       if (
-        !connections[key]
-          .connected &&
+        !connections[key].connected &&
         limitReached
       ) {
         setErrorMessage(
@@ -1356,18 +1484,33 @@ export default function Channels({
       handlePlaceholderToggle(key);
     };
 
-  /* --------------------------------------------------------------------------
+  const handleUpgrade =
+    () => {
+      console.log(
+        "[Stone] Upgrade clicked"
+      );
+    };
+
+  const openModal = () => {
+    setErrorMessage(null);
+    setShowConnectModal(true);
+  };
+
+  const closeModal = () => {
+    setShowConnectModal(false);
+  };
+
+  /* ==========================================================================
      RENDER
-  -------------------------------------------------------------------------- */
+  ========================================================================== */
 
   return (
     <div
       className={[
-        "relative h-full w-full overflow-hidden",
+        "relative h-full w-full",
+        "overflow-hidden",
+        t.page,
         "transition-colors duration-300",
-        isDark
-          ? "bg-[#09090b] text-white"
-          : "bg-[#f7f7f5] text-zinc-950",
       ].join(" ")}
     >
       <DashboardSidebar
@@ -1392,26 +1535,24 @@ export default function Channels({
         <div
           className={[
             "mx-auto flex h-full w-full",
-            "max-w-[1080px]",
+            "max-w-[980px]",
             "flex-col",
             "px-[clamp(18px,4vw,44px)]",
-            "py-[clamp(22px,4vh,40px)]",
+            "py-[clamp(22px,4vh,38px)]",
           ].join(" ")}
         >
           {/* ================================================================
               HEADER
           ================================================================ */}
 
-          <header className="flex shrink-0 items-center justify-between gap-5">
+          <header className="flex shrink-0 items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <h1
                   className={[
-                    "text-[27px] font-semibold",
+                    "text-[25px] font-semibold",
                     "tracking-[-0.045em]",
-                    isDark
-                      ? "text-white"
-                      : "text-zinc-950",
+                    t.text,
                   ].join(" ")}
                 >
                   Channels
@@ -1419,11 +1560,11 @@ export default function Channels({
 
                 <span
                   className={[
-                    "rounded-full px-2 py-0.5",
+                    "rounded-full border",
+                    "px-2 py-0.5",
                     "text-[9px] font-semibold",
-                    isDark
-                      ? "bg-white/[0.06] text-zinc-400"
-                      : "bg-black/[0.04] text-zinc-500",
+                    t.border,
+                    t.muted,
                   ].join(" ")}
                 >
                   {connectedCount}/
@@ -1434,32 +1575,29 @@ export default function Channels({
               <p
                 className={[
                   "mt-1 text-[11px]",
-                  isDark
-                    ? "text-zinc-500"
-                    : "text-zinc-500",
+                  t.muted,
                 ].join(" ")}
               >
-                Connect the platforms
-                you publish to.
+                Connect your social accounts.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                setShowConnectModal(
-                  true
-                )
-              }
+              onClick={openModal}
               className={[
-                "flex h-9 shrink-0 items-center gap-2",
-                "rounded-xl px-3.5",
+                "inline-flex shrink-0",
+                "items-center gap-2",
+                "rounded-xl",
+                "px-3.5 py-2.5",
                 "text-[11px] font-semibold",
-                "transition-all duration-200",
-                "active:scale-[0.97]",
+                "transition-all duration-150",
+                "hover:-translate-y-px",
+                "active:scale-[0.98]",
                 isDark
                   ? "bg-white text-black hover:bg-zinc-200"
                   : "bg-zinc-950 text-white hover:bg-zinc-800",
+                t.ring,
               ].join(" ")}
             >
               <PlusIcon className="h-3.5 w-3.5" />
@@ -1468,16 +1606,17 @@ export default function Channels({
           </header>
 
           {/* ================================================================
-              SIMPLE STATUS
+              SMALL PLAN BAR
           ================================================================ */}
 
           <div
             className={[
-              "mt-5 flex h-11 shrink-0 items-center",
-              "justify-between rounded-2xl border px-4",
-              isDark
-                ? "border-white/[0.07] bg-white/[0.02]"
-                : "border-black/[0.06] bg-white/60",
+              "mt-5 flex shrink-0",
+              "items-center justify-between",
+              "rounded-xl border",
+              "px-3.5 py-2.5",
+              t.card,
+              t.border,
             ].join(" ")}
           >
             <div className="flex items-center gap-2.5">
@@ -1486,44 +1625,52 @@ export default function Channels({
                   "h-1.5 w-1.5 rounded-full",
                   connectedCount > 0
                     ? "bg-emerald-500"
-                    : isDark
-                      ? "bg-zinc-600"
-                      : "bg-zinc-300",
+                    : "bg-zinc-400",
                 ].join(" ")}
               />
 
               <span
                 className={[
-                  "text-[10.5px] font-medium",
-                  isDark
-                    ? "text-zinc-400"
-                    : "text-zinc-500",
+                  "text-[10px] font-medium",
+                  t.muted,
                 ].join(" ")}
               >
-                {connectedCount === 0
-                  ? "No channels connected"
-                  : `${connectedCount} ${
+                {connectedCount > 0
+                  ? `${connectedCount} ${
                       connectedCount === 1
                         ? "channel"
                         : "channels"
-                    } connected`}
+                    } connected`
+                  : "No channels connected"}
               </span>
             </div>
 
-            <span
-              className={[
-                "text-[10px]",
-                isDark
-                  ? "text-zinc-600"
-                  : "text-zinc-400",
-              ].join(" ")}
-            >
-              {slotsLeft}{" "}
-              {slotsLeft === 1
-                ? "slot"
-                : "slots"}{" "}
-              left
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={[
+                  "text-[10px]",
+                  t.muted,
+                ].join(" ")}
+              >
+                {PLAN.name}
+              </span>
+
+              {limitReached && (
+                <button
+                  type="button"
+                  onClick={
+                    handleUpgrade
+                  }
+                  className={[
+                    "text-[10px] font-semibold",
+                    "underline underline-offset-2",
+                    t.text,
+                  ].join(" ")}
+                >
+                  Upgrade
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ================================================================
@@ -1532,13 +1679,14 @@ export default function Channels({
 
           {errorMessage && (
             <div
+              role="alert"
               className={[
-                "mt-3 flex shrink-0 items-center gap-2",
-                "rounded-xl border px-3 py-2.5",
-                "text-[10px]",
-                "border-red-500/20",
+                "mt-3 flex shrink-0 items-center",
+                "gap-2.5 rounded-xl",
+                "border border-red-500/20",
                 "bg-red-500/[0.06]",
-                "text-red-500",
+                "px-3.5 py-2.5",
+                "text-[10px] text-red-500",
               ].join(" ")}
             >
               <span className="flex-1">
@@ -1547,6 +1695,7 @@ export default function Channels({
 
               <button
                 type="button"
+                aria-label="Dismiss"
                 onClick={() =>
                   setErrorMessage(null)
                 }
@@ -1558,54 +1707,51 @@ export default function Channels({
           )}
 
           {/* ================================================================
-              ALL CHANNELS
+              GRID
           ================================================================ */}
 
-          <section className="mt-5 min-h-0 flex-1">
-            <div
-              className={[
-                "grid h-full",
-                "grid-cols-2",
-                "gap-2.5",
-                "lg:grid-cols-3",
-                "grid-rows-3",
-              ].join(" ")}
-            >
-              {CHANNELS.map(
-                (channel) => (
-                  <ChannelCard
-                    key={
+          <div
+            className={[
+              "mt-5 grid min-h-0 flex-1",
+              "grid-cols-1",
+              "gap-2.5",
+              "sm:grid-cols-2",
+              "lg:grid-cols-3",
+              "content-start",
+            ].join(" ")}
+          >
+            {CHANNELS.map(
+              (channel) => (
+                <ChannelCard
+                  key={
+                    channel.key
+                  }
+                  channel={channel}
+                  connection={
+                    connections[
                       channel.key
-                    }
-                    channel={
-                      channel
-                    }
-                    connection={
-                      connections[
-                        channel.key
-                      ]
-                    }
-                    pending={
-                      pendingKey ===
+                    ]
+                  }
+                  pending={
+                    pendingKey ===
+                    channel.key
+                  }
+                  disabled={
+                    !connections[
                       channel.key
-                    }
-                    disabled={
-                      !connections[
-                        channel.key
-                      ].connected &&
-                      limitReached
-                    }
-                    dark={isDark}
-                    onToggle={() =>
-                      handleToggle(
-                        channel.key
-                      )
-                    }
-                  />
-                )
-              )}
-            </div>
-          </section>
+                    ].connected &&
+                    limitReached
+                  }
+                  t={t}
+                  onToggle={() =>
+                    handleToggle(
+                      channel.key
+                    )
+                  }
+                />
+              )
+            )}
+          </div>
 
           {/* ================================================================
               FOOTER
@@ -1613,16 +1759,20 @@ export default function Channels({
 
           <div
             className={[
-              "mt-4 flex shrink-0 items-center",
-              "justify-between",
+              "mt-4 flex shrink-0",
+              "items-center justify-between",
               "text-[9px]",
-              isDark
-                ? "text-zinc-600"
-                : "text-zinc-400",
+              t.muted,
             ].join(" ")}
           >
             <span>
-              Stone · {PLAN.name} plan
+              {slotsLeft > 0
+                ? `${slotsLeft} ${
+                    slotsLeft === 1
+                      ? "slot"
+                      : "slots"
+                  } remaining`
+                : "Plan limit reached"}
             </span>
 
             <span>
@@ -1641,25 +1791,13 @@ export default function Channels({
           channels={CHANNELS}
           connections={connections}
           pendingKey={pendingKey}
-          limitReached={
-            limitReached
-          }
+          limitReached={limitReached}
           planName={PLAN.name}
-          realOAuthKeys={
-            REAL_OAUTH
-          }
-          errorMessage={
-            errorMessage
-          }
+          realOAuthKeys={REAL_OAUTH}
+          errorMessage={errorMessage}
           isDark={isDark}
-          onToggle={
-            handleToggle
-          }
-          onClose={() =>
-            setShowConnectModal(
-              false
-            )
-          }
+          onToggle={handleToggle}
+          onClose={closeModal}
         />
       )}
     </div>
