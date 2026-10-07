@@ -155,6 +155,20 @@ type StatusResponse = {
 };
 
 /* ============================================================================
+   Animation de la sidebar
+   L'animation est un événement de la sidebar (ouverture / fermeture), pas
+   une animation permanente de l'interface : aucun effet de scale au hover.
+
+   Ouverture (~420 ms) : le cadre s'élargit, puis les textes font un fade +
+   slide de 8 px (avec un léger décalage par ligne).
+   Fermeture : les textes disparaissent très vite, puis la largeur revient
+   à 68 px. Les icônes ne bougent jamais.
+============================================================================ */
+
+const SIDEBAR_WIDTH_MS = 420;
+const LABEL_DELAY_MS = 120;
+
+/* ============================================================================
    Keyframes + global UI guards
 ============================================================================ */
 
@@ -653,8 +667,12 @@ function NavItemViewImpl({
   const shortcut = shortcutForRoute(item.route);
   const shortcutLetter = shortcutKeyForRoute(item.route);
 
+  /* Ouverture : le stagger part après le début de l'élargissement.
+     Fermeture : aucun délai, les textes disparaissent immédiatement. */
   const labelStyle = {
-    transitionDelay: isCollapsed ? "0ms" : `${90 + index * 35}ms`,
+    transitionDelay: isCollapsed
+      ? "0ms"
+      : `${LABEL_DELAY_MS + index * 35}ms`,
   };
 
   const isActive =
@@ -721,17 +739,8 @@ function NavItemViewImpl({
           ].join(" ")}
         />
 
-        <span
-          className={[
-            "relative flex shrink-0",
-            "select-none",
-            "transition-transform duration-200",
-            "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-            "group-hover:scale-110",
-            "motion-reduce:transition-none",
-            "motion-reduce:group-hover:scale-100",
-          ].join(" ")}
-        >
+        {/* Icône : statique, aucun effet au hover. */}
+        <span className="relative flex shrink-0 select-none">
           <Icon className="h-[18px] w-[18px]" />
 
           {item.badge && (
@@ -998,7 +1007,7 @@ function ChannelAvatar({
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
 
   return (
-    <span className="relative h-6 w-6 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+    <span className="relative h-6 w-6 shrink-0">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -1073,7 +1082,9 @@ function SidebarChannelsImpl({
           "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
           "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
-          isCollapsed ? "mb-0 h-0 opacity-0" : "mb-1.5 h-6 opacity-100 delay-100",
+          isCollapsed
+            ? "mb-0 h-0 opacity-0 delay-0"
+            : "mb-1.5 h-6 opacity-100 delay-[120ms]",
         ].join(" ")}
       >
         <span
@@ -1820,6 +1831,10 @@ export default function DashboardSidebar({
 
   /* --------------------------------------------------------------------------
      Label animation
+     Ouverture : fade + slide (8 px) après LABEL_DELAY_MS, le temps que le
+                 cadre commence à s'élargir.
+     Fermeture : fade très rapide, sans délai (les textes partent avant la
+                 réduction de largeur).
   -------------------------------------------------------------------------- */
 
   const labelClass = useMemo(
@@ -1831,8 +1846,8 @@ export default function DashboardSidebar({
         "ease-[cubic-bezier(0.4,0,0.2,1)]",
         "motion-reduce:transition-none",
         isCollapsed
-          ? "-translate-x-1 opacity-0 duration-150"
-          : "translate-x-0 opacity-100 duration-300",
+          ? "-translate-x-2 opacity-0 delay-0 duration-100"
+          : "translate-x-0 opacity-100 delay-[120ms] duration-300",
       ].join(" "),
     [isCollapsed]
   );
@@ -2156,19 +2171,26 @@ export default function DashboardSidebar({
     >
       <style>{SIDEBAR_KEYFRAMES}</style>
 
+      {/*
+        Largeur : 420 ms.
+        - Ouverture : la largeur démarre tout de suite, les textes suivent.
+        - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
+        La classe de durée est écrite en dur (Tailwind ne génère pas de
+        classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
+      */}
       <aside
         id="app-sidebar"
+        data-width-ms={SIDEBAR_WIDTH_MS}
         className={[
           "relative flex h-full flex-col",
           "overflow-visible rounded-[56px]",
           "border px-3 py-7",
           "transition-[width,box-shadow]",
-          "duration-[380ms]",
+          "duration-[420ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
-          "will-change-[width]",
           t.aside,
-          isCollapsed ? "w-[68px]" : "w-[200px]",
+          isCollapsed ? "w-[68px] delay-[120ms]" : "w-[200px] delay-0",
         ].join(" ")}
       >
         {/* Logo */}
@@ -2233,8 +2255,8 @@ export default function DashboardSidebar({
                   "motion-reduce:transition-none",
                   t.muted,
                   isCollapsed
-                    ? "mb-0 h-0 -translate-x-1 opacity-0"
-                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-100",
+                    ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
+                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
                 ].join(" ")}
               >
                 {section.label}
@@ -2395,7 +2417,7 @@ export default function DashboardSidebar({
                         navigate("pricing");
                       }}
                       className={[
-                        "group mt-3 flex w-full",
+                        "mt-3 flex w-full",
                         "select-none",
                         "items-center justify-center",
                         "gap-2 rounded-[10px]",
@@ -2409,16 +2431,7 @@ export default function DashboardSidebar({
                         t.upgrade,
                       ].join(" ")}
                     >
-                      <BoltIcon
-                        className={[
-                          "h-4 w-4",
-                          "transition-transform duration-300",
-                          "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                          "group-hover:-rotate-12",
-                          "group-hover:scale-110",
-                          "motion-reduce:transition-none",
-                        ].join(" ")}
-                      />
+                      <BoltIcon className="h-4 w-4" />
                       Upgrade Plan
                     </button>
                   </div>
@@ -2457,7 +2470,7 @@ export default function DashboardSidebar({
                               }
                             }}
                             className={[
-                              "sb-item group flex",
+                              "sb-item flex",
                               "w-full cursor-pointer",
                               "select-none",
                               "items-center gap-3",
@@ -2476,10 +2489,6 @@ export default function DashboardSidebar({
                             <Icon
                               className={[
                                 "h-4 w-4 shrink-0",
-                                "transition-transform duration-200",
-                                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                                "group-hover:scale-110",
-                                "motion-reduce:transition-none",
                                 t.menuIcon,
                               ].join(" ")}
                             />
@@ -2524,7 +2533,7 @@ export default function DashboardSidebar({
                 title={isCollapsed ? account.name : "Account menu"}
                 onClick={() => setMenuOpen((value) => !value)}
                 className={[
-                  "group flex h-11 w-full",
+                  "flex h-11 w-full",
                   "select-none",
                   "items-center gap-3",
                   "overflow-hidden",
@@ -2544,15 +2553,7 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    className={[
-                      "h-8 w-8 shrink-0",
-                      "select-none",
-                      "rounded-full object-cover",
-                      "transition-transform duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:scale-105",
-                      "motion-reduce:transition-none",
-                    ].join(" ")}
+                    className="h-8 w-8 shrink-0 select-none rounded-full object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
                 ) : (
@@ -2563,10 +2564,6 @@ export default function DashboardSidebar({
                       "items-center justify-center",
                       "rounded-full",
                       "text-[10px] font-semibold",
-                      "transition-transform duration-300",
-                      "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                      "group-hover:scale-105",
-                      "motion-reduce:transition-none",
                       t.avatar,
                     ].join(" ")}
                   >
