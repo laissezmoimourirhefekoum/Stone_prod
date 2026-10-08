@@ -1285,34 +1285,30 @@ function SidebarChannelsImpl({
 
           return (
             <div key={channel.key}>
-              <Tip
-                label={label}
-                enabled={isCollapsed}
-                menuClass={t.menu}
-                countClass={t.count}
+              {/* Pas de tooltip sur la ligne : le popover de l'avatar affiche
+                  déjà le pseudo + les liens (évite le double hover). */}
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-label={label.replace(/^@/, "")}
+                onClick={() => {
+                  if (isCollapsed) {
+                    onExpand();
+                    openKey(groupKey);
+                  } else {
+                    toggleKey(groupKey);
+                  }
+                }}
+                className={[
+                  "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
+                  "rounded-lg px-[9px] text-[12.5px] font-medium",
+                  "transition-[background-color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none",
+                  "motion-reduce:active:scale-100",
+                  focus,
+                  t.navIdle,
+                ].join(" ")}
               >
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-label={label.replace(/^@/, "")}
-                  onClick={() => {
-                    if (isCollapsed) {
-                      onExpand();
-                      openKey(groupKey);
-                    } else {
-                      toggleKey(groupKey);
-                    }
-                  }}
-                  className={[
-                    "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
-                    "rounded-lg px-[9px] text-[12.5px] font-medium",
-                    "transition-[background-color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none",
-                    "motion-reduce:active:scale-100",
-                    focus,
-                    t.navIdle,
-                  ].join(" ")}
-                >
                   {/* Avatar + popover au survol (Publish / Community / Insights) */}
                   <ChannelHoverCard
                     channel={channel}
@@ -1352,7 +1348,6 @@ function SidebarChannelsImpl({
                     />
                   </span>
                 </button>
-              </Tip>
 
               <div
                 className={[
