@@ -130,22 +130,16 @@ type ThemeTokens = {
   page: string;
   text: string;
   muted: string;
-
   card: string;
   cardHover: string;
-
   border: string;
   borderHover: string;
-
   icon: string;
   iconConnected: string;
-
   button: string;
   buttonHover: string;
-
   danger: string;
   success: string;
-
   ring: string;
 };
 
@@ -225,9 +219,7 @@ const initialConnections: ConnectionState = {
 function Svg({
   className = "h-4 w-4",
   children,
-}: IconProps & {
-  children: ReactNode;
-}) {
+}: IconProps & { children: ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -309,6 +301,25 @@ function LayersIcon(props: IconProps) {
   );
 }
 
+function PencilIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </Svg>
+  );
+}
+
+function HelpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </Svg>
+  );
+}
+
 /* ============================================================================
    HELPERS
 ============================================================================ */
@@ -317,31 +328,17 @@ function formatOAuthError(
   provider: string,
   error: unknown
 ): string {
-  const raw =
-    error instanceof Error
-      ? error.message
-      : "";
-
-  if (
-    /failed to fetch|networkerror|load failed/i.test(
-      raw
-    )
-  ) {
+  const raw = error instanceof Error ? error.message : "";
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
     return "Unable to reach the server. Check that the backend is running and VITE_API_URL is correct.";
   }
-
   return raw
     ? `Unable to connect to ${provider}. ${raw}`
     : `Unable to connect to ${provider}.`;
 }
 
-function mockHandleFor(
-  key: ChannelKey
-): string {
-  const handles: Record<
-    ChannelKey,
-    string
-  > = {
+function mockHandleFor(key: ChannelKey): string {
+  const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
     facebook: "Ronan Studio",
     threads: "@ronan.studio",
@@ -349,31 +346,18 @@ function mockHandleFor(
     youtube: "",
     pinterest: "",
   };
-
   return handles[key];
 }
 
-function toConnection(
-  status: StatusResponse
-): Connection {
+function toConnection(status: StatusResponse): Connection {
   if (!status.connected) {
-    return {
-      connected: false,
-    };
+    return { connected: false };
   }
-
-  const account =
-    status.account;
-
+  const account = status.account;
   return {
     connected: true,
-    handle:
-      account?.display_name ??
-      undefined,
-    avatarUrl:
-      account?.avatar_url ??
-      account?.avatarUrl ??
-      undefined,
+    handle: account?.display_name ?? undefined,
+    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
   };
 }
 
@@ -389,35 +373,21 @@ function ChannelIcon({
   connection: Connection;
 }) {
   const Icon = channel.icon;
-
-  const [imageFailed, setImageFailed] =
-    useState(false);
-
-  const hasAvatar =
-    Boolean(connection.avatarUrl) &&
-    !imageFailed;
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasAvatar = Boolean(connection.avatarUrl) && !imageFailed;
 
   useEffect(() => {
     setImageFailed(false);
   }, [connection.avatarUrl]);
 
-  if (
-    connection.connected &&
-    hasAvatar
-  ) {
+  if (connection.connected && hasAvatar) {
     return (
       <img
         src={connection.avatarUrl}
         alt=""
         referrerPolicy="no-referrer"
-        onError={() =>
-          setImageFailed(true)
-        }
-        className={[
-          "h-11 w-11",
-          "rounded-[14px]",
-          "object-cover",
-        ].join(" ")}
+        onError={() => setImageFailed(true)}
+        className="h-11 w-11 rounded-[14px] object-cover"
       />
     );
   }
@@ -425,19 +395,13 @@ function ChannelIcon({
   return (
     <div
       className={[
-        "flex h-11 w-11 shrink-0",
-        "items-center justify-center",
-        "rounded-[14px]",
-        "border",
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
         connection.connected
           ? "border-white/20 bg-white/10 text-white"
           : "border-white/[0.08] bg-white/[0.045] text-zinc-300",
       ].join(" ")}
     >
-      <Icon
-        className="h-[21px] w-[21px]"
-        size={21}
-      />
+      <Icon className="h-[21px] w-[21px]" size={21} />
     </div>
   );
 }
@@ -463,139 +427,61 @@ function ChannelCard({
   t,
   onToggle,
 }: ChannelCardProps) {
-  const isConnected =
-    connection.connected;
-
-  const [menuOpen, setMenuOpen] =
-    useState(false);
-
-  const menuRef =
-    useRef<HTMLDivElement>(null);
+  const isConnected = connection.connected;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
-
-    const onPointerDown = (
-      event: MouseEvent
-    ) => {
-      if (
-        !menuRef.current?.contains(
-          event.target as Node
-        )
-      ) {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
-
-    const onKeyDown = (
-      event: KeyboardEvent
-    ) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-      }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
     };
-
-    document.addEventListener(
-      "mousedown",
-      onPointerDown
-    );
-
-    document.addEventListener(
-      "keydown",
-      onKeyDown
-    );
-
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        onPointerDown
-      );
-
-      document.removeEventListener(
-        "keydown",
-        onKeyDown
-      );
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
 
   return (
     <article
       className={[
-        "group relative",
-        "rounded-[20px]",
-        "border",
-        "px-4 py-4",
-        "transition-all duration-200",
+        "group relative rounded-[20px] border px-4 py-4 transition-all duration-200",
         t.card,
         t.border,
-        !disabled &&
-          "hover:-translate-y-[1px]",
-        !disabled &&
-          "hover:shadow-[0_12px_35px_rgba(0,0,0,0.2)]",
+        !disabled && "hover:-translate-y-[1px]",
+        !disabled && "hover:shadow-[0_12px_35px_rgba(0,0,0,0.2)]",
       ].join(" ")}
     >
       <div className="flex items-center gap-3.5">
-        <ChannelIcon
-          channel={channel}
-          connection={connection}
-        />
+        <ChannelIcon channel={channel} connection={connection} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p
-              className={[
-                "truncate text-[13px]",
-                "font-semibold tracking-[-0.01em]",
-                t.text,
-              ].join(" ")}
-            >
-              {isConnected
-                ? connection.handle ||
-                  channel.name
-                : channel.name}
+            <p className={["truncate text-[13px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+              {isConnected ? connection.handle || channel.name : channel.name}
             </p>
-
-            {isConnected && (
-              <span
-                className={[
-                  "h-1.5 w-1.5 shrink-0",
-                  "rounded-full",
-                  "bg-white",
-                ].join(" ")}
-              />
-            )}
+            {isConnected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />}
           </div>
-
-          <p
-            className={[
-              "mt-0.5 truncate",
-              "text-[10px]",
-              t.muted,
-            ].join(" ")}
-          >
-            {isConnected
-              ? channel.accountLabel
-              : channel.subtitle}
+          <p className={["mt-0.5 truncate text-[10px]", t.muted].join(" ")}>
+            {isConnected ? channel.accountLabel : channel.subtitle}
           </p>
         </div>
 
-        {isConnected ? (
-          <div
-            ref={menuRef}
-            className="relative shrink-0"
-          >
+        {isConnected && (
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               aria-label={`Options for ${channel.name}`}
-              onClick={() =>
-                setMenuOpen(
-                  (value) => !value
-                )
-              }
+              onClick={() => setMenuOpen((value) => !value)}
               className={[
-                "flex h-8 w-8 items-center",
-                "justify-center rounded-lg",
-                "transition-colors",
+                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
                 t.muted,
                 "hover:bg-white/[0.06]",
                 t.ring,
@@ -607,10 +493,7 @@ function ChannelCard({
             {menuOpen && (
               <div
                 className={[
-                  "absolute right-0 top-10 z-50",
-                  "w-40 rounded-xl",
-                  "border p-1",
-                  "shadow-xl",
+                  "absolute right-0 top-10 z-50 w-40 rounded-xl border p-1 shadow-xl",
                   t.card,
                   t.border,
                 ].join(" ")}
@@ -622,15 +505,7 @@ function ChannelCard({
                     setMenuOpen(false);
                     onToggle();
                   }}
-                  className={[
-                    "flex w-full items-center gap-2",
-                    "rounded-lg px-3 py-2",
-                    "text-left text-[11px]",
-                    "font-medium",
-                    "text-red-400",
-                    "hover:bg-red-500/[0.07]",
-                    "disabled:opacity-40",
-                  ].join(" ")}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium text-red-400 hover:bg-red-500/[0.07] disabled:opacity-40"
                 >
                   <DisconnectIcon className="h-3.5 w-3.5" />
                   Disconnect
@@ -638,44 +513,232 @@ function ChannelCard({
               </div>
             )}
           </div>
-        ) : (
-          <button
-            type="button"
-            disabled={
-              pending || disabled
-            }
-            onClick={onToggle}
-            className={[
-              "inline-flex shrink-0",
-              "items-center gap-1.5",
-              "rounded-lg",
-              "border",
-              "px-3 py-2",
-              "text-[10px] font-semibold",
-              "transition-all duration-150",
-              t.button,
-              t.border,
-              t.text,
-              "hover:-translate-y-px",
-              "disabled:cursor-not-allowed",
-              "disabled:opacity-40",
-              t.ring,
-            ].join(" ")}
-          >
-            {pending
-              ? "..."
-              : disabled
-                ? "Upgrade"
-                : "Connect"}
-
-            {!disabled &&
-              !pending && (
-                <ArrowIcon className="h-3 w-3" />
-              )}
-          </button>
         )}
       </div>
     </article>
+  );
+}
+
+/* ============================================================================
+   MODAL 1: CONFIRM ACCOUNT
+============================================================================ */
+
+function ConfirmAccountModal({
+  channel,
+  connection,
+  t,
+  isDark,
+  onFinish,
+  onClose,
+}: {
+  channel: Channel;
+  connection: Connection;
+  t: ThemeTokens;
+  isDark: boolean;
+  onFinish: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div
+        className={[
+          "w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col",
+          isDark ? "bg-[#141414] border-[#262626]" : "bg-white border-zinc-200",
+        ].join(" ")}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-inherit">
+          <span className={["text-sm font-medium", t.text].join(" ")}>Switch Account</span>
+          <div className="flex items-center gap-2">
+            {/* Provider icons (mock) */}
+            <div className="flex -space-x-1">
+              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-[#333] flex items-center justify-center">
+                <LayersIcon className="w-3 h-3 text-zinc-400" />
+              </div>
+              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-[#333] flex items-center justify-center">
+                <channel.icon className="w-3 h-3 text-zinc-400" />
+              </div>
+            </div>
+            <button onClick={onClose} className={["p-1 rounded-md hover:bg-white/10", t.muted].join(" ")}>
+              <CloseIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-8 flex flex-col items-center">
+          <h2 className={["text-xl font-semibold mb-6", t.text].join(" ")}>
+            Confirm your Account
+          </h2>
+
+          <div
+            className={[
+              "w-full max-w-sm flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors",
+              isDark ? "border-zinc-700 bg-zinc-800/50" : "border-zinc-300 bg-zinc-50",
+            ].join(" ")}
+          >
+            <ChannelIcon channel={channel} connection={connection} />
+            <div className="flex-1">
+              <p className={["font-semibold text-sm", t.text].join(" ")}>
+                {connection.handle || channel.name}
+              </p>
+              <p className={["text-xs", t.muted].join(" ")}>Account</p>
+            </div>
+            <div className={["w-5 h-5 rounded flex items-center justify-center", isDark ? "bg-white text-black" : "bg-black text-white"].join(" ")}>
+              <CheckIcon className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-inherit">
+          <button className={["flex items-center gap-1 text-xs font-medium", t.muted].join(" ")}>
+            Need Help <ArrowIcon className="w-3 h-3 rotate-90" />
+          </button>
+          <button
+            onClick={onFinish}
+            className={[
+              "px-6 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
+            ].join(" ")}
+          >
+            Finish Connection
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+   MODAL 2: POSTING FREQUENCY
+============================================================================ */
+
+function PostingFrequencyModal({
+  channel,
+  t,
+  isDark,
+  onNext,
+  onClose,
+}: {
+  channel: Channel;
+  t: ThemeTokens;
+  isDark: boolean;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState("3x");
+
+  const options = [
+    { id: "1x", label: "Keep it steady · 1 time/week", icon: "1x" },
+    { id: "3x", label: "Build a presence · 3 times/week", icon: "3x" },
+    { id: "5x", label: "Reach new heights · 5 times/week", icon: "5x" },
+    { id: "custom", label: "Choose your goal", icon: <PencilIcon className="w-4 h-4" /> },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div
+        className={[
+          "w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col",
+          isDark ? "bg-[#141414] border-[#262626]" : "bg-white border-zinc-200",
+        ].join(" ")}
+      >
+        {/* Header with Close */}
+        <div className="flex justify-end p-4">
+          <button onClick={onClose} className={["p-1.5 rounded-lg border hover:bg-white/5", t.border, t.muted].join(" ")}>
+            <CloseIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-8 pb-8 flex flex-col items-center">
+          {/* Avatar + Provider badge */}
+          <div className="relative mb-6">
+            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-[#333]">
+              <channel.icon className="w-8 h-8 text-white" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center border-2 border-[#141414]">
+              <channel.icon className="w-3 h-3 text-black" />
+            </div>
+          </div>
+
+          <h2 className={["text-xl font-semibold text-center mb-2", t.text].join(" ")}>
+            How many times a week would you like to post?
+          </h2>
+          <p className={["text-sm text-center mb-8", t.muted].join(" ")}>
+            This posting goal will tell us how many times to recommend per week.
+          </p>
+
+          <div className="w-full space-y-3">
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setSelected(opt.id)}
+                className={[
+                  "w-full flex items-center gap-4 p-3.5 rounded-xl border transition-all text-left",
+                  selected === opt.id
+                    ? isDark
+                      ? "border-white bg-white/5"
+                      : "border-black bg-black/5"
+                    : isDark
+                    ? "border-[#262626] hover:border-[#333]"
+                    : "border-zinc-200 hover:border-zinc-300",
+                ].join(" ")}
+              >
+                <div
+                  className={[
+                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                    isDark ? "bg-[#262626] text-white" : "bg-zinc-100 text-black",
+                  ].join(" ")}
+                >
+                  {typeof opt.icon === "string" ? (
+                    <span className="text-xs font-bold">{opt.icon}</span>
+                  ) : (
+                    opt.icon
+                  )}
+                </div>
+                <span className={["flex-1 text-sm font-medium", t.text].join(" ")}>
+                  {opt.label}
+                </span>
+                <div
+                  className={[
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                    selected === opt.id
+                      ? isDark
+                        ? "border-white"
+                        : "border-black"
+                      : isDark
+                      ? "border-zinc-600"
+                      : "border-zinc-300",
+                  ].join(" ")}
+                >
+                  {selected === opt.id && (
+                    <div className={["w-2.5 h-2.5 rounded-full", isDark ? "bg-white" : "bg-black"].join(" ")} />
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-inherit">
+          <button className={["flex items-center gap-1.5 text-xs font-medium", t.muted].join(" ")}>
+            <HelpIcon className="w-4 h-4" /> What's a Recommended Time?
+          </button>
+          <button
+            onClick={onNext}
+            className={[
+              "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
+            ].join(" ")}
+          >
+            Next <ArrowIcon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -685,141 +748,53 @@ function ChannelCard({
 
 export default function Channels({
   theme: themeProp,
-  onToggleTheme:
-    onToggleThemeProp,
+  onToggleTheme: onToggleThemeProp,
 }: ChannelsProps) {
-  const themeContext =
-    useTheme();
-
-  const theme =
-    themeProp ??
-    themeContext.theme;
-
-  const onToggleTheme =
-    onToggleThemeProp ??
-    themeContext.toggle;
-
-  const isDark =
-    theme === "dark";
-
-  const sidebarOffset =
-    useSidebarOffset();
-
-  const { user } =
-    useUser();
-
-  const userId =
-    user?.id ?? null;
+  const themeContext = useTheme();
+  const theme = themeProp ?? themeContext.theme;
+  const onToggleTheme = onToggleThemeProp ?? themeContext.toggle;
+  const isDark = theme === "dark";
+  const sidebarOffset = useSidebarOffset();
+  const { user } = useUser();
+  const userId = user?.id ?? null;
 
   /* --------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------- */
 
-  const [
-    connections,
-    setConnections,
-  ] =
-    useState<ConnectionState>(
-      () => {
-        if (!userId) {
-          return initialConnections;
-        }
+  const [connections, setConnections] = useState<ConnectionState>(() => {
+    if (!userId) return initialConnections;
+    const tiktok = readCache(userId, "tiktok");
+    const pinterest = readCache(userId, "pinterest");
+    const youtube = readCache(userId, "youtube");
+    return {
+      ...initialConnections,
+      ...(tiktok ? { tiktok: tiktok.connection } : {}),
+      ...(pinterest ? { pinterest: pinterest.connection } : {}),
+      ...(youtube ? { youtube: youtube.connection } : {}),
+    };
+  });
 
-        const tiktok =
-          readCache(
-            userId,
-            "tiktok"
-          );
+  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-        const pinterest =
-          readCache(
-            userId,
-            "pinterest"
-          );
+  // Onboarding Modals State
+  const [onboardingChannel, setOnboardingChannel] = useState<ChannelKey | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
 
-        const youtube =
-          readCache(
-            userId,
-            "youtube"
-          );
-
-        return {
-          ...initialConnections,
-
-          ...(tiktok
-            ? {
-                tiktok:
-                  tiktok.connection,
-              }
-            : {}),
-
-          ...(pinterest
-            ? {
-                pinterest:
-                  pinterest.connection,
-              }
-            : {}),
-
-          ...(youtube
-            ? {
-                youtube:
-                  youtube.connection,
-              }
-            : {}),
-        };
-      }
-    );
-
-  const [
-    pendingKey,
-    setPendingKey,
-  ] =
-    useState<ChannelKey | null>(
-      null
-    );
-
-  const [
-    showConnectModal,
-    setShowConnectModal,
-  ] =
-    useState(false);
-
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  const [
-    notification,
-    setNotification,
-  ] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
-
-  const tiktokBusy =
-    useRef(false);
-
-  const pinterestBusy =
-    useRef(false);
-
-  const youtubeBusy =
-    useRef(false);
-
-  const prevConnections =
-    useRef<ConnectionState | null>(null);
+  const tiktokBusy = useRef(false);
+  const pinterestBusy = useRef(false);
+  const youtubeBusy = useRef(false);
+  const prevConnections = useRef<ConnectionState | null>(null);
 
   /* --------------------------------------------------------------------------
-     NOTIFICATIONS
+     NOTIFICATIONS & ONBOARDING TRIGGER
   -------------------------------------------------------------------------- */
 
-  const showNotification = (
-    message: string,
-    type: "success" | "error" = "success"
-  ) => {
+  const showNotification = (message: string, type: "success" | "error" = "success") => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
@@ -831,21 +806,17 @@ export default function Channels({
     }
 
     CHANNELS.forEach((channel) => {
-      const prev =
-        prevConnections.current![channel.key]
-          .connected;
-      const curr =
-        connections[channel.key].connected;
+      const prev = prevConnections.current![channel.key].connected;
+      const curr = connections[channel.key].connected;
 
       if (prev !== curr) {
         if (curr) {
-          showNotification(
-            `${channel.name} connected successfully`
-          );
+          showNotification(`${channel.name} connected successfully`);
+          // Trigger Onboarding Flow
+          setOnboardingChannel(channel.key);
+          setShowConfirmModal(true);
         } else {
-          showNotification(
-            `${channel.name} disconnected`
-          );
+          showNotification(`${channel.name} disconnected`);
         }
       }
     });
@@ -857,27 +828,13 @@ export default function Channels({
      DERIVED
   -------------------------------------------------------------------------- */
 
-  const connectedCount =
-    useMemo(
-      () =>
-        CHANNELS.filter(
-          (channel) =>
-            connections[
-              channel.key
-            ].connected
-        ).length,
-      [connections]
-    );
+  const connectedChannels = useMemo(() => {
+    return CHANNELS.filter((channel) => connections[channel.key].connected);
+  }, [connections]);
 
-  const limitReached =
-    connectedCount >=
-    PLAN.maxChannels;
-
-  const slotsLeft = Math.max(
-    0,
-    PLAN.maxChannels -
-      connectedCount
-  );
+  const connectedCount = connectedChannels.length;
+  const limitReached = connectedCount >= PLAN.maxChannels;
+  const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
 
   /* --------------------------------------------------------------------------
      SYNC OAUTH
@@ -885,465 +842,244 @@ export default function Channels({
 
   useEffect(() => {
     if (!userId) return;
+    const hash = window.location.hash;
+    const queryIndex = hash.indexOf("?");
+    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
+    const params = new URLSearchParams(queryIndex === -1 ? "" : hash.slice(queryIndex + 1));
 
-    const hash =
-      window.location.hash;
+    const tiktokError = params.get("tiktok_error");
+    const pinterestError = params.get("pinterest_error");
+    const youtubeError = params.get("youtube_error");
 
-    const queryIndex =
-      hash.indexOf("?");
-
-    const basePath =
-      queryIndex === -1
-        ? hash
-        : hash.slice(
-            0,
-            queryIndex
-          );
-
-    const params =
-      new URLSearchParams(
-        queryIndex === -1
-          ? ""
-          : hash.slice(
-              queryIndex + 1
-            )
-      );
-
-    const tiktokError =
-      params.get(
-        "tiktok_error"
-      );
-
-    const pinterestError =
-      params.get(
-        "pinterest_error"
-      );
-
-    const youtubeError =
-      params.get(
-        "youtube_error"
-      );
-
-    const returned: Record<
-      CacheProvider,
-      boolean
-    > = {
-      tiktok:
-        params.has("tiktok") ||
-        Boolean(tiktokError),
-
-      pinterest:
-        params.has("pinterest") ||
-        Boolean(pinterestError),
-
-      youtube:
-        params.has("youtube") ||
-        Boolean(youtubeError),
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: params.has("tiktok") || Boolean(tiktokError),
+      pinterest: params.has("pinterest") || Boolean(pinterestError),
+      youtube: params.has("youtube") || Boolean(youtubeError),
     };
 
-    if (tiktokError) {
-      setErrorMessage(
-        `Unable to connect to TikTok. ${tiktokError}`
-      );
-    }
+    if (tiktokError) setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+    if (pinterestError) setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
+    if (youtubeError) setErrorMessage(`Unable to connect to YouTube. ${youtubeError}`);
 
-    if (pinterestError) {
-      setErrorMessage(
-        `Unable to connect to Pinterest. ${pinterestError}`
-      );
-    }
+    if (returned.tiktok) clearCache(userId, "tiktok");
+    if (returned.pinterest) clearCache(userId, "pinterest");
+    if (returned.youtube) clearCache(userId, "youtube");
 
-    if (youtubeError) {
-      setErrorMessage(
-        `Unable to connect to YouTube. ${youtubeError}`
-      );
-    }
-
-    if (returned.tiktok) {
-      clearCache(
-        userId,
-        "tiktok"
-      );
-    }
-
-    if (returned.pinterest) {
-      clearCache(
-        userId,
-        "pinterest"
-      );
-    }
-
-    if (returned.youtube) {
-      clearCache(
-        userId,
-        "youtube"
-      );
-    }
-
-    if (
-      returned.tiktok ||
-      returned.pinterest ||
-      returned.youtube
-    ) {
-      [
-        "tiktok",
-        "tiktok_error",
-        "pinterest",
-        "pinterest_error",
-        "youtube",
-        "youtube_error",
-      ].forEach((key) =>
-        params.delete(key)
-      );
-
-      const query =
-        params.toString();
-
-      window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}${basePath}${
-          query
-            ? `?${query}`
-            : ""
-        }`
-      );
+    if (returned.tiktok || returned.pinterest || returned.youtube) {
+      ["tiktok", "tiktok_error", "pinterest", "pinterest_error", "youtube", "youtube_error"].forEach((key) => params.delete(key));
+      const query = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${basePath}${query ? `?${query}` : ""}`);
     }
 
     let cancelled = false;
 
-    const sync = (
-      provider: CacheProvider,
-      justReturned: boolean,
-      fetchStatus: () => Promise<StatusResponse>
-    ) => {
-      const cached =
-        justReturned
-          ? null
-          : readCache(
-              userId,
-              provider
-            );
-
+    const sync = (provider: CacheProvider, justReturned: boolean, fetchStatus: () => Promise<StatusResponse>) => {
+      const cached = justReturned ? null : readCache(userId, provider);
       if (cached) {
-        setConnections(
-          (current) => ({
-            ...current,
-            [provider]:
-              cached.connection,
-          })
-        );
-
-        if (
-          Date.now() -
-            cached.savedAt <
-          CACHE_MAX_AGE_MS
-        ) {
-          return;
-        }
+        setConnections((current) => ({ ...current, [provider]: cached.connection }));
+        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
       }
 
       void (async () => {
         try {
-          const status =
-            await fetchStatus();
-
+          const status = await fetchStatus();
           if (cancelled) return;
-
-          const connection =
-            toConnection(
-              status
-            );
-
-          if (
-            connection.connected
-          ) {
-            writeCache(
-              userId,
-              connection,
-              provider
-            );
-          } else {
-            clearCache(
-              userId,
-              provider
-            );
-          }
-
-          setConnections(
-            (current) => ({
-              ...current,
-              [provider]:
-                connection,
-            })
-          );
+          const connection = toConnection(status);
+          if (connection.connected) writeCache(userId, connection, provider);
+          else clearCache(userId, provider);
+          setConnections((current) => ({ ...current, [provider]: connection }));
         } catch (error) {
-          console.warn(
-            `[Stone] Could not load ${provider} status:`,
-            error
-          );
+          console.warn(`[Stone] Could not load ${provider} status:`, error);
         }
       })();
     };
 
-    sync(
-      "tiktok",
-      returned.tiktok,
-      getTikTokStatus
-    );
+    sync("tiktok", returned.tiktok, getTikTokStatus);
+    sync("pinterest", returned.pinterest, getPinterestStatus);
+    sync("youtube", returned.youtube, getYouTubeStatus);
 
-    sync(
-      "pinterest",
-      returned.pinterest,
-      getPinterestStatus
-    );
-
-    sync(
-      "youtube",
-      returned.youtube,
-      getYouTubeStatus
-    );
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [userId]);
 
   /* --------------------------------------------------------------------------
      THEME TOKENS (Black & White)
   -------------------------------------------------------------------------- */
 
-  const t =
-    useMemo<ThemeTokens>(
-      () =>
-        isDark
-          ? {
-              page: "bg-[#0a0a0a] text-white",
-              text: "text-white",
-              muted: "text-zinc-500",
-              card: "bg-[#141414]",
-              cardHover: "hover:bg-[#1a1a1a]",
-              border: "border-[#262626]",
-              borderHover: "hover:border-[#333333]",
-              icon: "border-[#262626] bg-[#1a1a1a] text-zinc-400",
-              iconConnected: "border-[#333333] bg-[#262626] text-white",
-              button: "bg-[#1a1a1a] hover:bg-[#262626]",
-              buttonHover: "hover:bg-[#262626]",
-              danger: "text-red-400",
-              success: "text-white",
-              ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
-            }
-          : {
-              page: "bg-[#f7f7f5] text-black",
-              text: "text-black",
-              muted: "text-zinc-500",
-              card: "bg-white",
-              cardHover: "hover:bg-zinc-50",
-              border: "border-zinc-200",
-              borderHover: "hover:border-zinc-300",
-              icon: "border-zinc-200 bg-zinc-50 text-zinc-600",
-              iconConnected: "border-zinc-300 bg-zinc-100 text-black",
-              button: "bg-zinc-100 hover:bg-zinc-200",
-              buttonHover: "hover:bg-zinc-200",
-              danger: "text-red-600",
-              success: "text-black",
-              ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
-            },
-      [isDark]
-    );
+  const t = useMemo<ThemeTokens>(
+    () =>
+      isDark
+        ? {
+            page: "bg-[#0a0a0a] text-white",
+            text: "text-white",
+            muted: "text-zinc-500",
+            card: "bg-[#141414]",
+            cardHover: "hover:bg-[#1a1a1a]",
+            border: "border-[#262626]",
+            borderHover: "hover:border-[#333333]",
+            icon: "border-[#262626] bg-[#1a1a1a] text-zinc-400",
+            iconConnected: "border-[#333333] bg-[#262626] text-white",
+            button: "bg-[#1a1a1a] hover:bg-[#262626]",
+            buttonHover: "hover:bg-[#262626]",
+            danger: "text-red-400",
+            success: "text-white",
+            ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+          }
+        : {
+            page: "bg-[#f7f7f5] text-black",
+            text: "text-black",
+            muted: "text-zinc-500",
+            card: "bg-white",
+            cardHover: "hover:bg-zinc-50",
+            border: "border-zinc-200",
+            borderHover: "hover:border-zinc-300",
+            icon: "border-zinc-200 bg-zinc-50 text-zinc-600",
+            iconConnected: "border-zinc-300 bg-zinc-100 text-black",
+            button: "bg-zinc-100 hover:bg-zinc-200",
+            buttonHover: "hover:bg-zinc-200",
+            danger: "text-red-600",
+            success: "text-black",
+            ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+          },
+    [isDark]
+  );
 
   /* --------------------------------------------------------------------------
      OAUTH
   -------------------------------------------------------------------------- */
 
-  const handleTikTokToggle =
-    async () => {
-      if (tiktokBusy.current) {
-        return;
+  const handleTikTokToggle = async () => {
+    if (tiktokBusy.current) return;
+    tiktokBusy.current = true;
+    setPendingKey("tiktok");
+    let redirecting = false;
+    try {
+      if (connections.tiktok.connected) {
+        await disconnectTikTok();
+        if (userId) clearCache(userId, "tiktok");
+        setConnections((current) => ({ ...current, tiktok: { connected: false } }));
+      } else {
+        await startTikTokLogin();
+        redirecting = true;
       }
-
-      tiktokBusy.current = true;
-      setPendingKey("tiktok");
-
-      let redirecting = false;
-
-      try {
-        if (connections.tiktok.connected) {
-          await disconnectTikTok();
-          if (userId) clearCache(userId, "tiktok");
-          setConnections((current) => ({
-            ...current,
-            tiktok: { connected: false },
-          }));
-        } else {
-          await startTikTokLogin();
-          redirecting = true;
-        }
-      } catch (error) {
-        console.error("[Stone] TikTok OAuth error:", error);
-        setErrorMessage(formatOAuthError("TikTok", error));
-      } finally {
-        if (!redirecting) {
-          setPendingKey(null);
-          tiktokBusy.current = false;
-        }
-      }
-    };
-
-  const handlePinterestToggle =
-    async () => {
-      if (pinterestBusy.current) {
-        return;
-      }
-
-      pinterestBusy.current = true;
-      setPendingKey("pinterest");
-
-      let redirecting = false;
-
-      try {
-        if (connections.pinterest.connected) {
-          await disconnectPinterest();
-          if (userId) clearCache(userId, "pinterest");
-          setConnections((current) => ({
-            ...current,
-            pinterest: { connected: false },
-          }));
-        } else if (
-          import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
-        ) {
-          const token = window.prompt("Pinterest access token:");
-          if (!token?.trim()) {
-            setPendingKey(null);
-            return;
-          }
-
-          const account = await connectPinterestWithToken(token.trim());
-          const connection: Connection = {
-            connected: true,
-            handle: account?.display_name ?? undefined,
-            avatarUrl: account?.avatar_url ?? undefined,
-          };
-
-          if (userId) writeCache(userId, connection, "pinterest");
-          setConnections((current) => ({
-            ...current,
-            pinterest: connection,
-          }));
-        } else {
-          await startPinterestLogin();
-          redirecting = true;
-        }
-      } catch (error) {
-        console.error("[Stone] Pinterest OAuth error:", error);
-        setErrorMessage(formatOAuthError("Pinterest", error));
-      } finally {
-        if (!redirecting) {
-          setPendingKey(null);
-          pinterestBusy.current = false;
-        }
-      }
-    };
-
-  const handleYouTubeToggle =
-    async () => {
-      if (youtubeBusy.current) {
-        return;
-      }
-
-      youtubeBusy.current = true;
-      setPendingKey("youtube");
-
-      let redirecting = false;
-
-      try {
-        if (connections.youtube.connected) {
-          await disconnectYouTube();
-          if (userId) clearCache(userId, "youtube");
-          setConnections((current) => ({
-            ...current,
-            youtube: { connected: false },
-          }));
-        } else {
-          await startYouTubeLogin();
-          redirecting = true;
-        }
-      } catch (error) {
-        console.error("[Stone] YouTube OAuth error:", error);
-        setErrorMessage(formatOAuthError("YouTube", error));
-      } finally {
-        if (!redirecting) {
-          setPendingKey(null);
-          youtubeBusy.current = false;
-        }
-      }
-    };
-
-  /* --------------------------------------------------------------------------
-     PLACEHOLDERS
-  -------------------------------------------------------------------------- */
-
-  const handlePlaceholderToggle =
-    (key: ChannelKey) => {
-      setPendingKey(key);
-
-      window.setTimeout(() => {
-        setConnections((current) => ({
-          ...current,
-          [key]: current[key].connected
-            ? { connected: false }
-            : {
-                connected: true,
-                handle: mockHandleFor(key),
-              },
-        }));
+    } catch (error) {
+      console.error("[Stone] TikTok OAuth error:", error);
+      setErrorMessage(formatOAuthError("TikTok", error));
+    } finally {
+      if (!redirecting) {
         setPendingKey(null);
-      }, 450);
-    };
-
-  const handleToggle =
-    (key: ChannelKey) => {
-      setErrorMessage(null);
-
-      if (
-        !connections[key].connected &&
-        limitReached
-      ) {
-        setErrorMessage(
-          `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
-        );
-        return;
+        tiktokBusy.current = false;
       }
-
-      if (key === "tiktok") {
-        void handleTikTokToggle();
-        return;
-      }
-
-      if (key === "pinterest") {
-        void handlePinterestToggle();
-        return;
-      }
-
-      if (key === "youtube") {
-        void handleYouTubeToggle();
-        return;
-      }
-
-      handlePlaceholderToggle(key);
-    };
-
-  const handleUpgrade = () => {
-    console.log("[Stone] Upgrade clicked");
+    }
   };
 
-  const openModal = () => {
+  const handlePinterestToggle = async () => {
+    if (pinterestBusy.current) return;
+    pinterestBusy.current = true;
+    setPendingKey("pinterest");
+    let redirecting = false;
+    try {
+      if (connections.pinterest.connected) {
+        await disconnectPinterest();
+        if (userId) clearCache(userId, "pinterest");
+        setConnections((current) => ({ ...current, pinterest: { connected: false } }));
+      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+        const token = window.prompt("Pinterest access token:");
+        if (!token?.trim()) {
+          setPendingKey(null);
+          return;
+        }
+        const account = await connectPinterestWithToken(token.trim());
+        const connection: Connection = {
+          connected: true,
+          handle: account?.display_name ?? undefined,
+          avatarUrl: account?.avatar_url ?? undefined,
+        };
+        if (userId) writeCache(userId, connection, "pinterest");
+        setConnections((current) => ({ ...current, pinterest: connection }));
+      } else {
+        await startPinterestLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] Pinterest OAuth error:", error);
+      setErrorMessage(formatOAuthError("Pinterest", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        pinterestBusy.current = false;
+      }
+    }
+  };
+
+  const handleYouTubeToggle = async () => {
+    if (youtubeBusy.current) return;
+    youtubeBusy.current = true;
+    setPendingKey("youtube");
+    let redirecting = false;
+    try {
+      if (connections.youtube.connected) {
+        await disconnectYouTube();
+        if (userId) clearCache(userId, "youtube");
+        setConnections((current) => ({ ...current, youtube: { connected: false } }));
+      } else {
+        await startYouTubeLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] YouTube OAuth error:", error);
+      setErrorMessage(formatOAuthError("YouTube", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        youtubeBusy.current = false;
+      }
+    }
+  };
+
+  const handlePlaceholderToggle = (key: ChannelKey) => {
+    setPendingKey(key);
+    window.setTimeout(() => {
+      setConnections((current) => ({
+        ...current,
+        [key]: current[key].connected
+          ? { connected: false }
+          : { connected: true, handle: mockHandleFor(key) },
+      }));
+      setPendingKey(null);
+    }, 450);
+  };
+
+  const handleToggle = (key: ChannelKey) => {
     setErrorMessage(null);
-    setShowConnectModal(true);
+    if (!connections[key].connected && limitReached) {
+      setErrorMessage(`Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`);
+      return;
+    }
+    if (key === "tiktok") return void handleTikTokToggle();
+    if (key === "pinterest") return void handlePinterestToggle();
+    if (key === "youtube") return void handleYouTubeToggle();
+    handlePlaceholderToggle(key);
   };
 
-  const closeModal = () => {
-    setShowConnectModal(false);
+  const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
+  const openModal = () => { setErrorMessage(null); setShowConnectModal(true); };
+  const closeModal = () => setShowConnectModal(false);
+
+  // Onboarding Handlers
+  const handleFinishConnection = () => {
+    setShowConfirmModal(false);
+    setShowFrequencyModal(true);
+  };
+
+  const handleFrequencyNext = () => {
+    setShowFrequencyModal(false);
+    setOnboardingChannel(null);
+  };
+
+  const handleCloseOnboarding = () => {
+    setShowConfirmModal(false);
+    setShowFrequencyModal(false);
+    setOnboardingChannel(null);
   };
 
   /* ==========================================================================
@@ -1351,67 +1087,25 @@ export default function Channels({
   ========================================================================== */
 
   return (
-    <div
-      className={[
-        "relative h-full w-full",
-        "overflow-hidden",
-        t.page,
-        "transition-colors duration-300",
-      ].join(" ")}
-    >
-      <DashboardSidebar
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-      />
+    <div className={["relative h-full w-full overflow-hidden", t.page, "transition-colors duration-300"].join(" ")}>
+      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
       <main
-        className={[
-          "h-full overflow-hidden",
-          "transition-[padding-left]",
-          "duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-        ].join(" ")}
+        className="h-full overflow-hidden transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div
-          className={[
-            "mx-auto flex h-full w-full",
-            "max-w-[980px]",
-            "flex-col",
-            "px-[clamp(18px,4vw,44px)]",
-            "py-[clamp(22px,4vh,38px)]",
-          ].join(" ")}
-        >
-          {/* ================================================================
-              HEADER
-          ================================================================ */}
-
+        <div className="mx-auto flex h-full w-full max-w-[980px] flex-col px-[clamp(18px,4vw,44px)] py-[clamp(22px,4vh,38px)]">
+          {/* HEADER */}
           <header className="flex shrink-0 items-center justify-between gap-4">
-            <h1
-              className={[
-                "text-[28px] font-semibold",
-                "tracking-[-0.03em]",
-                t.text,
-              ].join(" ")}
-            >
+            <h1 className={["text-[28px] font-semibold tracking-[-0.03em]", t.text].join(" ")}>
               Channels
             </h1>
-
             <button
               type="button"
               onClick={openModal}
               className={[
-                "inline-flex shrink-0",
-                "items-center gap-2",
-                "rounded-xl",
-                "px-5 py-2.5",
-                "text-[13px] font-medium",
-                "transition-all duration-150",
-                "hover:-translate-y-px",
-                "active:scale-[0.98]",
-                isDark
-                  ? "bg-white text-black hover:bg-zinc-200"
-                  : "bg-zinc-950 text-white hover:bg-zinc-800",
+                "inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
+                isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
                 t.ring,
               ].join(" ")}
             >
@@ -1419,60 +1113,22 @@ export default function Channels({
             </button>
           </header>
 
-          {/* ================================================================
-              PLAN BANNER
-          ================================================================ */}
-
-          <div
-            className={[
-              "mt-8 flex items-start gap-4",
-              "rounded-2xl border p-6",
-              t.card,
-              t.border,
-            ].join(" ")}
-          >
-            <div
-              className={[
-                "p-2 rounded-lg",
-                isDark ? "bg-[#262626]" : "bg-zinc-100",
-              ].join(" ")}
-            >
-              <LayersIcon
-                className={[
-                  "w-5 h-5",
-                  t.muted,
-                ].join(" ")}
-              />
+          {/* PLAN BANNER */}
+          <div className={["mt-8 flex items-start gap-4 rounded-2xl border p-6", t.card, t.border].join(" ")}>
+            <div className={["p-2 rounded-lg", isDark ? "bg-[#262626]" : "bg-zinc-100"].join(" ")}>
+              <LayersIcon className={["w-5 h-5", t.muted].join(" ")} />
             </div>
             <div className="flex-1">
-              <h3
-                className={[
-                  "text-sm font-semibold",
-                  t.text,
-                ].join(" ")}
-              >
-                Get to know your plan
-              </h3>
-              <p
-                className={[
-                  "mt-1 text-sm",
-                  t.muted,
-                ].join(" ")}
-              >
-                You are on the {PLAN.name} plan and can connect up to{" "}
-                {PLAN.maxChannels} channels.
+              <h3 className={["text-sm font-semibold", t.text].join(" ")}>Get to know your plan</h3>
+              <p className={["mt-1 text-sm", t.muted].join(" ")}>
+                You are on the {PLAN.name} plan and can connect up to {PLAN.maxChannels} channels.
               </p>
               <button
                 type="button"
                 onClick={handleUpgrade}
                 className={[
-                  "mt-4 px-4 py-2",
-                  "text-xs font-medium",
-                  "rounded-lg",
-                  "transition-colors",
-                  isDark
-                    ? "bg-[#262626] text-white hover:bg-[#333]"
-                    : "bg-zinc-100 text-black hover:bg-zinc-200",
+                  "mt-4 px-4 py-2 text-xs font-medium rounded-lg transition-colors",
+                  isDark ? "bg-[#262626] text-white hover:bg-[#333]" : "bg-zinc-100 text-black hover:bg-zinc-200",
                   t.ring,
                 ].join(" ")}
               >
@@ -1481,95 +1137,40 @@ export default function Channels({
             </div>
           </div>
 
-          {/* ================================================================
-              ERROR MESSAGE
-          ================================================================ */}
-
+          {/* ERROR MESSAGE */}
           {errorMessage && (
-            <div
-              role="alert"
-              className={[
-                "mt-4 flex shrink-0 items-center",
-                "gap-2.5 rounded-xl",
-                "border border-red-500/20",
-                "bg-red-500/[0.06]",
-                "px-4 py-3",
-                "text-xs text-red-400",
-              ].join(" ")}
-            >
-              <span className="flex-1">
-                {errorMessage}
-              </span>
-              <button
-                type="button"
-                aria-label="Dismiss"
-                onClick={() => setErrorMessage(null)}
-                className="rounded-md p-1 hover:bg-red-500/10"
-              >
+            <div role="alert" className="mt-4 flex shrink-0 items-center gap-2.5 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-xs text-red-400">
+              <span className="flex-1">{errorMessage}</span>
+              <button type="button" aria-label="Dismiss" onClick={() => setErrorMessage(null)} className="rounded-md p-1 hover:bg-red-500/10">
                 <CloseIcon className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
-          {/* ================================================================
-              CONTENT (EMPTY STATE OR GRID)
-          ================================================================ */}
-
-          {connectedCount === 0 ? (
+          {/* CONTENT */}
+          {connectedChannels.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center mt-12 pb-20">
               <button
                 type="button"
                 onClick={openModal}
                 className={[
-                  "w-16 h-16 rounded-full",
-                  "flex items-center justify-center",
-                  "transition-colors group",
-                  isDark
-                    ? "bg-[#1a1a1a] border border-[#262626] hover:bg-[#262626]"
-                    : "bg-zinc-100 border border-zinc-200 hover:bg-zinc-200",
+                  "w-16 h-16 rounded-full flex items-center justify-center transition-colors group",
+                  isDark ? "bg-[#1a1a1a] border border-[#262626] hover:bg-[#262626]" : "bg-zinc-100 border border-zinc-200 hover:bg-zinc-200",
                   t.ring,
                 ].join(" ")}
               >
-                <PlusIcon
-                  className={[
-                    "w-8 h-8",
-                    "transition-colors",
-                    isDark
-                      ? "text-zinc-400 group-hover:text-white"
-                      : "text-zinc-500 group-hover:text-black",
-                  ].join(" ")}
-                />
+                <PlusIcon className={["w-8 h-8 transition-colors", isDark ? "text-zinc-400 group-hover:text-white" : "text-zinc-500 group-hover:text-black"].join(" ")} />
               </button>
-
-              <h2
-                className={[
-                  "mt-6 text-lg font-semibold",
-                  t.text,
-                ].join(" ")}
-              >
-                Connect a channel to get started
-              </h2>
-
-              <p
-                className={[
-                  "mt-2 text-sm text-center max-w-sm",
-                  t.muted,
-                ].join(" ")}
-              >
+              <h2 className={["mt-6 text-lg font-semibold", t.text].join(" ")}>Connect a channel to get started</h2>
+              <p className={["mt-2 text-sm text-center max-w-sm", t.muted].join(" ")}>
                 Once connected, you'll see your channels listed here.
               </p>
-
               <button
                 type="button"
                 onClick={openModal}
                 className={[
-                  "mt-8 px-6 py-2.5",
-                  "text-sm font-medium",
-                  "rounded-lg",
-                  "transition-colors",
-                  isDark
-                    ? "bg-white text-black hover:bg-zinc-200"
-                    : "bg-zinc-950 text-white hover:bg-zinc-800",
+                  "mt-8 px-6 py-2.5 text-sm font-medium rounded-lg transition-colors",
+                  isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
                   t.ring,
                 ].join(" ")}
               >
@@ -1577,26 +1178,14 @@ export default function Channels({
               </button>
             </div>
           ) : (
-            <div
-              className={[
-                "mt-6 grid min-h-0 flex-1",
-                "grid-cols-1",
-                "gap-4",
-                "sm:grid-cols-2",
-                "lg:grid-cols-3",
-                "content-start",
-              ].join(" ")}
-            >
-              {CHANNELS.map((channel) => (
+            <div className="mt-6 grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 content-start">
+              {connectedChannels.map((channel) => (
                 <ChannelCard
                   key={channel.key}
                   channel={channel}
                   connection={connections[channel.key]}
                   pending={pendingKey === channel.key}
-                  disabled={
-                    !connections[channel.key].connected &&
-                    limitReached
-                  }
+                  disabled={false}
                   t={t}
                   onToggle={() => handleToggle(channel.key)}
                 />
@@ -1604,34 +1193,15 @@ export default function Channels({
             </div>
           )}
 
-          {/* ================================================================
-              FOOTER
-          ================================================================ */}
-
-          <div
-            className={[
-              "mt-4 flex shrink-0",
-              "items-center justify-between",
-              "text-[10px]",
-              t.muted,
-            ].join(" ")}
-          >
-            <span>
-              {slotsLeft > 0
-                ? `${slotsLeft} ${
-                    slotsLeft === 1 ? "slot" : "slots"
-                  } remaining`
-                : "Plan limit reached"}
-            </span>
+          {/* FOOTER */}
+          <div className={["mt-4 flex shrink-0 items-center justify-between text-[10px]", t.muted].join(" ")}>
+            <span>{slotsLeft > 0 ? `${slotsLeft} ${slotsLeft === 1 ? "slot" : "slots"} remaining` : "Plan limit reached"}</span>
             <span>Secure OAuth connections</span>
           </div>
         </div>
       </main>
 
-      {/* ================================================================
-          MODAL
-      ================================================================ */}
-
+      {/* MODAL: CONNECT CHANNEL */}
       {showConnectModal && (
         <ConnectChannelModal
           channels={CHANNELS}
@@ -1647,26 +1217,38 @@ export default function Channels({
         />
       )}
 
-      {/* ================================================================
-          TOAST NOTIFICATION
-      ================================================================ */}
+      {/* MODAL: ONBOARDING STEP 1 (CONFIRM ACCOUNT) */}
+      {showConfirmModal && onboardingChannel && (
+        <ConfirmAccountModal
+          channel={CHANNELS.find((c) => c.key === onboardingChannel)!}
+          connection={connections[onboardingChannel]}
+          t={t}
+          isDark={isDark}
+          onFinish={handleFinishConnection}
+          onClose={handleCloseOnboarding}
+        />
+      )}
 
+      {/* MODAL: ONBOARDING STEP 2 (POSTING FREQUENCY) */}
+      {showFrequencyModal && onboardingChannel && (
+        <PostingFrequencyModal
+          channel={CHANNELS.find((c) => c.key === onboardingChannel)!}
+          t={t}
+          isDark={isDark}
+          onNext={handleFrequencyNext}
+          onClose={handleCloseOnboarding}
+        />
+      )}
+
+      {/* TOAST NOTIFICATION */}
       {notification && (
         <div
           className={[
-            "fixed bottom-6 right-6 z-50",
-            "flex items-center gap-3",
-            "rounded-xl border px-4 py-3",
-            "shadow-2xl transition-all duration-300",
-            "animate-in slide-in-from-bottom-5 fade-in",
-            isDark
-              ? "border-[#333] bg-[#1a1a1a] text-white"
-              : "border-zinc-200 bg-white text-black",
+            "fixed bottom-6 right-6 z-[110] flex items-center gap-3 rounded-xl border px-4 py-3 shadow-2xl transition-all duration-300 animate-in slide-in-from-bottom-5 fade-in",
+            isDark ? "border-[#333] bg-[#1a1a1a] text-white" : "border-zinc-200 bg-white text-black",
           ].join(" ")}
         >
-          <span className="text-sm font-medium">
-            {notification.message}
-          </span>
+          <span className="text-sm font-medium">{notification.message}</span>
         </div>
       )}
     </div>

@@ -114,7 +114,6 @@ type ThemeTokens = {
   divider: string;
   navActive: string;
   navIdle: string;
-  handle: string;
   count: string;
   dotRing: string;
   rail: string;
@@ -155,75 +154,28 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   Animation de la sidebar
-   L'animation est un événement de la sidebar (ouverture / fermeture), pas
-   une animation permanente de l'interface : aucun effet de scale au hover.
-
-   Ouverture (~420 ms) : le cadre s'élargit, puis les textes font un fade +
-   slide de 8 px (avec un léger décalage par ligne).
-   Fermeture : les textes disparaissent très vite, puis la largeur revient
-   à 68 px. Les icônes ne bougent jamais.
+   Animation
+   Minimaliste : un seul mouvement, l'élargissement de la barre. Les textes
+   apparaissent en fondu (sans glissement), les icônes ne bougent jamais.
 ============================================================================ */
 
-const SIDEBAR_WIDTH_MS = 420;
-const LABEL_DELAY_MS = 120;
-
-/* ============================================================================
-   Keyframes + global UI guards
-============================================================================ */
+const SIDEBAR_WIDTH_MS = 300;
+const LABEL_DELAY_MS = 100;
 
 const SIDEBAR_KEYFRAMES = `
-@keyframes sbMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes sbFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes sbItemIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes sbTipIn {
-  from {
-    opacity: 0;
-    transform: translate(-4px, -50%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(0, -50%);
-  }
-}
-
-.sb-menu {
-  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-item {
-  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
+.sb-menu,
+.sb-item,
 .sb-tip {
-  animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: sbFadeIn 140ms ease-out both;
 }
 
 #app-sidebar button,
 #app-sidebar [role="menuitem"],
-#app-sidebar [role="button"],
 #app-sidebar svg,
 #app-sidebar img {
   -webkit-user-select: none;
@@ -231,14 +183,6 @@ const SIDEBAR_KEYFRAMES = `
   -ms-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-}
-
-#app-sidebar button::selection,
-#app-sidebar button *::selection,
-#app-sidebar svg::selection,
-#app-sidebar svg *::selection {
-  background: transparent;
-  color: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -319,7 +263,7 @@ function Kbd({ children, className }: { children: ReactNode; className: string }
   return (
     <kbd
       className={[
-        "select-none rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
+        "select-none rounded px-1.5 py-0.5 font-sans text-[10px] font-medium",
         className,
       ].join(" ")}
     >
@@ -329,7 +273,7 @@ function Kbd({ children, className }: { children: ReactNode; className: string }
 }
 
 /* ============================================================================
-   Icons
+   Icons (trait fin, uniforme)
 ============================================================================ */
 
 function Svg({
@@ -344,7 +288,7 @@ function Svg({
       className={["select-none", className].join(" ")}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -457,14 +401,6 @@ function LogoutIcon(props: IconProps) {
   );
 }
 
-function BoltIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
-    </Svg>
-  );
-}
-
 /** Icône « panneau latéral » : le panneau gauche se remplit quand la sidebar est ouverte. */
 function SidebarToggleIcon({
   className,
@@ -483,7 +419,7 @@ function SidebarToggleIcon({
         fill="currentColor"
         stroke="none"
         className={[
-          "transition-opacity duration-300",
+          "transition-opacity duration-200",
           "motion-reduce:transition-none",
           open ? "opacity-30" : "opacity-0",
         ].join(" ")}
@@ -545,7 +481,7 @@ function Tip({
     timerRef.current = window.setTimeout(() => {
       const rect = anchorRef.current?.getBoundingClientRect();
       if (rect) {
-        setPos({ top: rect.top + rect.height / 2, left: rect.right + 12 });
+        setPos({ top: rect.top + rect.height / 2, left: rect.right + 10 });
       }
     }, TIP_DELAY_MS);
   }, [enabled]);
@@ -576,7 +512,7 @@ function Tip({
             className={[
               "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
               "flex items-center gap-2",
-              "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+              "whitespace-nowrap rounded-md border px-2 py-1",
               "text-[11.5px] font-medium",
               menuClass,
             ].join(" ")}
@@ -667,12 +603,11 @@ function NavItemViewImpl({
   const shortcut = shortcutForRoute(item.route);
   const shortcutLetter = shortcutKeyForRoute(item.route);
 
-  /* Ouverture : le stagger part après le début de l'élargissement.
-     Fermeture : aucun délai, les textes disparaissent immédiatement. */
+  /* Ouverture : léger décalage par ligne. Fermeture : aucun délai. */
   const labelStyle = {
     transitionDelay: isCollapsed
       ? "0ms"
-      : `${LABEL_DELAY_MS + index * 35}ms`,
+      : `${LABEL_DELAY_MS + index * 25}ms`,
   };
 
   const isActive =
@@ -713,55 +648,18 @@ function NavItemViewImpl({
         }
         onClick={onClick}
         className={[
-          "group relative flex h-9 w-full",
-          "select-none",
-          "items-center gap-2.5 overflow-hidden",
-          "rounded-lg px-3",
-          "text-[12.5px] font-medium",
-          "transition-[background-color,color,transform]",
-          "duration-200",
-          "active:scale-[0.97]",
+          "flex h-9 w-full items-center gap-3 overflow-hidden",
+          "rounded-md px-3 text-[13px] font-medium",
+          "transition-colors duration-150",
           "motion-reduce:transition-none",
-          "motion-reduce:active:scale-100",
           focus,
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
-        {/* Repère d'état actif : lisible même quand le fond est très discret. */}
-        <span
-          aria-hidden="true"
-          className={[
-            "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2",
-            "rounded-r-full bg-current",
-            "transition-[opacity,transform] duration-200",
-            "motion-reduce:transition-none",
-            isActive ? "scale-y-100 opacity-70" : "scale-y-0 opacity-0",
-          ].join(" ")}
-        />
-
-        {/* Icône : statique, aucun effet au hover. */}
-        <span className="relative flex shrink-0 select-none">
-          <Icon className="h-[18px] w-[18px]" />
-
-          {item.badge && (
-            <span
-              aria-hidden="true"
-              className={[
-                "absolute -right-0.5 -top-0.5",
-                "h-2 w-2 rounded-full",
-                "select-none",
-                "bg-[#ff5ec4] ring-2",
-                t.dotRing,
-                isCollapsed
-                  ? "opacity-100 delay-150 duration-200"
-                  : "opacity-0 duration-100",
-              ].join(" ")}
-            />
-          )}
-        </span>
+        <Icon className="h-[18px] w-[18px] shrink-0" />
 
         <span
-          className={["flex-1 select-none text-left", labelClass].join(" ")}
+          className={["flex-1 text-left", labelClass].join(" ")}
           style={labelStyle}
         >
           {item.label}
@@ -771,9 +669,7 @@ function NavItemViewImpl({
           <span
             style={labelStyle}
             className={[
-              "select-none",
-              "rounded-md px-1.5 py-0.5",
-              "text-[10.5px] font-medium",
+              "rounded px-1.5 py-0.5 text-[10.5px] font-medium",
               t.count,
               labelClass,
             ].join(" ")}
@@ -784,14 +680,12 @@ function NavItemViewImpl({
 
         {hasChildren && (
           <span
-            className={["flex shrink-0 select-none", labelClass].join(" ")}
+            className={["flex shrink-0", labelClass].join(" ")}
             style={labelStyle}
           >
             <ChevronDownIcon
               className={[
-                "h-4 w-4",
-                "transition-transform duration-300",
-                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "h-4 w-4 transition-transform duration-200",
                 "motion-reduce:transition-none",
                 isOpen ? "rotate-180" : "",
               ].join(" ")}
@@ -803,10 +697,7 @@ function NavItemViewImpl({
       {hasChildren && (
         <div
           className={[
-            "grid",
-            "transition-[grid-template-rows]",
-            "duration-300",
-            "ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "grid transition-[grid-template-rows] duration-200",
             "motion-reduce:transition-none",
             isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           ].join(" ")}
@@ -814,13 +705,12 @@ function NavItemViewImpl({
           <div className="overflow-hidden">
             <div
               className={[
-                "ml-[22px] mt-1 flex",
-                "flex-col gap-0.5",
-                "border-l pl-[13px]",
+                "ml-[21px] mt-0.5 flex flex-col gap-0.5",
+                "border-l pl-3",
                 t.rail,
               ].join(" ")}
             >
-              {item.children!.map((child, childIndex) => {
+              {item.children!.map((child) => {
                 const childActive = child.route === currentRoute;
 
                 return (
@@ -830,26 +720,11 @@ function NavItemViewImpl({
                     tabIndex={isOpen ? 0 : -1}
                     aria-current={childActive ? "page" : undefined}
                     onClick={() => onNavigate(child.route)}
-                    style={{
-                      transitionDelay: isOpen
-                        ? `${80 + childIndex * 45}ms`
-                        : "0ms",
-                    }}
                     className={[
-                      "flex h-8 w-full",
-                      "select-none",
-                      "items-center",
-                      "whitespace-nowrap",
-                      "rounded-lg px-2",
-                      "text-left text-[12.5px]",
-                      "font-medium",
-                      "transition-[background-color,color,opacity,transform]",
-                      "duration-300",
-                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      "flex h-8 w-full items-center whitespace-nowrap",
+                      "rounded-md px-2 text-left text-[12.5px] font-medium",
+                      "transition-colors duration-150",
                       "motion-reduce:transition-none",
-                      isOpen
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-2 opacity-0",
                       focus,
                       childActive ? t.subActive : t.sub,
                     ].join(" ")}
@@ -1067,7 +942,7 @@ function SidebarChannelsImpl({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   const headerButton = [
-    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
+    "flex h-6 w-6 items-center justify-center rounded-md",
     "transition-colors duration-150 motion-reduce:transition-none",
     t.menuIcon,
     focus,
@@ -1080,32 +955,28 @@ function SidebarChannelsImpl({
         aria-hidden={isCollapsed}
         className={[
           "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
-          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "transition-[height,margin,opacity] duration-200",
           "motion-reduce:transition-none",
           isCollapsed
             ? "mb-0 h-0 opacity-0 delay-0"
-            : "mb-1.5 h-6 opacity-100 delay-[120ms]",
+            : "mb-1 h-6 opacity-100 delay-100",
         ].join(" ")}
       >
-        <span
-          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
-        >
+        <span className={["text-[12px] font-medium", t.muted].join(" ")}>
           Channels
         </span>
 
-        <span className="flex items-center gap-0.5">
-          <button
-            type="button"
-            tabIndex={isCollapsed ? -1 : 0}
-            aria-label="Connect a channel"
-            aria-keyshortcuts="Control+N"
-            title={`Connect a channel (${shortcutLabel("n")})`}
-            onClick={onConnect}
-            className={headerButton}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </span>
+        <button
+          type="button"
+          tabIndex={isCollapsed ? -1 : 0}
+          aria-label="Connect a channel"
+          aria-keyshortcuts="Control+N"
+          title={`Connect a channel (${shortcutLabel("n")})`}
+          onClick={onConnect}
+          className={headerButton}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex flex-col gap-0.5">
@@ -1137,11 +1008,9 @@ function SidebarChannelsImpl({
                     }
                   }}
                   className={[
-                    "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
-                    "rounded-lg px-[9px] text-[12.5px] font-medium",
-                    "transition-[background-color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none",
-                    "motion-reduce:active:scale-100",
+                    "group flex h-9 w-full items-center gap-3 overflow-hidden",
+                    "rounded-md px-[9px] text-[13px] font-medium",
+                    "transition-colors duration-150 motion-reduce:transition-none",
                     focus,
                     t.navIdle,
                   ].join(" ")}
@@ -1163,11 +1032,9 @@ function SidebarChannelsImpl({
                     <ChevronDownIcon
                       className={[
                         "h-3.5 w-3.5 opacity-50",
-                        "transition-[transform,opacity] duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                        "group-hover:opacity-100",
+                        "transition-transform duration-200",
                         "motion-reduce:transition-none",
-                        isOpen ? "rotate-0 opacity-100" : "-rotate-90",
+                        isOpen ? "rotate-0" : "-rotate-90",
                       ].join(" ")}
                     />
                   </span>
@@ -1176,19 +1043,19 @@ function SidebarChannelsImpl({
 
               <div
                 className={[
-                  "grid transition-[grid-template-rows] duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                  "grid transition-[grid-template-rows] duration-200",
+                  "motion-reduce:transition-none",
                   isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
                 ].join(" ")}
               >
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      "ml-[21px] mt-0.5 flex flex-col gap-0.5 border-l pl-3",
                       t.rail,
                     ].join(" ")}
                   >
-                    {CHANNEL_LINKS.map((link, i) => {
+                    {CHANNEL_LINKS.map((link) => {
                       const Icon = link.icon;
 
                       const target = link.perChannel
@@ -1212,17 +1079,10 @@ function SidebarChannelsImpl({
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
                           onClick={() => onNavigate(target)}
-                          style={{
-                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
-                          }}
                           className={[
-                            "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
-                            "transition-[background-color,color,opacity,transform] duration-300",
-                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-                            isOpen
-                              ? "translate-x-0 opacity-100"
-                              : "-translate-x-2 opacity-0",
+                            "flex h-8 w-full items-center gap-2.5 whitespace-nowrap",
+                            "rounded-md px-2 text-left text-[12.5px] font-medium",
+                            "transition-colors duration-150 motion-reduce:transition-none",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
@@ -1232,7 +1092,7 @@ function SidebarChannelsImpl({
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                                "rounded px-1.5 py-0.5 text-[10.5px] font-medium",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1264,9 +1124,8 @@ function SidebarChannelsImpl({
             aria-keyshortcuts="Control+N"
             onClick={onConnect}
             className={[
-              "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
-              "transition-[background-color,transform] duration-200 active:scale-[0.97]",
-              "motion-reduce:transition-none motion-reduce:active:scale-100",
+              "mt-0.5 flex h-9 w-full items-center gap-3 rounded-md px-3",
+              "transition-colors duration-150 motion-reduce:transition-none",
               focus,
               t.navIdle,
             ].join(" ")}
@@ -1305,9 +1164,9 @@ const sidebarMemory = {
   entered: false,
 };
 
-/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
-   plus sa marge gauche (16px) et un espace de respiration. */
-export const SIDEBAR_COLLAPSED_OFFSET = 104;
+/* Décalage du contenu des pages : la sidebar est collée au bord gauche,
+   sa largeur (60px réduite / 208px ouverte) + un espace de respiration. */
+export const SIDEBAR_COLLAPSED_OFFSET = 84;
 export const SIDEBAR_EXPANDED_OFFSET = 232;
 
 const sidebarListeners = new Set<() => void>();
@@ -1736,68 +1595,62 @@ export default function DashboardSidebar({
   );
 
   /* --------------------------------------------------------------------------
-     Theme tokens
+     Theme tokens (plat : pas d'ombre, une seule bordure, aucun dégradé)
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
-            aside:
-              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
+            aside: "border-white/[0.08] bg-[#0c0c0e]",
             brand: "text-white",
-            divider: "bg-white/10",
-            navActive: "bg-white/15 text-white",
-            navIdle: "text-white hover:bg-white/10",
-            handle:
-              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
-            count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#050506]",
-            rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
+            divider: "bg-white/[0.08]",
+            navActive: "bg-white/[0.08] text-white",
+            navIdle: "text-[#a1a1a6] hover:bg-white/[0.05] hover:text-white",
+            count: "bg-white/[0.08] text-[#c8c8cc]",
+            dotRing: "ring-[#0c0c0e]",
+            rail: "border-white/[0.08]",
+            sub: "text-[#8a8a90] hover:bg-white/[0.05] hover:text-white",
             subActive: "bg-white/[0.08] text-white",
-            row: "hover:bg-white/10",
-            rowOpen: "bg-white/10",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
+            row: "hover:bg-white/[0.06]",
+            rowOpen: "bg-white/[0.06]",
+            avatar: "bg-[#ececea] text-[#111111]",
             title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
+            muted: "text-[#7d7d83]",
+            menu: "border-white/[0.1] bg-[#161618] text-[#f3f3ef]",
+            menuDivider: "border-white/[0.08]",
             menuItem:
-              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
-            menuIcon: "text-[#a9aeae]",
+              "text-[#e4e4e0] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
+            menuIcon: "text-[#8a8a90]",
             upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
-            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
+              "border-white/[0.1] text-[#f3f3ef] hover:bg-white/[0.06]",
+            badge: "bg-white/[0.08] text-[#c8c8cc]",
             ring: "focus-visible:ring-white/30",
           }
         : {
-            aside:
-              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
+            aside: "border-black/[0.08] bg-white",
             brand: "text-[#151515]",
             divider: "bg-black/[0.07]",
             navActive: "bg-black/[0.06] text-[#151515]",
-            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
-            handle:
-              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
-            count: "bg-black/[0.05] text-[#3f3f3d]",
+            navIdle: "text-[#5c5c59] hover:bg-black/[0.04] hover:text-[#151515]",
+            count: "bg-black/[0.05] text-[#4d4d4b]",
             dotRing: "ring-white",
             rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
+            sub: "text-[#77766f] hover:bg-black/[0.04] hover:text-[#151515]",
             subActive: "bg-black/[0.06] text-[#151515]",
             row: "hover:bg-black/[0.04]",
             rowOpen: "bg-black/[0.04]",
             avatar: "bg-[#1d1d1d] text-white",
             title: "text-[#1b1b1a]",
-            muted: "text-[#71706d]",
-            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
+            muted: "text-[#8a8983]",
+            menu: "border-black/[0.1] bg-white text-[#1a1a1a]",
             menuDivider: "border-black/[0.07]",
             menuItem:
               "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
-            menuIcon: "text-[#6b6a67]",
+            menuIcon: "text-[#77766f]",
             upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
-            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
+              "border-black/[0.1] text-[#1a1a1a] hover:bg-black/[0.04]",
+            badge: "bg-black/[0.06] text-[#4d4d4b]",
             ring: "focus-visible:ring-black/20",
           },
     [isDark]
@@ -1810,24 +1663,20 @@ export default function DashboardSidebar({
   ].join(" ");
 
   /* --------------------------------------------------------------------------
-     Label animation
-     Ouverture : fade + slide (8 px) après LABEL_DELAY_MS, le temps que le
-                 cadre commence à s'élargir.
-     Fermeture : fade très rapide, sans délai (les textes partent avant la
-                 réduction de largeur).
+     Label animation : simple fondu, sans glissement.
+     Ouverture : après LABEL_DELAY_MS, le temps que la largeur démarre.
+     Fermeture : fondu immédiat, avant la réduction de largeur.
   -------------------------------------------------------------------------- */
 
   const labelClass = useMemo(
     () =>
       [
-        "select-none",
         "whitespace-nowrap",
-        "transition-[opacity,transform]",
-        "ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "transition-opacity",
         "motion-reduce:transition-none",
         isCollapsed
-          ? "-translate-x-2 opacity-0 delay-0 duration-100"
-          : "translate-x-0 opacity-100 delay-[120ms] duration-300",
+          ? "opacity-0 delay-0 duration-100"
+          : "opacity-100 delay-100 duration-200",
       ].join(" "),
     [isCollapsed]
   );
@@ -2092,7 +1941,6 @@ export default function DashboardSidebar({
   -------------------------------------------------------------------------- */
 
   let itemIndex = 0;
-  let menuItemIndex = 0;
 
   const account = userProfile
     ? {
@@ -2134,51 +1982,39 @@ export default function DashboardSidebar({
 
   /* ==========================================================================
      Render
+     Collée au bord gauche : pleine hauteur, aucun arrondi, aucune ombre,
+     une seule bordure à droite.
   ========================================================================== */
 
   return (
     <div
       className={[
-        "fixed inset-y-8 left-4 z-20",
-        "transition-[opacity,transform]",
-        "duration-500",
-        "ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "fixed inset-y-0 left-0 z-20",
+        "transition-opacity duration-300",
         "motion-reduce:transition-none",
-        hasMounted
-          ? "translate-x-0 opacity-100"
-          : "-translate-x-6 opacity-0",
+        hasMounted ? "opacity-100" : "opacity-0",
       ].join(" ")}
     >
       <style>{SIDEBAR_KEYFRAMES}</style>
 
-      {/*
-        Largeur : 420 ms.
-        - Ouverture : la largeur démarre tout de suite, les textes suivent.
-        - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
-        La classe de durée est écrite en dur (Tailwind ne génère pas de
-        classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
-      */}
+      {/* Largeur : 300 ms (garder la classe en dur en phase avec SIDEBAR_WIDTH_MS). */}
       <aside
         id="app-sidebar"
         data-width-ms={SIDEBAR_WIDTH_MS}
         className={[
           "relative flex h-full flex-col",
-          "overflow-visible rounded-[56px]",
-          "border px-3 py-7",
-          "transition-[width,box-shadow]",
-          "duration-[420ms]",
+          "overflow-visible border-r px-2 py-4",
+          "transition-[width] duration-300",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
           t.aside,
-          isCollapsed ? "w-[68px] delay-[120ms]" : "w-[200px] delay-0",
+          isCollapsed ? "w-[60px] delay-100" : "w-[208px] delay-0",
         ].join(" ")}
       >
         {/* Logo */}
         <div
           className={[
-            "flex items-center gap-2",
-            "select-none",
-            "overflow-hidden px-1.5",
+            "flex items-center gap-2.5 overflow-hidden px-2.5",
             t.brand,
           ].join(" ")}
         >
@@ -2186,13 +2022,12 @@ export default function DashboardSidebar({
             src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
             alt="Stone logo"
             draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
+            className="h-8 w-7 shrink-0 select-none object-contain"
           />
 
           <span
             className={[
-              "select-none",
-              "text-[20px] font-semibold",
+              "text-[17px] font-semibold",
               "leading-none tracking-tight",
               labelClass,
             ].join(" ")}
@@ -2204,7 +2039,7 @@ export default function DashboardSidebar({
         {/* Navigation */}
         <nav
           className={[
-            "-mx-1 mt-5 flex min-h-0 flex-1",
+            "-mx-1 mt-6 flex min-h-0 flex-1",
             "flex-col overflow-y-auto",
             "overflow-x-hidden px-1",
             "[scrollbar-width:none]",
@@ -2212,66 +2047,36 @@ export default function DashboardSidebar({
           ].join(" ")}
           aria-label="Main"
         >
-          {navSections.map((section, sectionIndex) => (
-            <div
-              key={section.label}
-              className={sectionIndex === 0 ? "" : "mt-3"}
-            >
-              {sectionIndex > 0 && (
-                <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-              )}
+          {navSections.map((section) => (
+            <div key={section.label} className="flex flex-col gap-0.5">
+              {section.items.map((item) => {
+                const hasChildren = Boolean(item.children?.length);
 
-              <div
-                aria-hidden={isCollapsed}
-                className={[
-                  "select-none",
-                  "overflow-hidden",
-                  "whitespace-nowrap",
-                  "px-3 text-[12px]",
-                  "font-medium leading-4",
-                  "transition-[height,margin,opacity,transform]",
-                  "duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "motion-reduce:transition-none",
-                  t.muted,
-                  isCollapsed
-                    ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
-                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
-                ].join(" ")}
-              >
-                {section.label}
-              </div>
+                const isOpen =
+                  hasChildren && openGroup === item.label && !isCollapsed;
 
-              <div className="flex flex-col gap-0.5">
-                {section.items.map((item) => {
-                  const hasChildren = Boolean(item.children?.length);
-
-                  const isOpen =
-                    hasChildren && openGroup === item.label && !isCollapsed;
-
-                  return (
-                    <NavItemView
-                      key={item.label}
-                      index={itemIndex++}
-                      item={item}
-                      currentRoute={currentRoute}
-                      isCollapsed={isCollapsed}
-                      isOpen={isOpen}
-                      labelClass={labelClass}
-                      focus={focus}
-                      t={t}
-                      onNavigate={handleNavigate}
-                      onToggleGroup={handleToggleGroup}
-                      onExpandAndOpen={handleExpandAndOpen}
-                    />
-                  );
-                })}
-              </div>
+                return (
+                  <NavItemView
+                    key={item.label}
+                    index={itemIndex++}
+                    item={item}
+                    currentRoute={currentRoute}
+                    isCollapsed={isCollapsed}
+                    isOpen={isOpen}
+                    labelClass={labelClass}
+                    focus={focus}
+                    t={t}
+                    onNavigate={handleNavigate}
+                    onToggleGroup={handleToggleGroup}
+                    onExpandAndOpen={handleExpandAndOpen}
+                  />
+                );
+              })}
             </div>
           ))}
 
           {/* Channels */}
-          <div className="mt-3">
+          <div className="mt-4">
             <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
             <SidebarChannels
               channels={connectedChannels}
@@ -2299,7 +2104,7 @@ export default function DashboardSidebar({
           <div
             className={[
               "flex gap-1",
-              isCollapsed ? "flex-col" : "flex-row items-center gap-1.5",
+              isCollapsed ? "flex-col" : "flex-row items-center",
             ].join(" ")}
           >
             {/* Toggle sidebar */}
@@ -2311,12 +2116,10 @@ export default function DashboardSidebar({
               aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               onClick={toggleCollapsed}
               className={[
-                "group/toggle relative flex shrink-0 select-none",
-                "items-center justify-center rounded-xl",
-                "transition-[background-color,color,transform] duration-200",
-                "active:scale-[0.94]",
+                "group/toggle relative flex shrink-0",
+                "items-center justify-center rounded-md",
+                "transition-colors duration-150",
                 "motion-reduce:transition-none",
-                "motion-reduce:active:scale-100",
                 isCollapsed
                   ? "order-first h-9 w-full"
                   : "order-last h-9 w-9",
@@ -2332,7 +2135,7 @@ export default function DashboardSidebar({
                 role="tooltip"
                 className={[
                   "pointer-events-none absolute z-50 flex items-center gap-2",
-                  "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+                  "whitespace-nowrap rounded-md border px-2 py-1",
                   "text-[11.5px] font-medium",
                   "opacity-0 transition-opacity duration-150 delay-0",
                   "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
@@ -2361,31 +2164,27 @@ export default function DashboardSidebar({
                   onKeyDown={onMenuKeyDown}
                   className={[
                     "sb-menu absolute",
-                    "bottom-full left-[6px]",
-                    "z-50 mb-2 w-[264px]",
-                    "origin-bottom-left",
-                    "overflow-hidden",
-                    "rounded-[16px]",
-                    "border",
+                    "bottom-full left-0",
+                    "z-50 mb-2 w-[248px]",
+                    "overflow-hidden rounded-lg border",
                     t.menu,
                   ].join(" ")}
                 >
                   {/* Account header */}
-                  <div
-                    className="sb-item px-3.5 pb-3 pt-3.5"
-                    style={{ animationDelay: "30ms" }}
-                  >
+                  <div className="px-3.5 pb-3 pt-3.5">
+                    <div className="truncate text-[14px] font-semibold">
+                      {account.name}
+                    </div>
+
                     <div
-                      className={["truncate text-[11px]", t.muted].join(" ")}
+                      className={["mt-0.5 truncate text-[11.5px]", t.muted].join(
+                        " "
+                      )}
                     >
                       {account.email}
                     </div>
 
-                    <div className="mt-2.5 truncate text-[14px] font-semibold">
-                      {account.name}
-                    </div>
-
-                    <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
+                    <div className={["mt-0.5 text-[11.5px]", t.muted].join(" ")}>
                       {account.plan} · {pluralizeChannels(account.channels)}
                     </div>
 
@@ -2397,22 +2196,16 @@ export default function DashboardSidebar({
                         navigate("pricing");
                       }}
                       className={[
-                        "mt-3 flex w-full",
-                        "select-none",
-                        "items-center justify-center",
-                        "gap-2 rounded-[10px]",
-                        "border px-3 py-2",
-                        "text-[12px] font-semibold",
-                        "transition-[background-color,transform]",
-                        "duration-150",
-                        "active:scale-[0.98]",
+                        "mt-3 flex w-full items-center justify-center",
+                        "rounded-md border px-3 py-1.5",
+                        "text-[12px] font-medium",
+                        "transition-colors duration-150",
                         "motion-reduce:transition-none",
                         focus,
                         t.upgrade,
                       ].join(" ")}
                     >
-                      <BoltIcon className="h-4 w-4" />
-                      Upgrade Plan
+                      Upgrade plan
                     </button>
                   </div>
 
@@ -2421,13 +2214,10 @@ export default function DashboardSidebar({
                     <div
                       key={group[0]?.label ?? groupIndex}
                       role="none"
-                      className={["border-t px-1.5 py-1.5", t.menuDivider].join(
-                        " "
-                      )}
+                      className={["border-t p-1.5", t.menuDivider].join(" ")}
                     >
                       {group.map((item) => {
                         const Icon = item.icon;
-                        const delay = 60 + menuItemIndex++ * 25;
                         const isLogout = item.action === "logout";
 
                         return (
@@ -2436,7 +2226,6 @@ export default function DashboardSidebar({
                             type="button"
                             role="menuitem"
                             disabled={isLogout && loggingOut}
-                            style={{ animationDelay: `${delay}ms` }}
                             onClick={() => {
                               if (isLogout) {
                                 void handleLogout();
@@ -2450,16 +2239,10 @@ export default function DashboardSidebar({
                               }
                             }}
                             className={[
-                              "sb-item flex",
-                              "w-full cursor-pointer",
-                              "select-none",
-                              "items-center gap-3",
-                              "rounded-[10px]",
-                              "px-2.5 py-2",
-                              "text-left text-[12.5px]",
-                              "font-medium",
-                              "transition-[background-color,transform] duration-150",
-                              "active:scale-[0.98]",
+                              "flex w-full cursor-pointer items-center gap-3",
+                              "rounded-md px-2.5 py-1.5",
+                              "text-left text-[12.5px] font-medium",
+                              "transition-colors duration-150",
                               "motion-reduce:transition-none",
                               "disabled:cursor-wait disabled:opacity-60",
                               focus,
@@ -2482,11 +2265,8 @@ export default function DashboardSidebar({
                             {item.badge && (
                               <span
                                 className={[
-                                  "select-none",
-                                  "rounded-full",
-                                  "px-2 py-0.5",
-                                  "text-[10px]",
-                                  "font-semibold",
+                                  "rounded px-1.5 py-0.5",
+                                  "text-[10px] font-medium",
                                   t.badge,
                                 ].join(" ")}
                               >
@@ -2513,16 +2293,10 @@ export default function DashboardSidebar({
                 title={isCollapsed ? account.name : "Account menu"}
                 onClick={() => setMenuOpen((value) => !value)}
                 className={[
-                  "flex h-11 w-full",
-                  "select-none",
-                  "items-center gap-3",
-                  "overflow-hidden",
-                  "rounded-xl px-1.5",
-                  "transition-[background-color,transform]",
-                  "duration-200",
-                  "active:scale-[0.97]",
+                  "flex h-11 w-full items-center gap-3",
+                  "overflow-hidden rounded-md px-1.5",
+                  "transition-colors duration-150",
                   "motion-reduce:transition-none",
-                  "motion-reduce:active:scale-100",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -2539,11 +2313,8 @@ export default function DashboardSidebar({
                 ) : (
                   <span
                     className={[
-                      "flex h-8 w-8 shrink-0",
-                      "select-none",
-                      "items-center justify-center",
-                      "rounded-full",
-                      "text-[10px] font-semibold",
+                      "flex h-8 w-8 shrink-0 items-center justify-center",
+                      "rounded-full text-[10px] font-semibold",
                       t.avatar,
                     ].join(" ")}
                   >
@@ -2553,9 +2324,7 @@ export default function DashboardSidebar({
 
                 <span
                   className={[
-                    "min-w-0 flex-1",
-                    "select-none",
-                    "truncate text-left",
+                    "min-w-0 flex-1 truncate text-left",
                     "text-[13px] font-medium",
                     t.title,
                     labelClass,
