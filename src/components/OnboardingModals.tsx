@@ -1,10 +1,12 @@
 // src/components/OnboardingModals.tsx
 //
 // Onboarding en 2 étapes après la connexion d'un canal :
-//   1. <ConfirmAccountModal />   -> sur /channels  ("Est-ce le bon compte ?")
+//   1. <ConfirmAccountModal />   -> sur /channels  ("Confirm your Account")
 //   2. <FrequencyOnboarding />   -> sur /insights  (objectif de publication)
 //
 // Les deux sont reliés par sessionStorage (queueFrequencyOnboarding).
+// Design aligné sur les maquettes : mêmes textes, mêmes layouts — seules les
+// couleurs diffèrent (palette noir/blanc au lieu des accents verts).
 
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -210,10 +212,53 @@ function Keyframes() {
         from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
       }
+      @keyframes stone-fall {
+        0%   { opacity: 0; transform: translateY(-8px) rotate(0deg); }
+        15%  { opacity: 1; }
+        85%  { opacity: 1; }
+        100% { opacity: 0; transform: translateY(46px) rotate(220deg); }
+      }
       @media (prefers-reduced-motion: reduce) {
         .stone-modal, .stone-modal * { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
       }
     `}</style>
+  );
+}
+
+/* ============================================================================
+   CONFETTIS (étape 2, comme sur la maquette — version monochrome)
+============================================================================ */
+
+const CONFETTI = [
+  { left: "12%", delay: "0s", duration: "2.6s", size: 7 },
+  { left: "22%", delay: "0.35s", duration: "3.1s", size: 5 },
+  { left: "33%", delay: "0.15s", duration: "2.8s", size: 6 },
+  { left: "44%", delay: "0.55s", duration: "3.4s", size: 5 },
+  { left: "52%", delay: "0.1s", duration: "2.5s", size: 8 },
+  { left: "63%", delay: "0.45s", duration: "3s", size: 5 },
+  { left: "72%", delay: "0.25s", duration: "2.7s", size: 6 },
+  { left: "82%", delay: "0.6s", duration: "3.3s", size: 5 },
+  { left: "90%", delay: "0.2s", duration: "2.9s", size: 7 },
+];
+
+function Confetti({ p }: { p: Palette }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-[90px] overflow-hidden" aria-hidden="true">
+      {CONFETTI.map((c, i) => (
+        <span
+          key={i}
+          className="absolute top-0 rounded-[2px]"
+          style={{
+            left: c.left,
+            width: c.size,
+            height: c.size * 1.6,
+            background: i % 3 === 0 ? p.text : p.accent,
+            opacity: 0.9,
+            animation: `stone-fall ${c.duration} ease-in ${c.delay} both`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -263,6 +308,7 @@ function ModalShell({
   step,
   children,
   footer,
+  withConfetti,
 }: {
   p: Palette;
   onClose: () => void;
@@ -270,6 +316,7 @@ function ModalShell({
   step: { current: number; total: number };
   children: ReactNode;
   footer: ReactNode;
+  withConfetti?: boolean;
 }) {
   useModalBehavior(onClose);
 
@@ -300,6 +347,8 @@ function ModalShell({
           animation: "stone-pop 0.28s cubic-bezier(.2,.9,.25,1) both",
         }}
       >
+        {withConfetti && <Confetti p={p} />}
+
         <div className="absolute left-6 top-7 z-10">
           <StepDots current={step.current} total={step.total} p={p} />
         </div>
@@ -428,7 +477,7 @@ function GhostButton({
 }
 
 /* ============================================================================
-   ÉTAPE 1 : "EST-CE LE BON COMPTE ?"
+   ÉTAPE 1 : "CONFIRM YOUR ACCOUNT"
 ============================================================================ */
 
 export function ConfirmAccountModal({
@@ -447,6 +496,7 @@ export function ConfirmAccountModal({
   onClose: () => void;
 }) {
   const p = palette(isDark);
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <ModalShell
@@ -456,11 +506,32 @@ export function ConfirmAccountModal({
       step={{ current: 1, total: 2 }}
       footer={
         <>
-          <GhostButton p={p} onClick={onReject}>
-            Ce n'est pas mon compte
-          </GhostButton>
+          <div className="relative">
+            <GhostButton p={p} onClick={() => setShowHelp((v) => !v)}>
+              <HelpIcon className="h-4 w-4" /> Need Help?
+            </GhostButton>
+            {showHelp && (
+              <div
+                role="tooltip"
+                className="absolute bottom-[calc(100%+10px)] left-0 w-[280px] rounded-xl border p-3.5 text-[12.5px] leading-relaxed shadow-xl"
+                style={{
+                  background: p.bg,
+                  borderColor: p.border,
+                  color: p.muted,
+                  animation: "stone-rise 0.2s ease-out both",
+                }}
+              >
+                <span className="font-semibold" style={{ color: p.text }}>
+                  Besoin d'aide ?
+                </span>{" "}
+                Si ce compte n'est pas le tien, déconnecte-le depuis la page Canaux puis reconnecte
+                le bon compte.
+              </div>
+            )}
+          </div>
+
           <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
-            Oui, c'est bien lui <ArrowIcon className="h-4 w-4" />
+            Finish Connection <ArrowIcon className="h-4 w-4" />
           </PrimaryButton>
         </>
       }
@@ -472,7 +543,7 @@ export function ConfirmAccountModal({
         className="text-center text-[21px] font-semibold tracking-[-0.02em]"
         style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
       >
-        Est-ce le bon compte ?
+        Confirm your Account
       </h2>
       <p
         className="mb-7 mt-2.5 max-w-[360px] text-center text-[13.5px] leading-relaxed"
@@ -578,6 +649,7 @@ export function PostingFrequencyModal({
       onClose={onClose}
       labelledBy="stone-frequency-title"
       step={{ current: 2, total: 2 }}
+      withConfetti
       footer={
         <>
           <div className="relative">
@@ -605,7 +677,7 @@ export function PostingFrequencyModal({
           </div>
 
           <PrimaryButton p={p} onClick={submit} loading={saving} autoFocus>
-            Save goal <ArrowIcon className="h-4 w-4" />
+            Next <ArrowIcon className="h-4 w-4" />
           </PrimaryButton>
         </>
       }
