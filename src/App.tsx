@@ -507,80 +507,54 @@ function normalizeRoute(
  *   tant que la session n'est pas connue
  */
 function AppBoot() {
-  const { loading } = useUser();
+  const { user, loading } = useUser();
 
-  const [bootReady, setBootReady] =
+  const [bootFinished, setBootFinished] =
     useState(false);
 
-  const finishBoot = useCallback(() => {
-    setBootReady(true);
-  }, []);
+  const [sessionResolved, setSessionResolved] =
+    useState(false);
 
   useEffect(() => {
-    if (loading) return;
+    if (!loading) {
+      setSessionResolved(true);
+    }
+  }, [loading]);
 
-    let cancelled = false;
-
-    const prepareApp = async () => {
-      /*
-       * Attendre que les polices soient disponibles.
-       */
-      if (
-        "fonts" in document &&
-        document.fonts
-      ) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          // On continue même si les fonts échouent.
-        }
-      }
-
-      /*
-       * Laisser au navigateur une frame pour
-       * terminer les calculs de rendu avant
-       * de retirer l'écran de boot.
-       */
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => {
-            resolve();
-          });
-        });
-      });
-
-      if (!cancelled) {
-        finishBoot();
-      }
-    };
-
-    prepareApp();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, finishBoot]);
+  const handleBootComplete = useCallback(() => {
+    setBootFinished(true);
+  }, []);
 
   /*
-   * Tant que Supabase n'a pas fini de vérifier
-   * la session, Stone reste à l'écran.
-   *
-   * Cela empêche complètement :
-   *
-   * Stone → Landing → Home
-   *
-   * et donne uniquement :
-   *
-   * Stone → Home
-   *
-   * ou
-   *
-   * Stone → Landing
+   * Stone reste affiché pendant 5 secondes.
    */
-  if (!bootReady) {
-    return <StoneBoot />;
+  if (!bootFinished) {
+    return (
+      <StoneBoot
+        onComplete={handleBootComplete}
+      />
+    );
   }
 
+  /*
+   * Les 5 secondes sont terminées mais
+   * la session n'est pas encore connue.
+   *
+   * On garde simplement un écran noir,
+   * jamais la landing.
+   */
+  if (!sessionResolved) {
+    return (
+      <div className="fixed inset-0 z-[999999] bg-[#050505]" />
+    );
+  }
+
+  /*
+   * Maintenant on connaît l'utilisateur.
+   *
+   * user !== null → dashboard
+   * user === null → landing
+   */
   return <AppWithTheme />;
 }
 

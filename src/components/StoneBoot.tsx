@@ -1,59 +1,68 @@
-// src/components/StoneBoot.tsx
-
 import { useEffect, useState } from "react";
 
 type StoneBootProps = {
-  onReady?: () => void;
+  onComplete: () => void;
 };
 
-export default function StoneBoot({ onReady }: StoneBootProps) {
-  const [visibleText, setVisibleText] = useState("");
-  const text = "stone";
+export default function StoneBoot({
+  onComplete,
+}: StoneBootProps) {
+  const [text, setText] = useState("");
 
   useEffect(() => {
-    let index = 0;
+    const word = "stone";
 
-    const interval = window.setInterval(() => {
-      index++;
+    // Animation d'écriture
+    const typingInterval = window.setInterval(() => {
+      setText((current) => {
+        if (current.length >= word.length) {
+          window.clearInterval(typingInterval);
+          return current;
+        }
 
-      setVisibleText(text.slice(0, index));
+        return word.slice(
+          0,
+          current.length + 1
+        );
+      });
+    }, 120);
 
-      if (index >= text.length) {
-        window.clearInterval(interval);
+    // Le boot dure exactement 5 secondes
+    const completeTimer = window.setTimeout(() => {
+      onComplete();
+    }, 5000);
 
-        window.setTimeout(() => {
-          onReady?.();
-        }, 350);
-      }
-    }, 90);
-
-    return () => window.clearInterval(interval);
-  }, [onReady]);
+    return () => {
+      window.clearInterval(typingInterval);
+      window.clearTimeout(completeTimer);
+    };
+  }, [onComplete]);
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#050505]">
-      <div className="flex items-center">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-[#050505]">
+      <div className="relative flex items-center">
         <span
           className="
             font-display
-            text-[42px]
+            text-[48px]
             font-semibold
-            tracking-[-0.05em]
+            tracking-[-0.06em]
             text-white
-            sm:text-[52px]
+            sm:text-[64px]
           "
         >
-          {visibleText}
+          {text}
         </span>
 
+        {/* Curseur */}
         <span
           className="
-            ml-[2px]
-            h-[42px]
+            ml-[4px]
+            h-[48px]
             w-[2px]
-            animate-pulse
             bg-white
-            sm:h-[52px]
+            animate-pulse
+            sm:h-[64px]
           "
         />
       </div>
