@@ -337,7 +337,7 @@ function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="relative flex min-h-[560px] w-full max-w-[680px] flex-col overflow-hidden rounded-[18px] border"
+        className="relative flex min-h-[620px] w-full max-w-[780px] flex-col overflow-hidden rounded-[18px] border"
         style={{
           background: p.bg,
           borderColor: p.border,
@@ -595,13 +595,6 @@ const OPTIONS: FrequencyOption[] = [
   { id: "custom", label: "Choose your goal", hint: "Ton propre rythme", tile: <PencilIcon className="h-4 w-4" /> },
 ];
 
-function cadenceLabel(perWeek: number): string {
-  if (perWeek === 1) return "Environ 1 publication par semaine";
-  if (perWeek === 7) return "1 publication par jour";
-  if (perWeek > 7) return `Environ ${(perWeek / 7).toFixed(1).replace(".", ",")} publications par jour`;
-  const days = (7 / perWeek).toFixed(1).replace(".0", "").replace(".", ",");
-  return `Environ 1 publication tous les ${days} jours`;
-}
 
 export function PostingFrequencyModal({
   account,
@@ -691,12 +684,7 @@ export function PostingFrequencyModal({
       >
         How many times a week would you like to post?
       </h2>
-      <p
-        className="mb-6 mt-2.5 text-center text-[13px]"
-        style={{ color: p.muted, animation: "stone-rise 0.35s ease-out 0.1s both" }}
-      >
-        This posting goal will tell us how many times to recommend per week.
-      </p>
+      <div className="mb-8" />
 
       <div
         role="radiogroup"
@@ -792,9 +780,6 @@ export function PostingFrequencyModal({
         </div>
       )}
 
-      <p className="mt-4 text-center text-[12px]" style={{ color: p.muted }} aria-live="polite">
-        {cadenceLabel(perWeek)}
-      </p>
     </ModalShell>
   );
 }
