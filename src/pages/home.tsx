@@ -733,7 +733,7 @@ function Channels({
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <div className="flex items-center pl-1">
+          <div className="group flex items-center pl-1">
             {channels.slice(0, 6).map((channel, index) => (
               <ChannelAvatar
                 key={channel.key}
@@ -743,21 +743,26 @@ function Channels({
               />
             ))}
 
-            {/* + : ouvre ConnectChannelModal */}
+            {/* + : même forme que les avatars, légèrement imbriqué */}
             <button
               type="button"
               aria-label="Connect another channel"
               title="Connect another channel"
               onClick={onAdd}
               className={[
-                "ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
-                "rounded-full border border-dashed transition",
+                "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
+                "relative z-10 rounded-full border transition-all duration-200",
+                "ring-2",
+                panelRingClass(isDark),
                 isDark
-                  ? "border-white/25 text-white hover:bg-white/[0.08]"
-                  : "border-black/25 text-neutral-700 hover:bg-neutral-100",
+                  ? "border-white/[0.14] bg-[#1b1b1e] text-white hover:bg-[#242428] hover:border-white/25"
+                  : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
               ].join(" ")}
             >
-              <Plus className="h-4 w-4" />
+              <Plus
+                className="h-[15px] w-[15px] transition-transform duration-200 group-hover:rotate-90"
+                strokeWidth={1.8}
+              />
             </button>
           </div>
 
