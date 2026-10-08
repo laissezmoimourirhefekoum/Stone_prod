@@ -723,7 +723,7 @@ function ChannelMenu({
                 aria-checked={active}
                 onClick={() => {
                   setOpen(false);
-                  navigate(`analytics?channel=${encodeURIComponent(c.key)}`);
+                  navigate(`insights?channel=${encodeURIComponent(c.key)}`);
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
                   isDark
