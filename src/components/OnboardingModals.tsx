@@ -1,13 +1,13 @@
 // src/components/OnboardingModals.tsx
 //
 // Onboarding en 2 étapes après la connexion d'un canal :
-//   1. <ConfirmAccountModal />   -> affiché sur /channels  ("C'est le bon compte ?")
-//   2. <FrequencyOnboarding />   -> affiché sur /insight   (objectif de publication)
+//   1. <ConfirmAccountModal />   -> sur /channels  ("Est-ce le bon compte ?")
+//   2. <FrequencyOnboarding />   -> sur /insights  (objectif de publication)
 //
 // Les deux sont reliés par sessionStorage (queueFrequencyOnboarding).
 
 import { useEffect, useRef, useState } from "react";
-import type { ComponentType, CSSProperties, KeyboardEvent, ReactNode } from "react";
+import type { ComponentType, KeyboardEvent, ReactNode } from "react";
 
 import { useTheme } from "../hooks/useTheme";
 
@@ -98,26 +98,26 @@ type Palette = {
 function palette(isDark: boolean): Palette {
   return isDark
     ? {
-        bg: "#161616",
-        border: "#2c2c2c",
-        surface: "#1d1d1d",
-        surfaceHover: "#252525",
+        bg: "#141414",
+        border: "#262626",
+        surface: "#1a1a1a",
+        surfaceHover: "#202020",
         text: "#ffffff",
-        muted: "#a1a1aa",
+        muted: "#8a8a93",
         accent: "#ffffff",
         accentText: "#0a0a0a",
-        overlay: "rgba(0,0,0,0.7)",
+        overlay: "rgba(0,0,0,0.72)",
       }
     : {
         bg: "#ffffff",
-        border: "#e4e4e7",
+        border: "#e8e8ea",
         surface: "#fafafa",
         surfaceHover: "#f4f4f5",
         text: "#0a0a0a",
-        muted: "#71717a",
+        muted: "#76767f",
         accent: "#0a0a0a",
         accentText: "#ffffff",
-        overlay: "rgba(24,24,27,0.45)",
+        overlay: "rgba(24,24,27,0.4)",
       };
 }
 
@@ -132,7 +132,7 @@ function Svg({ className = "h-4 w-4", children }: { className?: string; children
       className={className}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.9"
+      strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -183,14 +183,6 @@ const PlusIcon = ({ className }: { className?: string }) => (
     <path d="M5 12h14" />
   </Svg>
 );
-const SwapIcon = ({ className }: { className?: string }) => (
-  <Svg className={className}>
-    <path d="M7 4 3 8l4 4" />
-    <path d="M3 8h14" />
-    <path d="m17 20 4-4-4-4" />
-    <path d="M21 16H7" />
-  </Svg>
-);
 
 function Spinner({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -210,78 +202,17 @@ function Keyframes() {
     <style>{`
       @keyframes stone-fade { from { opacity: 0 } to { opacity: 1 } }
       @keyframes stone-pop {
-        from { opacity: 0; transform: translateY(14px) scale(0.965); }
+        from { opacity: 0; transform: translateY(10px) scale(0.98); }
         to   { opacity: 1; transform: translateY(0) scale(1); }
       }
       @keyframes stone-rise {
-        from { opacity: 0; transform: translateY(10px); }
+        from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes stone-confetti {
-        0%   { opacity: 0; transform: translateY(-46px) rotate(0deg) scale(0.6); }
-        25%  { opacity: 1; }
-        100% { opacity: 1; transform: translateY(0) rotate(var(--rot)) scale(1); }
-      }
-      @keyframes stone-badge {
-        0%   { transform: scale(0); }
-        70%  { transform: scale(1.18); }
-        100% { transform: scale(1); }
       }
       @media (prefers-reduced-motion: reduce) {
         .stone-modal, .stone-modal * { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
       }
     `}</style>
-  );
-}
-
-/* ============================================================================
-   CONFETTI
-============================================================================ */
-
-type Piece = { l: string; t: number; c: string; w: number; h: number; r: number; d: number; s: "rect" | "circle" };
-
-const PIECES: Piece[] = [
-  { l: "10%", t: 20, c: "a", w: 7, h: 7, r: 0, d: 0, s: "circle" },
-  { l: "15%", t: 54, c: "#6f6fe0", w: 12, h: 4, r: 20, d: 120, s: "rect" },
-  { l: "21%", t: 30, c: "a", w: 16, h: 6, r: 10, d: 60, s: "rect" },
-  { l: "27%", t: 68, c: "#f5c518", w: 8, h: 14, r: 25, d: 180, s: "rect" },
-  { l: "19%", t: 80, c: "#2aa8ff", w: 7, h: 7, r: 0, d: 90, s: "circle" },
-  { l: "38%", t: 8, c: "#f5c518", w: 14, h: 5, r: -15, d: 30, s: "rect" },
-  { l: "45%", t: 74, c: "a", w: 14, h: 9, r: 15, d: 150, s: "rect" },
-  { l: "51%", t: 4, c: "#f5c518", w: 14, h: 12, r: 10, d: 70, s: "rect" },
-  { l: "56%", t: 78, c: "#2aa8ff", w: 7, h: 7, r: 0, d: 210, s: "circle" },
-  { l: "67%", t: 28, c: "#6f6fe0", w: 18, h: 9, r: 5, d: 40, s: "rect" },
-  { l: "74%", t: 6, c: "a", w: 10, h: 4, r: -30, d: 130, s: "rect" },
-  { l: "79%", t: 10, c: "#f5c518", w: 12, h: 12, r: 8, d: 100, s: "rect" },
-  { l: "82%", t: 60, c: "a", w: 12, h: 4, r: 15, d: 170, s: "rect" },
-  { l: "88%", t: 42, c: "#ff2d8a", w: 8, h: 8, r: 0, d: 60, s: "circle" },
-  { l: "89%", t: 8, c: "a", w: 14, h: 11, r: 25, d: 190, s: "rect" },
-  { l: "86%", t: 54, c: "#f5c518", w: 8, h: 16, r: 18, d: 110, s: "rect" },
-];
-
-function Confetti({ accent }: { accent: string }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-[120px] overflow-hidden" aria-hidden="true">
-      {PIECES.map((p, i) => (
-        <span
-          key={i}
-          className="absolute block"
-          style={
-            {
-              left: p.l,
-              top: p.t,
-              width: p.w,
-              height: p.h,
-              background: p.c === "a" ? accent : p.c,
-              borderRadius: p.s === "circle" ? 9999 : 2,
-              transform: `rotate(${p.r}deg)`,
-              "--rot": `${p.r}deg`,
-              animation: `stone-confetti 0.95s cubic-bezier(.2,.8,.25,1) ${p.d}ms both`,
-            } as CSSProperties
-          }
-        />
-      ))}
-    </div>
   );
 }
 
@@ -309,22 +240,17 @@ function useModalBehavior(onClose: () => void) {
 
 function StepDots({ current, total, p }: { current: number; total: number; p: Palette }) {
   return (
-    <div className="flex items-center gap-2" aria-label={`Étape ${current} sur ${total}`}>
-      <div className="flex gap-1.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <span
-            key={i}
-            className="h-[4px] rounded-full transition-all duration-300"
-            style={{
-              width: i + 1 === current ? 22 : 10,
-              background: i + 1 <= current ? p.accent : p.border,
-            }}
-          />
-        ))}
-      </div>
-      <span className="text-[11px] font-medium" style={{ color: p.muted }}>
-        {current}/{total}
-      </span>
+    <div className="flex items-center gap-1.5" aria-label={`Étape ${current} sur ${total}`}>
+      {Array.from({ length: total }).map((_, i) => (
+        <span
+          key={i}
+          className="h-[3px] rounded-full transition-all duration-300"
+          style={{
+            width: i + 1 === current ? 20 : 10,
+            background: i + 1 <= current ? p.accent : p.border,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -334,7 +260,6 @@ function ModalShell({
   onClose,
   labelledBy,
   step,
-  confetti,
   children,
   footer,
 }: {
@@ -342,7 +267,6 @@ function ModalShell({
   onClose: () => void;
   labelledBy: string;
   step: { current: number; total: number };
-  confetti?: boolean;
   children: ReactNode;
   footer: ReactNode;
 }) {
@@ -353,7 +277,7 @@ function ModalShell({
       className="stone-modal fixed inset-0 z-[100] flex items-center justify-center px-4"
       style={{
         background: p.overlay,
-        backdropFilter: "blur(6px)",
+        backdropFilter: "blur(4px)",
         animation: "stone-fade 0.2s ease-out both",
       }}
       onMouseDown={(event) => {
@@ -365,19 +289,17 @@ function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="relative flex min-h-[560px] w-full max-w-[680px] flex-col overflow-hidden rounded-[20px] border"
+        className="relative flex min-h-[560px] w-full max-w-[680px] flex-col overflow-hidden rounded-[18px] border"
         style={{
           background: p.bg,
           borderColor: p.border,
           color: p.text,
           maxHeight: "calc(100vh - 32px)",
-          boxShadow: "0 40px 100px rgba(0,0,0,0.45)",
-          animation: "stone-pop 0.34s cubic-bezier(.2,.9,.25,1) both",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.35)",
+          animation: "stone-pop 0.28s cubic-bezier(.2,.9,.25,1) both",
         }}
       >
-        {confetti && <Confetti accent={p.accent} />}
-
-        <div className="absolute left-6 top-6 z-10">
+        <div className="absolute left-6 top-7 z-10">
           <StepDots current={step.current} total={step.total} p={p} />
         </div>
 
@@ -385,20 +307,26 @@ function ModalShell({
           type="button"
           aria-label="Fermer"
           onClick={onClose}
-          className="absolute right-6 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
-          style={{ borderColor: p.border, color: p.muted }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = p.surfaceHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          className="absolute right-5 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+          style={{ color: p.muted }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = p.surfaceHover;
+            e.currentTarget.style.color = p.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = p.muted;
+          }}
         >
-          <CloseIcon className="h-3.5 w-3.5" />
+          <CloseIcon className="h-4 w-4" />
         </button>
 
-        <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-[78px] sm:px-[96px]">
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-8 pt-16 sm:px-[96px]">
           {children}
         </div>
 
         <div
-          className="relative flex min-h-[66px] shrink-0 items-center justify-between gap-3 border-t px-6"
+          className="relative flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-t px-6"
           style={{ borderColor: p.border }}
         >
           {footer}
@@ -414,41 +342,29 @@ function Avatar({ account, p }: { account: OnboardingAccount; p: Palette }) {
   const hasImage = Boolean(account.avatarUrl) && !failed;
 
   return (
-    <div className="relative mb-9 h-[68px] w-[68px]" style={{ animation: "stone-rise 0.4s ease-out both" }}>
+    <div className="relative mb-8 h-[64px] w-[64px]" style={{ animation: "stone-rise 0.35s ease-out both" }}>
       {hasImage ? (
         <img
           src={account.avatarUrl}
           alt=""
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-[14px] object-cover"
+          className="h-full w-full rounded-full object-cover"
         />
       ) : (
         <div
-          className="flex h-full w-full items-center justify-center rounded-[14px] border"
+          className="flex h-full w-full items-center justify-center rounded-full border"
           style={{ background: p.surface, borderColor: p.border }}
         >
-          <Icon className="h-7 w-7" size={28} />
+          <Icon className="h-6 w-6" size={24} />
         </div>
       )}
 
       <span
-        className="absolute -left-[10px] -top-[10px] flex h-[24px] w-[24px] items-center justify-center rounded-full border-2"
-        style={{
-          background: p.accent,
-          color: p.accentText,
-          borderColor: p.bg,
-          animation: "stone-badge 0.5s cubic-bezier(.2,.9,.3,1) 0.25s both",
-        }}
+        className="absolute -bottom-0.5 -right-0.5 flex h-[24px] w-[24px] items-center justify-center rounded-full border-2"
+        style={{ background: p.accent, color: p.accentText, borderColor: p.bg }}
       >
         <CheckIcon className="h-3 w-3" />
-      </span>
-
-      <span
-        className="absolute -bottom-[10px] -right-[12px] flex h-[28px] w-[28px] items-center justify-center rounded-[9px] border-2 shadow"
-        style={{ background: "#ffffff", color: "#0a0a0a", borderColor: p.bg }}
-      >
-        <Icon className="h-[14px] w-[14px]" size={14} />
       </span>
     </div>
   );
@@ -473,7 +389,7 @@ function PrimaryButton({
       autoFocus={autoFocus}
       disabled={loading}
       onClick={onClick}
-      className="inline-flex h-[38px] items-center justify-center gap-2 rounded-[10px] px-5 text-[14px] font-semibold transition-all hover:opacity-90 active:scale-[0.97] disabled:cursor-wait disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="inline-flex h-[36px] items-center justify-center gap-2 rounded-[10px] px-5 text-[13px] font-medium transition-all hover:opacity-85 active:scale-[0.97] disabled:cursor-wait disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{ background: p.accent, color: p.accentText, outlineColor: p.accent }}
     >
       {loading ? <Spinner /> : children}
@@ -494,7 +410,7 @@ function GhostButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-[38px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium transition-colors"
+      className="inline-flex h-[36px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium transition-colors"
       style={{ color: p.muted }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = p.surfaceHover;
@@ -511,7 +427,7 @@ function GhostButton({
 }
 
 /* ============================================================================
-   ÉTAPE 1 : "C'EST LE BON COMPTE ?"
+   ÉTAPE 1 : "EST-CE LE BON COMPTE ?"
 ============================================================================ */
 
 export function ConfirmAccountModal({
@@ -540,7 +456,7 @@ export function ConfirmAccountModal({
       footer={
         <>
           <GhostButton p={p} onClick={onReject}>
-            <SwapIcon className="h-4 w-4" /> Ce n'est pas mon compte
+            Ce n'est pas mon compte
           </GhostButton>
           <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
             Oui, c'est bien lui <ArrowIcon className="h-4 w-4" />
@@ -552,14 +468,14 @@ export function ConfirmAccountModal({
 
       <h2
         id="stone-confirm-title"
-        className="text-center text-[22px] font-semibold tracking-[-0.02em]"
-        style={{ animation: "stone-rise 0.4s ease-out 0.05s both" }}
+        className="text-center text-[21px] font-semibold tracking-[-0.02em]"
+        style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
       >
         Est-ce le bon compte ?
       </h2>
       <p
-        className="mb-8 mt-3 max-w-[380px] text-center text-[14px] leading-relaxed"
-        style={{ color: p.muted, animation: "stone-rise 0.4s ease-out 0.1s both" }}
+        className="mb-7 mt-2.5 max-w-[360px] text-center text-[13.5px] leading-relaxed"
+        style={{ color: p.muted, animation: "stone-rise 0.35s ease-out 0.1s both" }}
       >
         Vérifie que c'est bien le {account.accountLabel.toLowerCase()} que tu veux relier à Stone.
       </p>
@@ -569,29 +485,22 @@ export function ConfirmAccountModal({
         style={{
           background: p.surface,
           borderColor: p.accent,
-          animation: "stone-rise 0.4s ease-out 0.15s both",
+          animation: "stone-rise 0.35s ease-out 0.15s both",
         }}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold">{account.handle || account.name}</p>
+          <p className="truncate text-[14px] font-semibold">{account.handle || account.name}</p>
           <p className="mt-0.5 text-[12px]" style={{ color: p.muted }}>
-            {account.accountLabel} · {account.name}
+            {account.accountLabel}
           </p>
         </div>
         <span
-          className="flex h-[22px] w-[22px] items-center justify-center rounded-full"
+          className="flex h-[20px] w-[20px] items-center justify-center rounded-full"
           style={{ background: p.accent, color: p.accentText }}
         >
           <CheckIcon className="h-3 w-3" />
         </span>
       </div>
-
-      <p
-        className="mt-5 text-center text-[12px]"
-        style={{ color: p.muted, animation: "stone-rise 0.4s ease-out 0.2s both" }}
-      >
-        Tu pourras te déconnecter à tout moment depuis la page Channels.
-      </p>
     </ModalShell>
   );
 }
@@ -605,15 +514,13 @@ type FrequencyOption = {
   label: string;
   hint: string;
   tile: ReactNode;
-  dark: [string, string];
-  light: [string, string];
 };
 
 const OPTIONS: FrequencyOption[] = [
-  { id: "1x", label: "Keep it steady · 1 time/week", hint: "Idéal pour démarrer", tile: "1x", dark: ["#2a1f4a", "#cdb8ff"], light: ["#ede9fe", "#5b21b6"] },
-  { id: "3x", label: "Build a presence · 3 times/week", hint: "Recommandé", tile: "3x", dark: ["#5a2f10", "#ffd2a8"], light: ["#ffedd5", "#9a3412"] },
-  { id: "5x", label: "Reach new heights · 5 times/week", hint: "Croissance rapide", tile: "5x", dark: ["#0f4a44", "#a8f0e4"], light: ["#ccfbf1", "#115e59"] },
-  { id: "custom", label: "Choose your goal", hint: "Ton propre rythme", tile: <PencilIcon className="h-4 w-4" />, dark: ["#4a1a4a", "#f0a8f0"], light: ["#fae8ff", "#86198f"] },
+  { id: "1x", label: "Keep it steady · 1 time/week", hint: "Idéal pour démarrer", tile: "1x" },
+  { id: "3x", label: "Build a presence · 3 times/week", hint: "Recommandé", tile: "3x" },
+  { id: "5x", label: "Reach new heights · 5 times/week", hint: "Croissance rapide", tile: "5x" },
+  { id: "custom", label: "Choose your goal", hint: "Ton propre rythme", tile: <PencilIcon className="h-4 w-4" /> },
 ];
 
 function cadenceLabel(perWeek: number): string {
@@ -661,7 +568,7 @@ export function PostingFrequencyModal({
 
   const submit = () => {
     setSaving(true);
-    window.setTimeout(() => onNext(perWeek), 280);
+    window.setTimeout(() => onNext(perWeek), 250);
   };
 
   return (
@@ -670,7 +577,6 @@ export function PostingFrequencyModal({
       onClose={onClose}
       labelledBy="stone-frequency-title"
       step={{ current: 2, total: 2 }}
-      confetti
       footer={
         <>
           <div className="relative">
@@ -680,7 +586,7 @@ export function PostingFrequencyModal({
             {showTip && (
               <div
                 role="tooltip"
-                className="absolute bottom-[calc(100%+10px)] left-0 w-[290px] rounded-xl border p-3.5 text-[12.5px] leading-relaxed shadow-xl"
+                className="absolute bottom-[calc(100%+10px)] left-0 w-[280px] rounded-xl border p-3.5 text-[12.5px] leading-relaxed shadow-xl"
                 style={{
                   background: p.bg,
                   borderColor: p.border,
@@ -707,14 +613,14 @@ export function PostingFrequencyModal({
 
       <h2
         id="stone-frequency-title"
-        className="text-center text-[22px] font-semibold tracking-[-0.02em]"
-        style={{ animation: "stone-rise 0.4s ease-out 0.05s both" }}
+        className="text-center text-[21px] font-semibold tracking-[-0.02em]"
+        style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
       >
         How many times a week would you like to post?
       </h2>
       <p
-        className="mb-7 mt-3 text-center text-[13.5px]"
-        style={{ color: p.muted, animation: "stone-rise 0.4s ease-out 0.1s both" }}
+        className="mb-6 mt-2.5 text-center text-[13px]"
+        style={{ color: p.muted, animation: "stone-rise 0.35s ease-out 0.1s both" }}
       >
         This posting goal will tell us how many times to recommend per week.
       </p>
@@ -727,7 +633,6 @@ export function PostingFrequencyModal({
       >
         {OPTIONS.map((option, i) => {
           const active = selected === option.id;
-          const [tileBg, tileFg] = isDark ? option.dark : option.light;
 
           return (
             <button
@@ -737,12 +642,12 @@ export function PostingFrequencyModal({
               aria-checked={active}
               tabIndex={active ? 0 : -1}
               onClick={() => setSelected(option.id)}
-              className="group flex h-[54px] w-full items-center gap-4 rounded-[12px] border px-2 text-left transition-all duration-150 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="flex h-[52px] w-full items-center gap-3.5 rounded-[12px] border px-2.5 text-left transition-colors duration-150 active:scale-[0.995] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 background: active ? p.surface : "transparent",
                 borderColor: active ? p.accent : p.border,
                 outlineColor: p.accent,
-                animation: `stone-rise 0.4s ease-out ${140 + i * 55}ms both`,
+                animation: `stone-rise 0.35s ease-out ${120 + i * 45}ms both`,
               }}
               onMouseEnter={(e) => {
                 if (!active) e.currentTarget.style.background = p.surfaceHover;
@@ -752,21 +657,24 @@ export function PostingFrequencyModal({
               }}
             >
               <span
-                className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[9px] text-[16px] font-semibold transition-transform duration-150 group-hover:scale-105"
-                style={{ background: tileBg, color: tileFg }}
+                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] text-[14px] font-semibold"
+                style={{
+                  background: active ? p.accent : p.surfaceHover,
+                  color: active ? p.accentText : p.text,
+                }}
               >
                 {option.tile}
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium">{option.label}</span>
+                <span className="block truncate text-[13.5px] font-medium">{option.label}</span>
                 <span className="block truncate text-[11.5px]" style={{ color: p.muted }}>
                   {option.hint}
                 </span>
               </span>
 
               <span
-                className="mr-3 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors"
+                className="mr-2 flex h-[16px] w-[16px] items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: active ? p.accent : p.muted }}
               >
                 <span
@@ -781,7 +689,7 @@ export function PostingFrequencyModal({
 
       {selected === "custom" && (
         <div
-          className="mt-3 flex w-full items-center justify-between rounded-[12px] border px-4 py-3"
+          className="mt-2 flex w-full items-center justify-between rounded-[12px] border px-4 py-2.5"
           style={{ background: p.surface, borderColor: p.border, animation: "stone-rise 0.25s ease-out both" }}
         >
           <span className="text-[13px] font-medium">Publications par semaine</span>
@@ -791,18 +699,18 @@ export function PostingFrequencyModal({
               aria-label="Diminuer"
               disabled={custom <= 1}
               onClick={() => setCustom((n) => Math.max(1, n - 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border transition-opacity hover:opacity-70 disabled:opacity-30"
               style={{ borderColor: p.border }}
             >
               <MinusIcon className="h-3.5 w-3.5" />
             </button>
-            <span className="w-7 text-center text-[16px] font-semibold tabular-nums">{custom}</span>
+            <span className="w-6 text-center text-[15px] font-semibold tabular-nums">{custom}</span>
             <button
               type="button"
               aria-label="Augmenter"
               disabled={custom >= 21}
               onClick={() => setCustom((n) => Math.min(21, n + 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-30"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border transition-opacity hover:opacity-70 disabled:opacity-30"
               style={{ borderColor: p.border }}
             >
               <PlusIcon className="h-3.5 w-3.5" />
@@ -811,11 +719,7 @@ export function PostingFrequencyModal({
         </div>
       )}
 
-      <p
-        className="mt-5 text-center text-[12.5px]"
-        style={{ color: p.muted, animation: "stone-rise 0.4s ease-out 0.45s both" }}
-        aria-live="polite"
-      >
+      <p className="mt-4 text-center text-[12px]" style={{ color: p.muted }} aria-live="polite">
         {cadenceLabel(perWeek)}
       </p>
     </ModalShell>
@@ -823,7 +727,7 @@ export function PostingFrequencyModal({
 }
 
 /* ============================================================================
-   À MONTER SUR LA PAGE /insight
+   À MONTER SUR LA PAGE /insights
 ============================================================================ */
 
 export default function FrequencyOnboarding() {
