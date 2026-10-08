@@ -4,9 +4,9 @@ type StoneBootProps = {
   onComplete: () => void;
 };
 
-const BOOT_DURATION = 5000; // durée totale
-const FADE_OUT = 500; // fondu final
-const FILL_DURATION = BOOT_DURATION - FADE_OUT - 300; // remplissage
+const FILL_DURATION = 8000; // durée du remplissage (modifie ici pour ajuster la vitesse)
+const HOLD_AFTER_FILL = 500; // pause une fois le logo plein
+const FADE_OUT = 600; // fondu final
 const WAVE_AMPLITUDE = 3; // hauteur de la vague (en % de la hauteur)
 
 const easeInOut = (t: number) =>
@@ -58,10 +58,11 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    const duration = reduceMotion ? 1200 : FILL_DURATION;
+    const duration = reduceMotion ? 1500 : FILL_DURATION;
     const start = performance.now();
     let raf = 0;
     let lastPercent = -1;
+    let holdTimer = 0;
 
     const frame = (now: number) => {
       const elapsed = now - start;
@@ -69,7 +70,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
 
       // Niveau du liquide : de 100 % (vide) à 0 % (plein), de bas en haut
       const level = (1 - p) * (100 + 2 * WAVE_AMPLITUDE) - WAVE_AMPLITUDE;
-      const phase = elapsed * 0.006;
+      const phase = elapsed * 0.004;
       const amp = reduceMotion ? 0 : WAVE_AMPLITUDE;
 
       const points: string[] = [];
@@ -92,21 +93,15 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       if (elapsed < duration) {
         raf = requestAnimationFrame(frame);
       } else {
-        window.setTimeout(finish, reduceMotion ? 200 : 300);
+        holdTimer = window.setTimeout(finish, reduceMotion ? 200 : HOLD_AFTER_FILL);
       }
     };
 
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [finish]);
-
-  // Passer l'écran de chargement : clic, Entrée, Espace ou Échap
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (["Enter", " ", "Escape"].includes(e.key)) finish();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(holdTimer);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, [finish]);
 
   return (
@@ -116,8 +111,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent}
-      onClick={finish}
-      className="fixed inset-0 z-[999999] flex cursor-pointer items-center justify-center bg-[#050505]"
+      className="fixed inset-0 z-[999999] flex items-center justify-center bg-[#050505]"
       style={{
         opacity: leaving ? 0 : 1,
         transition: `opacity ${FADE_OUT}ms ease`,
@@ -131,7 +125,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
           from { opacity: 0; transform: scale(0.96); }
           to   { opacity: 1; transform: scale(1); }
         }
-        .stone-enter { animation: stone-enter 600ms ease-out both; }
+        .stone-enter { animation: stone-enter 800ms ease-out both; }
       `}</style>
 
       <div className="stone-enter relative">
@@ -148,8 +142,8 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
         </div>
       </div>
 
-      {/* Pourcentage + indication */}
-      <div className="absolute bottom-10 flex flex-col items-center gap-2">
+      {/* Pourcentage */}
+      <div className="absolute bottom-10">
         <span
           className="text-sm font-medium text-white/60"
           style={{
@@ -159,12 +153,6 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
           }}
         >
           {percent}%
-        </span>
-        <span
-          className="text-[11px] uppercase text-white/25"
-          style={{ fontFamily: "'Inter', sans-serif", letterSpacing: "0.2em" }}
-        >
-          Touche pour passer
         </span>
       </div>
     </div>
