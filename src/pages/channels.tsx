@@ -19,6 +19,12 @@ import DashboardSidebar, {
 import ConnectChannelModal from "../components/ConnectChannelModal";
 
 import {
+  ConfirmAccountModal,
+  queueFrequencyOnboarding,
+  type OnboardingAccount,
+} from "../components/OnboardingModals";
+
+import {
   useTheme,
   type Theme,
 } from "../hooks/useTheme";
@@ -152,6 +158,9 @@ export const PLAN = {
   maxChannels: 3,
 };
 
+/** Route où s'affiche la 2e popup (fréquence de publication). */
+export const INSIGHT_ROUTE = "/insight";
+
 export const REAL_OAUTH: ChannelKey[] = [
   "tiktok",
   "pinterest",
@@ -245,23 +254,6 @@ function PlusIcon(props: IconProps) {
   );
 }
 
-function CheckIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m5 12 4 4L19 6" />
-    </Svg>
-  );
-}
-
-function ArrowIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </Svg>
-  );
-}
-
 function MoreIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -297,25 +289,6 @@ function LayersIcon(props: IconProps) {
       <path d="m12 2 9 5-9 5-9-5 9-5Z" />
       <path d="m3 12 9 5 9-5" />
       <path d="m3 17 9 5 9-5" />
-    </Svg>
-  );
-}
-
-function PencilIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </Svg>
-  );
-}
-
-function HelpIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <path d="M12 17h.01" />
     </Svg>
   );
 }
@@ -358,6 +331,19 @@ function toConnection(status: StatusResponse): Connection {
     connected: true,
     handle: account?.display_name ?? undefined,
     avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
+  };
+}
+
+function buildAccount(
+  channel: Channel,
+  connection: Connection
+): OnboardingAccount {
+  return {
+    key: channel.key,
+    name: channel.name,
+    accountLabel: channel.accountLabel,
+    handle: connection.handle,
+    avatarUrl: connection.avatarUrl,
   };
 }
 
@@ -467,7 +453,9 @@ function ChannelCard({
             <p className={["truncate text-[13px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
               {isConnected ? connection.handle || channel.name : channel.name}
             </p>
-            {isConnected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />}
+            {isConnected && (
+              <span className={["h-1.5 w-1.5 shrink-0 rounded-full bg-current", t.text].join(" ")} />
+            )}
           </div>
           <p className={["mt-0.5 truncate text-[10px]", t.muted].join(" ")}>
             {isConnected ? channel.accountLabel : channel.subtitle}
@@ -520,367 +508,6 @@ function ChannelCard({
 }
 
 /* ============================================================================
-   ONBOARDING MODALS (Buffer style)
-============================================================================ */
-
-const ACCENT = "#8fd98f";
-
-const CONFETTI = [
-  { l: "11%", t: 18, c: "#22e03a", w: 7, h: 7, r: 0, d: "0s", s: "circle" },
-  { l: "16%", t: 52, c: "#22e03a", w: 12, h: 4, r: 20, d: "0.2s", s: "rect" },
-  { l: "22%", t: 30, c: "#22e03a", w: 16, h: 6, r: 10, d: "0.1s", s: "rect" },
-  { l: "27%", t: 66, c: "#f5c518", w: 8, h: 14, r: 25, d: "0.3s", s: "rect" },
-  { l: "20%", t: 70, c: "#2aa8ff", w: 8, h: 6, r: 0, d: "0.15s", s: "tri" },
-  { l: "39%", t: 8, c: "#f5c518", w: 14, h: 5, r: -15, d: "0.05s", s: "rect" },
-  { l: "46%", t: 72, c: "#ffffff", w: 14, h: 10, r: 15, d: "0.25s", s: "rect" },
-  { l: "50%", t: 4, c: "#f5c518", w: 14, h: 12, r: 10, d: "0.12s", s: "rect" },
-  { l: "55%", t: 76, c: "#2aa8ff", w: 6, h: 6, r: 0, d: "0.35s", s: "tri" },
-  { l: "68%", t: 28, c: "#6f6fe0", w: 18, h: 9, r: 5, d: "0.08s", s: "rect" },
-  { l: "75%", t: 6, c: "#22e03a", w: 10, h: 4, r: -30, d: "0.22s", s: "rect" },
-  { l: "80%", t: 10, c: "#f5c518", w: 12, h: 12, r: 8, d: "0.18s", s: "rect" },
-  { l: "82%", t: 58, c: "#22e03a", w: 12, h: 4, r: 15, d: "0.28s", s: "rect" },
-  { l: "88%", t: 40, c: "#ff2d8a", w: 8, h: 8, r: 0, d: "0.1s", s: "circle" },
-  { l: "89%", t: 6, c: "#ffffff", w: 14, h: 12, r: 25, d: "0.3s", s: "rect" },
-  { l: "86%", t: 52, c: "#f5c518", w: 8, h: 16, r: 18, d: "0.2s", s: "rect" },
-];
-
-function Confetti() {
-  return (
-    <>
-      <style>{`
-        @keyframes stone-confetti-fall {
-          0%   { opacity: 0; transform: translateY(-40px) rotate(0deg); }
-          20%  { opacity: 1; }
-          100% { opacity: 1; transform: translateY(0) rotate(var(--rot)); }
-        }
-      `}</style>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[110px] overflow-hidden">
-        {CONFETTI.map((p, i) => (
-          <span
-            key={i}
-            className="absolute block"
-            style={
-              {
-                left: p.l,
-                top: p.t,
-                width: p.w,
-                height: p.h,
-                background: p.s === "tri" ? "transparent" : p.c,
-                borderRadius: p.s === "circle" ? "9999px" : 1,
-                borderLeft: p.s === "tri" ? `${p.w / 2}px solid transparent` : undefined,
-                borderRight: p.s === "tri" ? `${p.w / 2}px solid transparent` : undefined,
-                borderBottom: p.s === "tri" ? `${p.h}px solid ${p.c}` : undefined,
-                "--rot": `${p.r}deg`,
-                transform: `rotate(${p.r}deg)`,
-                animation: `stone-confetti-fall 0.9s ease-out ${p.d} both`,
-              } as React.CSSProperties
-            }
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ModalShell({
-  isDark,
-  onClose,
-  children,
-  footer,
-}: {
-  isDark: boolean;
-  onClose: () => void;
-  children: ReactNode;
-  footer: ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 backdrop-blur-[2px]">
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={[
-          "relative flex min-h-[560px] w-full max-w-[680px] flex-col overflow-hidden rounded-[20px] border shadow-2xl",
-          isDark ? "border-[#3b3f3c] bg-[#222423]" : "border-zinc-200 bg-white",
-        ].join(" ")}
-      >
-        <Confetti />
-
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="absolute right-6 top-6 z-10 flex h-7 w-7 items-center justify-center rounded-md border text-white transition-colors hover:bg-white/10"
-          style={{ borderColor: ACCENT, color: isDark ? "#fff" : "#000" }}
-        >
-          <CloseIcon className="h-3.5 w-3.5" />
-        </button>
-
-        <div className="flex flex-1 flex-col items-center px-[115px] pb-8 pt-[78px]">
-          {children}
-        </div>
-
-        <div
-          className={[
-            "flex h-[62px] shrink-0 items-center justify-between border-t px-7",
-            isDark ? "border-[#34373a]" : "border-zinc-200",
-          ].join(" ")}
-        >
-          {footer}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModalAvatar({
-  channel,
-  connection,
-  isDark,
-}: {
-  channel: Channel;
-  connection: Connection;
-  isDark: boolean;
-}) {
-  const Icon = channel.icon;
-  const [failed, setFailed] = useState(false);
-  const hasAvatar = Boolean(connection.avatarUrl) && !failed;
-
-  return (
-    <div className="relative mb-9 h-[64px] w-[64px]">
-      {hasAvatar ? (
-        <img
-          src={connection.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-full w-full rounded-[10px] object-cover"
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-[10px]",
-            isDark ? "bg-[#33373a] text-white" : "bg-zinc-100 text-black",
-          ].join(" ")}
-        >
-          <Icon className="h-7 w-7" size={28} />
-        </div>
-      )}
-
-      {/* check badge (top-left) */}
-      <span
-        className="absolute -left-[10px] -top-[10px] flex h-[24px] w-[24px] items-center justify-center rounded-full text-white"
-        style={{ background: "#4c7a52" }}
-      >
-        <CheckIcon className="h-3 w-3" />
-      </span>
-
-      {/* platform badge (bottom-right) */}
-      <span className="absolute -bottom-[10px] -right-[12px] flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-white text-black shadow">
-        <Icon className="h-[14px] w-[14px]" size={14} />
-      </span>
-    </div>
-  );
-}
-
-function PrimaryButton({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-[34px] items-center gap-2 rounded-[8px] px-5 text-[14px] font-medium text-[#10230f] transition-all hover:brightness-110 active:scale-[0.98]"
-      style={{ background: ACCENT }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ---------------------------------------------------------------------------
-   MODAL 1: CONFIRM ACCOUNT
---------------------------------------------------------------------------- */
-
-function ConfirmAccountModal({
-  channel,
-  connection,
-  t,
-  isDark,
-  onFinish,
-  onClose,
-}: {
-  channel: Channel;
-  connection: Connection;
-  t: ThemeTokens;
-  isDark: boolean;
-  onFinish: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <ModalShell
-      isDark={isDark}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className={["flex items-center gap-2 text-[13px] font-semibold", t.text].join(" ")}
-          >
-            <HelpIcon className="h-4 w-4" /> Need Help?
-          </button>
-          <PrimaryButton onClick={onFinish}>
-            Finish Connection <ArrowIcon className="h-4 w-4" />
-          </PrimaryButton>
-        </>
-      }
-    >
-      <ModalAvatar channel={channel} connection={connection} isDark={isDark} />
-
-      <h2 className={["text-center text-[20px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
-        Confirm your account
-      </h2>
-      <p className={["mb-8 mt-3 text-center text-[14px]", t.text].join(" ")}>
-        Is this the account you want to connect?
-      </p>
-
-      <div
-        className={[
-          "flex h-[52px] w-full items-center gap-3 rounded-[10px] border px-3",
-          isDark ? "border-[#34373a] bg-[#1f2120]" : "border-zinc-200 bg-zinc-50",
-        ].join(" ")}
-        style={{ borderColor: ACCENT }}
-      >
-        <div className="flex-1">
-          <p className={["text-[14px] font-medium", t.text].join(" ")}>
-            {connection.handle || channel.name}
-          </p>
-          <p className={["text-[11px]", t.muted].join(" ")}>{channel.accountLabel}</p>
-        </div>
-        <span
-          className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
-          style={{ borderColor: ACCENT }}
-        >
-          <span className="h-[8px] w-[8px] rounded-full" style={{ background: ACCENT }} />
-        </span>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ---------------------------------------------------------------------------
-   MODAL 2: POSTING FREQUENCY
---------------------------------------------------------------------------- */
-
-type FrequencyOption = {
-  id: string;
-  label: string;
-  tile: ReactNode;
-  tileBg: string;
-  tileFg: string;
-};
-
-function PostingFrequencyModal({
-  channel,
-  connection,
-  t,
-  isDark,
-  onNext,
-  onClose,
-}: {
-  channel: Channel;
-  connection: Connection;
-  t: ThemeTokens;
-  isDark: boolean;
-  onNext: () => void;
-  onClose: () => void;
-}) {
-  const [selected, setSelected] = useState("3x");
-
-  const options: FrequencyOption[] = [
-    { id: "1x", label: "Keep it steady · 1 time/week", tile: "1x", tileBg: "#2a1f4a", tileFg: "#cdb8ff" },
-    { id: "3x", label: "Build a presence · 3 times/week", tile: "3x", tileBg: "#5a2f10", tileFg: "#ffd2a8" },
-    { id: "5x", label: "Reach new heights · 5 times/week", tile: "5x", tileBg: "#0f4a44", tileFg: "#a8f0e4" },
-    { id: "custom", label: "Choose your goal", tile: <PencilIcon className="h-4 w-4" />, tileBg: "#4a1a4a", tileFg: "#f0a8f0" },
-  ];
-
-  return (
-    <ModalShell
-      isDark={isDark}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className={["flex items-center gap-2 text-[13px] font-semibold", t.text].join(" ")}
-          >
-            <HelpIcon className="h-4 w-4" /> What's a Recommended Time?
-          </button>
-          <PrimaryButton onClick={onNext}>
-            Next <ArrowIcon className="h-4 w-4" />
-          </PrimaryButton>
-        </>
-      }
-    >
-      <ModalAvatar channel={channel} connection={connection} isDark={isDark} />
-
-      <h2 className={["text-center text-[20px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
-        How many times a week would you like to post?
-      </h2>
-      <p className={["mb-8 mt-3 text-center text-[13.5px]", t.text].join(" ")}>
-        This posting goal will tell us how many times to recommend per week.
-      </p>
-
-      <div className="flex w-full flex-col gap-[7px]">
-        {options.map((opt) => {
-          const active = selected === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setSelected(opt.id)}
-              className={[
-                "flex h-[50px] w-full items-center gap-4 rounded-[10px] border px-[7px] text-left transition-colors",
-                isDark ? "bg-[#222423]" : "bg-white",
-                active
-                  ? ""
-                  : isDark
-                  ? "border-[#2c2f2d] hover:border-[#3d413e]"
-                  : "border-zinc-200 hover:border-zinc-300",
-              ].join(" ")}
-              style={active ? { borderColor: ACCENT } : undefined}
-            >
-              <span
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[7px] text-[16px] font-medium"
-                style={{ background: opt.tileBg, color: opt.tileFg }}
-              >
-                {opt.tile}
-              </span>
-
-              <span className={["flex-1 text-[14px] font-medium", t.text].join(" ")}>
-                {opt.label}
-              </span>
-
-              <span
-                className="mr-3 flex h-[16px] w-[16px] items-center justify-center rounded-full border-2"
-                style={{ borderColor: active ? ACCENT : isDark ? "#6b6f6c" : "#d4d4d8" }}
-              >
-                {active && (
-                  <span className="h-[7px] w-[7px] rounded-full" style={{ background: ACCENT }} />
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ============================================================================
    PAGE
 ============================================================================ */
 
@@ -918,49 +545,67 @@ export default function Channels({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // Onboarding Modals State
-  const [onboardingChannel, setOnboardingChannel] = useState<ChannelKey | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+  // Onboarding : étape 1 (confirmation) ici, étape 2 (fréquence) sur /insight
+  const [onboardingAccount, setOnboardingAccount] = useState<OnboardingAccount | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
-  const prevConnections = useRef<ConnectionState | null>(null);
+  const notificationTimer = useRef<number | null>(null);
 
   /* --------------------------------------------------------------------------
-     NOTIFICATIONS & ONBOARDING TRIGGER
+     NOTIFICATIONS
   -------------------------------------------------------------------------- */
 
   const showNotification = (message: string, type: "success" | "error" = "success") => {
+    if (notificationTimer.current) window.clearTimeout(notificationTimer.current);
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    notificationTimer.current = window.setTimeout(() => setNotification(null), 3000);
   };
 
   useEffect(() => {
-    if (!prevConnections.current) {
-      prevConnections.current = connections;
-      return;
-    }
+    return () => {
+      if (notificationTimer.current) window.clearTimeout(notificationTimer.current);
+    };
+  }, []);
 
-    CHANNELS.forEach((channel) => {
-      const prev = prevConnections.current![channel.key].connected;
-      const curr = connections[channel.key].connected;
+  /* --------------------------------------------------------------------------
+     ONBOARDING
+  -------------------------------------------------------------------------- */
 
-      if (prev !== curr) {
-        if (curr) {
-          showNotification(`${channel.name} connected successfully`);
-          // Trigger Onboarding Flow
-          setOnboardingChannel(channel.key);
-          setShowConfirmModal(true);
-        } else {
-          showNotification(`${channel.name} disconnected`);
-        }
-      }
-    });
+  /** Ouvre "Est-ce le bon compte ?" juste après une VRAIE connexion. */
+  const startOnboarding = (key: ChannelKey, connection: Connection) => {
+    const channel = CHANNELS.find((c) => c.key === key);
+    if (!channel) return;
+    setShowConnectModal(false);
+    setConfirming(false);
+    setOnboardingAccount(buildAccount(channel, connection));
+    showNotification(`${channel.name} connected successfully`);
+  };
 
-    prevConnections.current = connections;
-  }, [connections]);
+  const handleConfirmAccount = () => {
+    if (!onboardingAccount || confirming) return;
+    setConfirming(true);
+    queueFrequencyOnboarding(onboardingAccount);
+    window.setTimeout(() => {
+      setOnboardingAccount(null);
+      setConfirming(false);
+      window.location.hash = `#${INSIGHT_ROUTE}`;
+    }, 350);
+  };
+
+  const handleRejectAccount = () => {
+    if (!onboardingAccount) return;
+    const key = onboardingAccount.key;
+    setOnboardingAccount(null);
+    handleToggle(key); // le canal est connecté -> ça le déconnecte
+  };
+
+  const handleCloseOnboarding = () => {
+    setOnboardingAccount(null);
+    setConfirming(false);
+  };
 
   /* --------------------------------------------------------------------------
      DERIVED
@@ -1026,6 +671,11 @@ export default function Channels({
           if (connection.connected) writeCache(userId, connection, provider);
           else clearCache(userId, provider);
           setConnections((current) => ({ ...current, [provider]: connection }));
+
+          // Retour d'OAuth réussi -> "Est-ce le bon compte ?"
+          if (justReturned && connection.connected) {
+            startOnboarding(provider, connection);
+          }
         } catch (error) {
           console.warn(`[Stone] Could not load ${provider} status:`, error);
         }
@@ -1037,6 +687,7 @@ export default function Channels({
     sync("youtube", returned.youtube, getYouTubeStatus);
 
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   /* --------------------------------------------------------------------------
@@ -1095,6 +746,7 @@ export default function Channels({
         await disconnectTikTok();
         if (userId) clearCache(userId, "tiktok");
         setConnections((current) => ({ ...current, tiktok: { connected: false } }));
+        showNotification("TikTok disconnected");
       } else {
         await startTikTokLogin();
         redirecting = true;
@@ -1120,6 +772,7 @@ export default function Channels({
         await disconnectPinterest();
         if (userId) clearCache(userId, "pinterest");
         setConnections((current) => ({ ...current, pinterest: { connected: false } }));
+        showNotification("Pinterest disconnected");
       } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
         const token = window.prompt("Pinterest access token:");
         if (!token?.trim()) {
@@ -1134,6 +787,7 @@ export default function Channels({
         };
         if (userId) writeCache(userId, connection, "pinterest");
         setConnections((current) => ({ ...current, pinterest: connection }));
+        startOnboarding("pinterest", connection);
       } else {
         await startPinterestLogin();
         redirecting = true;
@@ -1159,6 +813,7 @@ export default function Channels({
         await disconnectYouTube();
         if (userId) clearCache(userId, "youtube");
         setConnections((current) => ({ ...current, youtube: { connected: false } }));
+        showNotification("YouTube disconnected");
       } else {
         await startYouTubeLogin();
         redirecting = true;
@@ -1175,19 +830,23 @@ export default function Channels({
   };
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
+    const wasConnected = connections[key].connected;
+    const name = CHANNELS.find((c) => c.key === key)?.name ?? key;
     setPendingKey(key);
     window.setTimeout(() => {
-      setConnections((current) => ({
-        ...current,
-        [key]: current[key].connected
-          ? { connected: false }
-          : { connected: true, handle: mockHandleFor(key) },
-      }));
+      if (wasConnected) {
+        setConnections((current) => ({ ...current, [key]: { connected: false } }));
+        showNotification(`${name} disconnected`);
+      } else {
+        const connection: Connection = { connected: true, handle: mockHandleFor(key) };
+        setConnections((current) => ({ ...current, [key]: connection }));
+        startOnboarding(key, connection);
+      }
       setPendingKey(null);
     }, 450);
   };
 
-  const handleToggle = (key: ChannelKey) => {
+  function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
       setErrorMessage(`Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`);
@@ -1197,28 +856,11 @@ export default function Channels({
     if (key === "pinterest") return void handlePinterestToggle();
     if (key === "youtube") return void handleYouTubeToggle();
     handlePlaceholderToggle(key);
-  };
+  }
 
   const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
   const openModal = () => { setErrorMessage(null); setShowConnectModal(true); };
   const closeModal = () => setShowConnectModal(false);
-
-  // Onboarding Handlers
-  const handleFinishConnection = () => {
-    setShowConfirmModal(false);
-    setShowFrequencyModal(true);
-  };
-
-  const handleFrequencyNext = () => {
-    setShowFrequencyModal(false);
-    setOnboardingChannel(null);
-  };
-
-  const handleCloseOnboarding = () => {
-    setShowConfirmModal(false);
-    setShowFrequencyModal(false);
-    setOnboardingChannel(null);
-  };
 
   /* ==========================================================================
      RENDER
@@ -1355,26 +997,14 @@ export default function Channels({
         />
       )}
 
-      {/* MODAL: ONBOARDING STEP 1 (CONFIRM ACCOUNT) */}
-      {showConfirmModal && onboardingChannel && (
+      {/* ONBOARDING ÉTAPE 1 : EST-CE LE BON COMPTE ? (étape 2 -> /insight) */}
+      {onboardingAccount && (
         <ConfirmAccountModal
-          channel={CHANNELS.find((c) => c.key === onboardingChannel)!}
-          connection={connections[onboardingChannel]}
-          t={t}
+          account={onboardingAccount}
           isDark={isDark}
-          onFinish={handleFinishConnection}
-          onClose={handleCloseOnboarding}
-        />
-      )}
-
-      {/* MODAL: ONBOARDING STEP 2 (POSTING FREQUENCY) */}
-      {showFrequencyModal && onboardingChannel && (
-        <PostingFrequencyModal
-          channel={CHANNELS.find((c) => c.key === onboardingChannel)!}
-          connection={connections[onboardingChannel]}
-          t={t}
-          isDark={isDark}
-          onNext={handleFrequencyNext}
+          loading={confirming}
+          onConfirm={handleConfirmAccount}
+          onReject={handleRejectAccount}
           onClose={handleCloseOnboarding}
         />
       )}
@@ -1382,6 +1012,7 @@ export default function Channels({
       {/* TOAST NOTIFICATION */}
       {notification && (
         <div
+          role="status"
           className={[
             "fixed bottom-6 right-6 z-[110] flex items-center gap-3 rounded-xl border px-4 py-3 shadow-2xl transition-all duration-300 animate-in slide-in-from-bottom-5 fade-in",
             isDark ? "border-[#333] bg-[#1a1a1a] text-white" : "border-zinc-200 bg-white text-black",

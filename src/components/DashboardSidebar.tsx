@@ -255,7 +255,7 @@ function Tip({ label, enabled, className, children }) {
           style={{ top: pos.top, left: pos.left }}
           className={[
             "pointer-events-none fixed z-[80] -translate-y-1/2 whitespace-nowrap",
-            "rounded-md border px-2 py-1 text-[11.5px] font-medium",
+            "rounded-lg border px-2 py-1 text-[11.5px] font-medium",
             "animate-[fadeIn_.14s_ease-out]",
             className,
           ].join(" ")}
@@ -312,7 +312,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
 
   const navBtn = (active) =>
     [
-      "group relative flex h-9 w-full items-center gap-3 overflow-hidden rounded-lg px-2.5",
+      "group relative flex h-9 w-full items-center gap-3 overflow-hidden rounded-xl px-2.5",
       "text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none",
       "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2",
       "before:rounded-full before:scale-y-0 before:transition-transform",
@@ -325,7 +325,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
   return (
     <aside
       className={[
-        "fixed inset-y-0 left-0 z-20 flex h-full flex-col border-r px-2.5 py-4",
+        "fixed inset-y-0 left-0 z-20 flex h-full flex-col border-r px-2.5 py-4 rounded-r-[28px]",
         "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
         t.aside,
         collapsed ? "w-[64px]" : "w-[232px]",
@@ -339,7 +339,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
       <div className="mb-5 flex items-center gap-2.5 px-1.5">
         <div
           className={[
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[15px] font-bold",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[15px] font-bold",
             dark ? "bg-white text-black" : "bg-[#151515] text-white",
           ].join(" ")}
         >
@@ -355,7 +355,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
         <button
           type="button"
           className={[
-            "mb-3 flex h-9 w-full items-center gap-2.5 rounded-lg border px-2.5",
+            "mb-3 flex h-9 w-full items-center gap-2.5 rounded-xl border px-2.5",
             "text-[12.5px] transition-colors duration-150",
             t.idle, t.rail, focus,
           ].join(" ")}
@@ -446,7 +446,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
                         setRoute(`insights:${c.key}`)
                       }
                       className={[
-                        "flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-lg px-2 text-[13px]",
+                        "flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-xl px-2 text-[13px]",
                         "font-medium transition-colors duration-150 motion-reduce:transition-none",
                         route === `insights:${c.key}` ? t.active : t.idle, focus,
                       ].join(" ")}
@@ -496,7 +496,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
                               tabIndex={open ? 0 : -1}
                               onClick={() => setRoute(target)}
                               className={[
-                                "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[12.5px]",
+                                "flex h-8 w-full items-center gap-2.5 rounded-lg px-2 text-left text-[12.5px]",
                                 "font-medium transition-colors duration-150 motion-reduce:transition-none",
                                 active ? t.activeSub : t.sub, focus,
                               ].join(" ")}
@@ -527,7 +527,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
           <div
             role="menu"
             className={[
-              "absolute bottom-full left-2.5 right-2.5 mb-2 overflow-hidden rounded-xl border",
+              "absolute bottom-full left-2.5 right-2.5 mb-2 overflow-hidden rounded-2xl border",
               "animate-[fadeIn_.14s_ease-out]", t.menu,
             ].join(" ")}
           >
@@ -541,7 +541,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
                 role="menuitem"
                 onClick={() => { setMenuOpen(false); setRoute("pricing"); }}
                 className={[
-                  "mt-2.5 w-full rounded-md border py-1.5 text-[12px] font-medium",
+                  "mt-2.5 w-full rounded-lg border py-1.5 text-[12px] font-medium",
                   "transition-colors hover:bg-black/[0.04]", t.rail, focus,
                 ].join(" ")}
               >
@@ -549,15 +549,15 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
               </button>
             </div>
             <div className={["border-t p-1.5", t.divider].join(" ")}>
-              <button role="menuitem" className="flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium hover:bg-black/[0.04]" onClick={() => { setMenuOpen(false); setRoute("settings"); }}>
+              <button role="menuitem" className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium hover:bg-black/[0.04]" onClick={() => { setMenuOpen(false); setRoute("settings"); }}>
                 <Icon.settings className="h-4 w-4" /> Settings
               </button>
-              <button role="menuitem" className="flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium hover:bg-black/[0.04]" onClick={toggleTheme}>
+              <button role="menuitem" className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium hover:bg-black/[0.04]" onClick={toggleTheme}>
                 <Icon.bulb className="h-4 w-4" /> {dark ? "Light" : "Dark"} theme
               </button>
             </div>
             <div className={["border-t p-1.5", t.divider].join(" ")}>
-              <button role="menuitem" className="flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium text-red-500 hover:bg-red-500/10">
+              <button role="menuitem" className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium text-red-500 hover:bg-red-500/10">
                 <Icon.logout className="h-4 w-4" /> Log out
               </button>
             </div>
@@ -571,7 +571,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
             onClick={() => setCollapsed((c) => !c)}
             title={collapsed ? "Expand (⌘B)" : "Collapse (⌘B)"}
             className={[
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
               "transition-colors duration-150", t.idle, focus,
             ].join(" ")}
           >
@@ -584,7 +584,7 @@ function Sidebar({ dark, toggleTheme, route, setRoute }) {
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
             className={[
-              "flex h-10 min-w-0 flex-1 items-center gap-2.5 overflow-hidden rounded-lg px-1.5",
+              "flex h-10 min-w-0 flex-1 items-center gap-2.5 overflow-hidden rounded-xl px-1.5",
               "transition-colors duration-150", focus,
               menuOpen ? (dark ? "bg-white/[0.06]" : "bg-black/[0.04]") : "hover:bg-black/[0.04]",
             ].join(" ")}
@@ -651,7 +651,7 @@ export default function App() {
           </h1>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className={["rounded-xl border p-5", t.card].join(" ")}>
+              <div key={i} className={["rounded-2xl border p-5", t.card].join(" ")}>
                 <div className="text-[11px] font-semibold uppercase tracking-wider opacity-50">
                   Metric {i + 1}
                 </div>
