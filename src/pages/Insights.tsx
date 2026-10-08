@@ -5,7 +5,6 @@ import {
   useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -14,8 +13,6 @@ import {
 import {
   Activity,
   BarChart3,
-  Check,
-  ChevronDown,
   Download,
   Eye,
   FileText,
@@ -599,107 +596,30 @@ function Avatar({ channel, isDark, size = 36 }: { channel?: ConnectedChannel; is
   );
 }
 
-function ChannelMenu({
-  channels,
-  current,
-  isDark,
-}: {
-  channels: ConnectedChannel[];
-  current?: ConnectedChannel;
-  isDark: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+/** Nom du réseau social du canal (adapte selon les champs réels de ConnectedChannel). */
+function networkOf(c?: ConnectedChannel): string {
+  if (!c) return "";
+  const extra = c as ConnectedChannel & {
+    network?: string;
+    platform?: string;
+    provider?: string;
+  };
+  return extra.network ?? extra.platform ?? extra.provider ?? "";
+}
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
-  const canSwitch = channels.length > 1;
+function ChannelBadge({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
+  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "No channel";
+  const network = networkOf(channel);
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={!canSwitch}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-default ${ringClass(
-          isDark
-        )} ${cardClass(isDark)} ${canSwitch ? hoverClass(isDark) : ""}`}
-      >
-        <Avatar channel={current} isDark={isDark} />
-        <span className="min-w-0 text-left">
-          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${strongClass(isDark)}`}>
-            {name(current)}
-          </span>
-          <span className={`block text-[11px] ${mutedClass(isDark)}`}>
-            {canSwitch ? "Switch channel" : "Connected channel"}
-          </span>
+    <div className={`flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 ${cardClass(isDark)}`}>
+      <Avatar channel={channel} isDark={isDark} />
+      <span className="min-w-0 text-left">
+        <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${strongClass(isDark)}`}>
+          {name}
         </span>
-        {canSwitch && (
-          <ChevronDown
-            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${softClass(isDark)}`}
-            aria-hidden="true"
-          />
-        )}
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${cardClass(isDark)}`}
-        >
-          {channels.map((c) => {
-            const active = c.key === current?.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => {
-                  setOpen(false);
-                  navigate(`analytics?channel=${encodeURIComponent(c.key)}`);
-                }}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-                  isDark
-                )} ${hoverClass(isDark)}`}
-              >
-                <Avatar channel={c} isDark={isDark} size={28} />
-                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${strongClass(isDark)}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${strongClass(isDark)}`} aria-hidden="true" />}
-              </button>
-            );
-          })}
-          <div className={`my-1 border-t ${hairClass(isDark)}`} />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => navigate("channels")}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-              isDark
-            )} ${hoverClass(isDark)} ${softClass(isDark)}`}
-          >
-            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${innerClass(isDark)}`}>
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
-            Manage channels
-          </button>
-        </div>
-      )}
+        {network && <span className={`block text-[11px] ${mutedClass(isDark)}`}>{network}</span>}
+      </span>
     </div>
   );
 }
@@ -843,7 +763,7 @@ export default function Insights() {
             <p className={`mt-0.5 text-[13px] ${mutedClass(isDark)}`}>{period}</p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
-            <ChannelMenu channels={channels} current={channel} isDark={isDark} />
+            <ChannelBadge channel={channel} isDark={isDark} />
             <button
               type="button"
               onClick={exportCsv}
