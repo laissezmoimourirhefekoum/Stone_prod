@@ -22,7 +22,7 @@ import {
   ConfirmAccountModal,
   queueFrequencyOnboarding,
   type OnboardingAccount,
-} from "../components/OnboardingModals";
+} from "../components/Onboardingmodals";
 
 import {
   useTheme,
