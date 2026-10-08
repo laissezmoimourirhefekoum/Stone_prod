@@ -25,13 +25,13 @@ function Brand({ className = "" }: { className?: string }) {
         className="h-40 w-auto select-none object-contain sm:h-56 md:h-64"
       />
       <span
-        className="mt-10 select-none text-center uppercase leading-none text-white"
+        className="mt-8 select-none text-center uppercase leading-none text-white"
         style={{
           fontFamily: FONT_FAMILY,
-          fontWeight: 600,
+          fontWeight: 700,
           fontSize: "clamp(56px, 11vw, 128px)",
-          letterSpacing: "0.18em",
-          paddingLeft: "0.18em", // compense l'espace après la dernière lettre
+          letterSpacing: "-0.05em", // lettres serrées
+          paddingRight: "0.05em", // recentre le mot après l'espacement négatif
         }}
       >
         STONE
@@ -115,7 +115,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
 
         @keyframes stone-enter {
           from { opacity: 0; transform: scale(0.96); }
