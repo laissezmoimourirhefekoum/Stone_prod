@@ -300,6 +300,15 @@ function LayersIcon(props: IconProps) {
   );
 }
 
+/** Éclair (logo « Get to know your plan »). */
+function BoltIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />
+    </Svg>
+  );
+}
+
 function CheckCircleIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -1062,7 +1071,7 @@ export default function Channels({
           {/* PLAN BANNER */}
           <div className={["mt-8 flex items-start gap-4 rounded-2xl border p-6", t.card, t.border].join(" ")}>
             <div className={["p-2 rounded-lg", isDark ? "bg-[#262626]" : "bg-zinc-100"].join(" ")}>
-              <LayersIcon className={["w-5 h-5", t.muted].join(" ")} />
+              <BoltIcon className={["w-5 h-5", t.muted].join(" ")} />
             </div>
             <div className="flex-1">
               <h3 className={["text-sm font-semibold", t.text].join(" ")}>Get to know your plan</h3>
