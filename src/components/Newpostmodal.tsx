@@ -112,6 +112,10 @@ const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   SELF_ONLY: "Only me",
 };
 
+// Repli si les infos créateur TikTok ne sont pas disponibles :
+// le serveur force de toute façon SELF_ONLY par défaut.
+const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
+
 const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
   privacy_level: "",
   disable_comment: false,
@@ -445,12 +449,23 @@ export default function NewPostModal({
   // ── TikTok ──
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
+  const [tiktokInfoAttempt, setTiktokInfoAttempt] = useState(0);
   const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("direct");
   const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
     TIKTOK_DEFAULT_OPTIONS
   );
 
   const tiktokSelected = networks.includes("tiktok");
+
+  // Visibilités proposées : celles de TikTok si disponibles ;
+  // en cas d'échec du chargement, on retombe sur « Only me » pour
+  // ne jamais laisser le bouton bloqué à vie.
+  const tiktokPrivacyOptions = useMemo<string[]>(() => {
+    const fromInfo = tiktokInfo?.privacy_level_options;
+    if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
+    if (tiktokInfoError || tiktokInfo) return TIKTOK_FALLBACK_PRIVACY;
+    return [];
+  }, [tiktokInfo, tiktokInfoError]);
 
   // Réseaux connectés (cache partagé avec la page Channels) :
   // TikTok, YouTube, Pinterest... tous sont affichés.
@@ -532,13 +547,19 @@ export default function NewPostModal({
   }, [isOpen]);
 
   // Ouverture depuis une case du calendrier : date/heure préremplies.
-  // (Hook placé avant le `if (!isOpen) return null;` pour respecter l'ordre des hooks.)
+  // FIX : on dépend de la VALEUR (getTime) et non de l'objet Date. Si le parent
+  // recrée une Date à chaque rendu, l'ancien effet repassait l'action sur
+  // « set_date » en boucle et écrasait le choix « Now » de l'utilisateur.
+  const initialScheduledTime = initialScheduledAt
+    ? initialScheduledAt.getTime()
+    : null;
+
   useEffect(() => {
-    if (isOpen && initialScheduledAt) {
+    if (isOpen && initialScheduledTime !== null) {
       setScheduleAction("set_date");
-      setScheduledAt(new Date(initialScheduledAt));
+      setScheduledAt(new Date(initialScheduledTime));
     }
-  }, [isOpen, initialScheduledAt]);
+  }, [isOpen, initialScheduledTime]);
 
   useEffect(() => {
     if (!showActionMenu && !showDateTimePanel) return;
@@ -569,6 +590,7 @@ export default function NewPostModal({
 
   // Charge les infos créateur TikTok (visibilités autorisées, etc.)
   // dès que TikTok est sélectionné. (Avant le `if (!isOpen) return null;`.)
+  // `tiktokInfoAttempt` permet de relancer le chargement via « Retry ».
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
     let cancelled = false;
@@ -595,7 +617,18 @@ export default function NewPostModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, tiktokSelected, tiktokInfo]);
+  }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
+
+  // FIX : s'il n'y a qu'une seule visibilité possible, on la sélectionne
+  // automatiquement (sinon le bouton reste bloqué sur « Choose who can view »).
+  useEffect(() => {
+    if (tiktokPrivacyOptions.length === 1 && !tiktokOptions.privacy_level) {
+      setTiktokOptions((o) => ({
+        ...o,
+        privacy_level: tiktokPrivacyOptions[0] as TikTokPostOptions["privacy_level"],
+      }));
+    }
+  }, [tiktokPrivacyOptions, tiktokOptions.privacy_level]);
 
   if (!isOpen) return null;
 
@@ -795,10 +828,22 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : !tiktokVideo
-    ? "TikTok requires a video."
+    ? "TikTok requires a video. Add one, or deselect TikTok."
     : tiktokMode === "direct" && !tiktokOptions.privacy_level
-    ? "Choose who can view your TikTok."
+    ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
+      ? "Loading TikTok settings…"
+      : "Choose who can view your TikTok."
     : null;
+
+  // Raison affichée à côté du bouton pour les autres conditions bloquantes.
+  const otherBlockingReason: string | null =
+    networks.length === 0
+      ? "Select at least one network."
+      : content.trim().length === 0 && media.length === 0
+      ? "Write something or add media."
+      : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
+      ? "Pick a date and time in the future."
+      : null;
 
   const canSubmit =
     networks.length > 0 &&
@@ -806,6 +851,8 @@ export default function NewPostModal({
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
     !tiktokBlockingReason &&
     !isSubmitting;
+
+  const footerHint = isSubmitting ? null : tiktokBlockingReason ?? otherBlockingReason;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -844,11 +891,23 @@ export default function NewPostModal({
 
         setSubmitProgress("Uploading video to TikTok…");
 
+        // Les restrictions imposées par TikTok sont réappliquées ici
+        // (elles pourraient avoir été réinitialisées par clearForm).
+        const options: TikTokPostOptions = {
+          ...tiktokOptions,
+          disable_comment:
+            tiktokOptions.disable_comment || Boolean(tiktokInfo?.comment_disabled),
+          disable_duet:
+            tiktokOptions.disable_duet || Boolean(tiktokInfo?.duet_disabled),
+          disable_stitch:
+            tiktokOptions.disable_stitch || Boolean(tiktokInfo?.stitch_disabled),
+        };
+
         const publishId = await publishToTikTok({
           video: tiktokVideo,
           caption,
           mode: tiktokMode,
-          options: tiktokOptions,
+          options,
         });
 
         await waitForTikTokPublish(publishId, (status) => {
@@ -1158,7 +1217,19 @@ export default function NewPostModal({
                 </p>
 
                 {tiktokInfoError && (
-                  <p className="mb-2 text-[12px] text-red-500">{tiktokInfoError}</p>
+                  <p className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-red-500">
+                    <span>{tiktokInfoError}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTiktokInfoError(null);
+                        setTiktokInfoAttempt((n) => n + 1);
+                      }}
+                      className="font-semibold underline"
+                    >
+                      Retry
+                    </button>
+                  </p>
                 )}
 
                 <div className="mb-2 flex gap-2">
@@ -1196,7 +1267,7 @@ export default function NewPostModal({
                       ].join(" ")}
                     >
                       <option value="">Who can view this video…</option>
-                      {(tiktokInfo?.privacy_level_options ?? []).map((p) => (
+                      {tiktokPrivacyOptions.map((p) => (
                         <option key={p} value={p}>
                           {TIKTOK_PRIVACY_LABELS[p] ?? p}
                         </option>
@@ -1354,8 +1425,19 @@ export default function NewPostModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className={["relative flex shrink-0 items-center justify-end border-t px-5 py-3", border].join(" ")}>
-          <div className="relative" ref={dropdownRef}>
+        <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-5 py-3", border].join(" ")}>
+          {/* Raison pour laquelle le bouton est désactivé */}
+          {footerHint && (
+            <p
+              role="status"
+              className="mr-auto min-w-0 flex-1 truncate text-[12.5px] text-amber-500"
+              title={footerHint}
+            >
+              {footerHint}
+            </p>
+          )}
+
+          <div className="relative shrink-0" ref={dropdownRef}>
             <div
               className={[
                 "flex items-stretch overflow-hidden rounded-xl border",
@@ -1398,6 +1480,7 @@ export default function NewPostModal({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
+                title={footerHint ?? undefined}
                 className={[
                   "px-5 py-2.5 text-[14px] font-semibold transition",
                   canSubmit
