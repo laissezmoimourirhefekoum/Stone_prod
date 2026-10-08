@@ -19,6 +19,13 @@ import {
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
 import { useNewPostShortcut } from "../hooks/useNewPostShortcut";
+import {
+  getTikTokCreatorInfo,
+  publishToTikTok,
+  waitForTikTokPublish,
+  type TikTokCreatorInfo,
+  type TikTokPostOptions,
+} from "../services/tiktok";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -97,6 +104,20 @@ const POSTING_SLOTS: { label: string; hour: number; minute: number }[] = [
   { label: "12:00 PM", hour: 12, minute: 0 },
   { label: "6:00 PM", hour: 18, minute: 0 },
 ];
+
+const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
+  PUBLIC_TO_EVERYONE: "Everyone",
+  MUTUAL_FOLLOW_FRIENDS: "Friends",
+  FOLLOWER_OF_CREATOR: "Followers",
+  SELF_ONLY: "Only me",
+};
+
+const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
+  privacy_level: "",
+  disable_comment: false,
+  disable_duet: false,
+  disable_stitch: false,
+};
 
 /* ──────────────────────────────────────────────────────────────
    Brouillon
@@ -421,6 +442,16 @@ export default function NewPostModal({
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
+  // ── TikTok ──
+  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
+  const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("direct");
+  const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
+    TIKTOK_DEFAULT_OPTIONS
+  );
+
+  const tiktokSelected = networks.includes("tiktok");
+
   // Réseaux connectés (cache partagé avec la page Channels) :
   // TikTok, YouTube, Pinterest... tous sont affichés.
   const connectedChannels = useConnectedChannels();
@@ -536,6 +567,36 @@ export default function NewPostModal({
     };
   }, [showEmojiPicker]);
 
+  // Charge les infos créateur TikTok (visibilités autorisées, etc.)
+  // dès que TikTok est sélectionné. (Avant le `if (!isOpen) return null;`.)
+  useEffect(() => {
+    if (!isOpen || !tiktokSelected || tiktokInfo) return;
+    let cancelled = false;
+
+    getTikTokCreatorInfo()
+      .then((info) => {
+        if (cancelled) return;
+        setTiktokInfo(info);
+        setTiktokInfoError(null);
+        setTiktokOptions((o) => ({
+          ...o,
+          disable_comment: info.comment_disabled || o.disable_comment,
+          disable_duet: info.duet_disabled || o.disable_duet,
+          disable_stitch: info.stitch_disabled || o.disable_stitch,
+        }));
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setTiktokInfoError(
+          e instanceof Error ? e.message : "Could not load TikTok settings."
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, tiktokSelected, tiktokInfo]);
+
   if (!isOpen) return null;
 
   const hasDraftContent =
@@ -564,6 +625,8 @@ export default function NewPostModal({
     setSubmitError(null);
     setSubmitProgress(null);
     setShowEmojiPicker(false);
+    setTiktokMode("direct");
+    setTiktokOptions(TIKTOK_DEFAULT_OPTIONS);
     caretRef.current = null;
   };
 
@@ -719,20 +782,47 @@ export default function NewPostModal({
     setEditingItem(null);
   };
 
+  // ── Règles TikTok ──
+  // TikTok n'a pas d'API de programmation : seule la publication immédiate
+  // (ou le brouillon dans l'app TikTok) est possible.
+  // "save_in_folder" reste géré par le parent (rien n'est envoyé à TikTok).
+  const tiktokVideo = media.find((m) => m.kind === "video")?.file ?? null;
+
+  const tiktokBlockingReason: string | null = !tiktokSelected
+    ? null
+    : scheduleAction === "set_date"
+    ? "TikTok doesn't support scheduling. Choose “Now” or remove TikTok."
+    : scheduleAction === "save_in_folder"
+    ? null
+    : !tiktokVideo
+    ? "TikTok requires a video."
+    : tiktokMode === "direct" && !tiktokOptions.privacy_level
+    ? "Choose who can view your TikTok."
+    : null;
+
   const canSubmit =
     networks.length > 0 &&
     (content.trim().length > 0 || media.length > 0) &&
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
+    !tiktokBlockingReason &&
     !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
+    const tiktokNow = tiktokSelected && scheduleAction === "now";
+
+    // TikTok est publié directement depuis ici ; les autres réseaux
+    // passent par `onSubmit` comme avant.
+    const remainingNetworks = tiktokNow
+      ? networks.filter((n) => n !== "tiktok")
+      : networks;
+
     const payload: NewPostPayload = {
       title: title.trim(),
       content: content.trim(),
       hashtags,
-      networks,
+      networks: remainingNetworks,
       scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
@@ -744,7 +834,40 @@ export default function NewPostModal({
       setSubmitError(null);
       setSubmitProgress(null);
 
-      await onSubmit?.(payload);
+      if (tiktokNow && tiktokVideo) {
+        const caption = [
+          content.trim(),
+          hashtags.map((t) => `#${t}`).join(" "),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+
+        setSubmitProgress("Uploading video to TikTok…");
+
+        const publishId = await publishToTikTok({
+          video: tiktokVideo,
+          caption,
+          mode: tiktokMode,
+          options: tiktokOptions,
+        });
+
+        await waitForTikTokPublish(publishId, (status) => {
+          setSubmitProgress(
+            status === "PROCESSING_UPLOAD" || status === "PROCESSING_DOWNLOAD"
+              ? "TikTok is processing your video…"
+              : "Finalizing…"
+          );
+        });
+
+        // Évite de republier sur TikTok si un autre réseau échoue ensuite
+        // et que l'utilisateur réessaie.
+        setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
+      }
+
+      if (remainingNetworks.length > 0) {
+        await onSubmit?.(payload);
+      }
+
       discardAndClose();
     } catch (error) {
       console.error("Erreur lors de la création du post:", error);
@@ -789,7 +912,9 @@ export default function NewPostModal({
       ? "Saving…"
       : "Publishing…"
     : scheduleAction === "now"
-    ? "Post Now"
+    ? tiktokSelected && tiktokMode === "draft"
+      ? "Send to TikTok"
+      : "Post Now"
     : scheduleAction === "save_in_folder"
     ? "Save Post"
     : "Schedule Post";
@@ -860,7 +985,7 @@ export default function NewPostModal({
         {/* ── Body ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
-          <div className="flex min-h-0 flex-1 flex-col p-5">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
             {/* Canaux connectés (photo de profil + badge du réseau) + bouton « + » */}
             <div className="mb-4 flex flex-wrap items-center gap-4">
               {channelTiles.map(({ channel, network }) => (
@@ -1024,6 +1149,90 @@ export default function NewPostModal({
                 }}
               />
             </div>
+
+            {/* ── Options TikTok ── */}
+            {tiktokSelected && scheduleAction !== "save_in_folder" && (
+              <div className={["mt-3 rounded-xl border p-3 text-[13px]", border, bgPanel].join(" ")}>
+                <p className={["mb-2 font-semibold", textPrimary].join(" ")}>
+                  TikTok{tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}
+                </p>
+
+                {tiktokInfoError && (
+                  <p className="mb-2 text-[12px] text-red-500">{tiktokInfoError}</p>
+                )}
+
+                <div className="mb-2 flex gap-2">
+                  {(["direct", "draft"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setTiktokMode(m)}
+                      className={[
+                        "rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition",
+                        tiktokMode === m
+                          ? `${accentBg} ${accentText} ${accentBorder}`
+                          : `${border} ${textSecondary}`,
+                      ].join(" ")}
+                    >
+                      {m === "direct" ? "Publish directly" : "Save as TikTok draft"}
+                    </button>
+                  ))}
+                </div>
+
+                {tiktokMode === "direct" && (
+                  <>
+                    <select
+                      value={tiktokOptions.privacy_level}
+                      onChange={(e) =>
+                        setTiktokOptions((o) => ({
+                          ...o,
+                          privacy_level: e.target.value as TikTokPostOptions["privacy_level"],
+                        }))
+                      }
+                      className={[
+                        "mb-2 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
+                        border,
+                        isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900",
+                      ].join(" ")}
+                    >
+                      <option value="">Who can view this video…</option>
+                      {(tiktokInfo?.privacy_level_options ?? []).map((p) => (
+                        <option key={p} value={p}>
+                          {TIKTOK_PRIVACY_LABELS[p] ?? p}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="flex flex-wrap gap-4">
+                      {([
+                        ["disable_comment", "Disable comments", tiktokInfo?.comment_disabled],
+                        ["disable_duet", "Disable duet", tiktokInfo?.duet_disabled],
+                        ["disable_stitch", "Disable stitch", tiktokInfo?.stitch_disabled],
+                      ] as const).map(([key, label, forced]) => (
+                        <label
+                          key={key}
+                          className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={tiktokOptions[key]}
+                            disabled={Boolean(forced)}
+                            onChange={(e) =>
+                              setTiktokOptions((o) => ({ ...o, [key]: e.target.checked }))
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {tiktokBlockingReason && (
+                  <p className="mt-2 text-[12px] text-amber-500">{tiktokBlockingReason}</p>
+                )}
+              </div>
+            )}
 
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
 
