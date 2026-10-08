@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -17,13 +18,6 @@ import {
   Check,
   ChevronDown,
   Download,
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitch,
-  Twitter,
-  Youtube,
-  Music2,
   Eye,
   FileText,
   Heart,
@@ -35,6 +29,20 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import {
+  InstagramIcon,
+  FacebookIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "../components/IntegrationIcons";
+
+/** Composant d'icône de réseau (même signature que dans Channels.tsx). */
+type IconComponent = ComponentType<{
+  className?: string;
+  size?: number;
+}>;
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
@@ -584,7 +592,17 @@ function Kpi({
   );
 }
 
-/** Icône du réseau social du canal (adapte selon les champs réels de ConnectedChannel). */
+/** Icônes des réseaux (mêmes composants que la page Channels). */
+const NETWORK_ICONS: Record<string, IconComponent> = {
+  instagram: InstagramIcon,
+  facebook: FacebookIcon,
+  threads: ThreadsIcon,
+  youtube: YouTubeIcon,
+  tiktok: TikTokIcon,
+  pinterest: PinterestIcon,
+};
+
+/** Clé du réseau du canal : `key` en priorité, sinon network/platform/provider. */
 function channelNetwork(c?: ConnectedChannel): string {
   if (!c) return "";
   const extra = c as ConnectedChannel & {
@@ -592,20 +610,12 @@ function channelNetwork(c?: ConnectedChannel): string {
     platform?: string;
     provider?: string;
   };
-  return (extra.network ?? extra.platform ?? extra.provider ?? c.key ?? "").toLowerCase();
+  const raw = c.key ?? extra.network ?? extra.platform ?? extra.provider ?? "";
+  return String(raw).toLowerCase();
 }
 
 function NetworkIcon({ channel, isDark, size = 13 }: { channel?: ConnectedChannel; isDark: boolean; size?: number }) {
-  const n = channelNetwork(channel);
-  const Icon =
-    n.includes("instagram") ? Instagram
-    : n.includes("youtube") ? Youtube
-    : n.includes("linkedin") ? Linkedin
-    : n.includes("twitch") ? Twitch
-    : n.includes("facebook") ? Facebook
-    : n.includes("twitter") || n === "x" ? Twitter
-    : n.includes("tiktok") ? Music2
-    : null;
+  const Icon = NETWORK_ICONS[channelNetwork(channel)];
   if (!Icon) return null;
   return (
     <span
@@ -613,7 +623,7 @@ function NetworkIcon({ channel, isDark, size = 13 }: { channel?: ConnectedChanne
       style={{ width: size + 6, height: size + 6, boxShadow: `0 0 0 2px ${isDark ? "#0d0d0f" : "#fff"}` }}
       aria-hidden="true"
     >
-      <Icon style={{ width: size, height: size }} strokeWidth={2.5} />
+      <Icon className="h-[11px] w-[11px]" size={size} />
     </span>
   );
 }
