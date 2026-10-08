@@ -4,10 +4,13 @@ type StoneBootProps = {
   onComplete: () => void;
 };
 
-const FILL_DURATION = 8000; // durée du remplissage (modifie ici pour ajuster la vitesse)
+const FILL_DURATION = 8000; // durée du remplissage
 const HOLD_AFTER_FILL = 500; // pause une fois le logo plein
 const FADE_OUT = 600; // fondu final
 const WAVE_AMPLITUDE = 3; // hauteur de la vague (en % de la hauteur)
+
+// Pour changer de police : modifie le nom ici ET dans l'@import plus bas
+const FONT_FAMILY = "'Montserrat', 'Helvetica Neue', Arial, sans-serif";
 
 const easeInOut = (t: number) =>
   t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -22,12 +25,13 @@ function Brand({ className = "" }: { className?: string }) {
         className="h-40 w-auto select-none object-contain sm:h-56 md:h-64"
       />
       <span
-        className="mt-10 select-none text-center font-semibold uppercase leading-none text-white"
+        className="mt-10 select-none text-center uppercase leading-none text-white"
         style={{
-          fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-          fontSize: "clamp(64px, 12vw, 140px)",
-          letterSpacing: "0.12em",
-          paddingLeft: "0.12em",
+          fontFamily: FONT_FAMILY,
+          fontWeight: 600,
+          fontSize: "clamp(56px, 11vw, 128px)",
+          letterSpacing: "0.18em",
+          paddingLeft: "0.18em", // compense l'espace après la dernière lettre
         }}
       >
         STONE
@@ -40,7 +44,6 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
   const fillRef = useRef<HTMLDivElement>(null);
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
-  const [percent, setPercent] = useState(0);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -61,7 +64,6 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
     const duration = reduceMotion ? 1500 : FILL_DURATION;
     const start = performance.now();
     let raf = 0;
-    let lastPercent = -1;
     let holdTimer = 0;
 
     const frame = (now: number) => {
@@ -84,16 +86,13 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
         fillRef.current.style.clipPath = `polygon(${points.join(",")})`;
       }
 
-      const rounded = Math.round(p * 100);
-      if (rounded !== lastPercent) {
-        lastPercent = rounded;
-        setPercent(rounded);
-      }
-
       if (elapsed < duration) {
         raf = requestAnimationFrame(frame);
       } else {
-        holdTimer = window.setTimeout(finish, reduceMotion ? 200 : HOLD_AFTER_FILL);
+        holdTimer = window.setTimeout(
+          finish,
+          reduceMotion ? 200 : HOLD_AFTER_FILL
+        );
       }
     };
 
@@ -106,11 +105,8 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
 
   return (
     <div
-      role="progressbar"
+      role="status"
       aria-label="Chargement de Stone"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
       className="fixed inset-0 z-[999999] flex items-center justify-center bg-[#050505]"
       style={{
         opacity: leaving ? 0 : 1,
@@ -119,7 +115,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
 
         @keyframes stone-enter {
           from { opacity: 0; transform: scale(0.96); }
@@ -140,20 +136,6 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
         >
           <Brand />
         </div>
-      </div>
-
-      {/* Pourcentage */}
-      <div className="absolute bottom-10">
-        <span
-          className="text-sm font-medium text-white/60"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontVariantNumeric: "tabular-nums",
-            letterSpacing: "0.2em",
-          }}
-        >
-          {percent}%
-        </span>
       </div>
     </div>
   );
