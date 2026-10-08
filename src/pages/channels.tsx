@@ -123,7 +123,7 @@ type StatusResponse = {
 };
 
 /* ============================================================================
-   THEME
+   THEME TOKENS (Black & White)
 ============================================================================ */
 
 type ThemeTokens = {
@@ -210,24 +210,12 @@ export const CHANNELS: Channel[] = [
 ];
 
 const initialConnections: ConnectionState = {
-  instagram: {
-    connected: false,
-  },
-  facebook: {
-    connected: false,
-  },
-  tiktok: {
-    connected: false,
-  },
-  youtube: {
-    connected: false,
-  },
-  pinterest: {
-    connected: false,
-  },
-  threads: {
-    connected: false,
-  },
+  instagram: { connected: false },
+  facebook: { connected: false },
+  tiktok: { connected: false },
+  youtube: { connected: false },
+  pinterest: { connected: false },
+  threads: { connected: false },
 };
 
 /* ============================================================================
@@ -285,27 +273,9 @@ function ArrowIcon(props: IconProps) {
 function MoreIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <circle
-        cx="5"
-        cy="12"
-        r="1.2"
-        fill="currentColor"
-        stroke="none"
-      />
-      <circle
-        cx="12"
-        cy="12"
-        r="1.2"
-        fill="currentColor"
-        stroke="none"
-      />
-      <circle
-        cx="19"
-        cy="12"
-        r="1.2"
-        fill="currentColor"
-        stroke="none"
-      />
+      <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" />
     </Svg>
   );
 }
@@ -325,6 +295,16 @@ function CloseIcon(props: IconProps) {
     <Svg {...props}>
       <path d="m6 6 12 12" />
       <path d="m18 6-12 12" />
+    </Svg>
+  );
+}
+
+function LayersIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 17 9 5 9-5" />
     </Svg>
   );
 }
@@ -450,11 +430,8 @@ function ChannelIcon({
         "rounded-[14px]",
         "border",
         connection.connected
-          ? "border-emerald-500/20 bg-emerald-500/[0.07]"
-          : "border-black/[0.07] dark:border-white/[0.08]",
-        connection.connected
-          ? "text-emerald-500"
-          : "",
+          ? "border-white/20 bg-white/10 text-white"
+          : "border-white/[0.08] bg-white/[0.045] text-zinc-300",
       ].join(" ")}
     >
       <Icon
@@ -554,7 +531,7 @@ function ChannelCard({
         !disabled &&
           "hover:-translate-y-[1px]",
         !disabled &&
-          "hover:shadow-[0_12px_35px_rgba(0,0,0,0.06)]",
+          "hover:shadow-[0_12px_35px_rgba(0,0,0,0.2)]",
       ].join(" ")}
     >
       <div className="flex items-center gap-3.5">
@@ -583,7 +560,7 @@ function ChannelCard({
                 className={[
                   "h-1.5 w-1.5 shrink-0",
                   "rounded-full",
-                  "bg-emerald-500",
+                  "bg-white",
                 ].join(" ")}
               />
             )}
@@ -620,8 +597,7 @@ function ChannelCard({
                 "justify-center rounded-lg",
                 "transition-colors",
                 t.muted,
-                "hover:bg-black/[0.05]",
-                "dark:hover:bg-white/[0.06]",
+                "hover:bg-white/[0.06]",
                 t.ring,
               ].join(" ")}
             >
@@ -651,7 +627,7 @@ function ChannelCard({
                     "rounded-lg px-3 py-2",
                     "text-left text-[11px]",
                     "font-medium",
-                    "text-red-500",
+                    "text-red-400",
                     "hover:bg-red-500/[0.07]",
                     "disabled:opacity-40",
                   ].join(" ")}
@@ -699,16 +675,6 @@ function ChannelCard({
           </button>
         )}
       </div>
-
-      {isConnected && (
-        <div
-          className={[
-            "absolute right-4 top-1/2",
-            "-translate-y-1/2",
-            "pointer-events-none",
-          ].join(" ")}
-        />
-      )}
     </article>
   );
 }
@@ -826,6 +792,14 @@ export default function Channels({
       null
     );
 
+  const [
+    notification,
+    setNotification,
+  ] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
   const tiktokBusy =
     useRef(false);
 
@@ -834,6 +808,50 @@ export default function Channels({
 
   const youtubeBusy =
     useRef(false);
+
+  const prevConnections =
+    useRef<ConnectionState | null>(null);
+
+  /* --------------------------------------------------------------------------
+     NOTIFICATIONS
+  -------------------------------------------------------------------------- */
+
+  const showNotification = (
+    message: string,
+    type: "success" | "error" = "success"
+  ) => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  useEffect(() => {
+    if (!prevConnections.current) {
+      prevConnections.current = connections;
+      return;
+    }
+
+    CHANNELS.forEach((channel) => {
+      const prev =
+        prevConnections.current![channel.key]
+          .connected;
+      const curr =
+        connections[channel.key].connected;
+
+      if (prev !== curr) {
+        if (curr) {
+          showNotification(
+            `${channel.name} connected successfully`
+          );
+        } else {
+          showNotification(
+            `${channel.name} disconnected`
+          );
+        }
+      }
+    });
+
+    prevConnections.current = connections;
+  }, [connections]);
 
   /* --------------------------------------------------------------------------
      DERIVED
@@ -1092,7 +1110,7 @@ export default function Channels({
   }, [userId]);
 
   /* --------------------------------------------------------------------------
-     THEME
+     THEME TOKENS (Black & White)
   -------------------------------------------------------------------------- */
 
   const t =
@@ -1100,90 +1118,36 @@ export default function Channels({
       () =>
         isDark
           ? {
-              page:
-                "bg-[#0a0a0b] text-white",
-
-              text:
-                "text-white",
-
-              muted:
-                "text-zinc-500",
-
-              card:
-                "bg-white/[0.025]",
-
-              cardHover:
-                "hover:bg-white/[0.04]",
-
-              border:
-                "border-white/[0.08]",
-
-              borderHover:
-                "hover:border-white/[0.15]",
-
-              icon:
-                "border-white/[0.08] bg-white/[0.045] text-zinc-300",
-
-              iconConnected:
-                "border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-400",
-
-              button:
-                "bg-white/[0.035] hover:bg-white/[0.08]",
-
-              buttonHover:
-                "hover:bg-white/[0.08]",
-
-              danger:
-                "text-red-400",
-
-              success:
-                "text-emerald-400",
-
-              ring:
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+              page: "bg-[#0a0a0a] text-white",
+              text: "text-white",
+              muted: "text-zinc-500",
+              card: "bg-[#141414]",
+              cardHover: "hover:bg-[#1a1a1a]",
+              border: "border-[#262626]",
+              borderHover: "hover:border-[#333333]",
+              icon: "border-[#262626] bg-[#1a1a1a] text-zinc-400",
+              iconConnected: "border-[#333333] bg-[#262626] text-white",
+              button: "bg-[#1a1a1a] hover:bg-[#262626]",
+              buttonHover: "hover:bg-[#262626]",
+              danger: "text-red-400",
+              success: "text-white",
+              ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
             }
           : {
-              page:
-                "bg-[#f7f7f5] text-zinc-950",
-
-              text:
-                "text-zinc-950",
-
-              muted:
-                "text-zinc-500",
-
-              card:
-                "bg-white/75",
-
-              cardHover:
-                "hover:bg-white",
-
-              border:
-                "border-black/[0.075]",
-
-              borderHover:
-                "hover:border-black/[0.14]",
-
-              icon:
-                "border-black/[0.07] bg-black/[0.025] text-zinc-600",
-
-              iconConnected:
-                "border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-600",
-
-              button:
-                "bg-black/[0.025] hover:bg-black/[0.055]",
-
-              buttonHover:
-                "hover:bg-black/[0.055]",
-
-              danger:
-                "text-red-600",
-
-              success:
-                "text-emerald-600",
-
-              ring:
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+              page: "bg-[#f7f7f5] text-black",
+              text: "text-black",
+              muted: "text-zinc-500",
+              card: "bg-white",
+              cardHover: "hover:bg-zinc-50",
+              border: "border-zinc-200",
+              borderHover: "hover:border-zinc-300",
+              icon: "border-zinc-200 bg-zinc-50 text-zinc-600",
+              iconConnected: "border-zinc-300 bg-zinc-100 text-black",
+              button: "bg-zinc-100 hover:bg-zinc-200",
+              buttonHover: "hover:bg-zinc-200",
+              danger: "text-red-600",
+              success: "text-black",
+              ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
             },
       [isDark]
     );
@@ -1199,223 +1163,118 @@ export default function Channels({
       }
 
       tiktokBusy.current = true;
-
       setPendingKey("tiktok");
 
       let redirecting = false;
 
       try {
-        if (
-          connections.tiktok.connected
-        ) {
+        if (connections.tiktok.connected) {
           await disconnectTikTok();
-
-          if (userId) {
-            clearCache(
-              userId,
-              "tiktok"
-            );
-          }
-
-          setConnections(
-            (current) => ({
-              ...current,
-              tiktok: {
-                connected: false,
-              },
-            })
-          );
+          if (userId) clearCache(userId, "tiktok");
+          setConnections((current) => ({
+            ...current,
+            tiktok: { connected: false },
+          }));
         } else {
           await startTikTokLogin();
           redirecting = true;
         }
       } catch (error) {
-        console.error(
-          "[Stone] TikTok OAuth error:",
-          error
-        );
-
-        setErrorMessage(
-          formatOAuthError(
-            "TikTok",
-            error
-          )
-        );
+        console.error("[Stone] TikTok OAuth error:", error);
+        setErrorMessage(formatOAuthError("TikTok", error));
       } finally {
         if (!redirecting) {
           setPendingKey(null);
-          tiktokBusy.current =
-            false;
+          tiktokBusy.current = false;
         }
       }
     };
 
   const handlePinterestToggle =
     async () => {
-      if (
-        pinterestBusy.current
-      ) {
+      if (pinterestBusy.current) {
         return;
       }
 
       pinterestBusy.current = true;
-
-      setPendingKey(
-        "pinterest"
-      );
+      setPendingKey("pinterest");
 
       let redirecting = false;
 
       try {
-        if (
-          connections.pinterest
-            .connected
-        ) {
+        if (connections.pinterest.connected) {
           await disconnectPinterest();
-
-          if (userId) {
-            clearCache(
-              userId,
-              "pinterest"
-            );
-          }
-
-          setConnections(
-            (current) => ({
-              ...current,
-              pinterest: {
-                connected: false,
-              },
-            })
-          );
+          if (userId) clearCache(userId, "pinterest");
+          setConnections((current) => ({
+            ...current,
+            pinterest: { connected: false },
+          }));
         } else if (
-          import.meta.env
-            .VITE_PINTEREST_MANUAL_TOKEN ===
-          "true"
+          import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
         ) {
-          const token =
-            window.prompt(
-              "Pinterest access token:"
-            );
-
+          const token = window.prompt("Pinterest access token:");
           if (!token?.trim()) {
             setPendingKey(null);
             return;
           }
 
-          const account =
-            await connectPinterestWithToken(
-              token.trim()
-            );
+          const account = await connectPinterestWithToken(token.trim());
+          const connection: Connection = {
+            connected: true,
+            handle: account?.display_name ?? undefined,
+            avatarUrl: account?.avatar_url ?? undefined,
+          };
 
-          const connection: Connection =
-            {
-              connected: true,
-              handle:
-                account?.display_name ??
-                undefined,
-              avatarUrl:
-                account?.avatar_url ??
-                undefined,
-            };
-
-          if (userId) {
-            writeCache(
-              userId,
-              connection,
-              "pinterest"
-            );
-          }
-
-          setConnections(
-            (current) => ({
-              ...current,
-              pinterest:
-                connection,
-            })
-          );
+          if (userId) writeCache(userId, connection, "pinterest");
+          setConnections((current) => ({
+            ...current,
+            pinterest: connection,
+          }));
         } else {
           await startPinterestLogin();
           redirecting = true;
         }
       } catch (error) {
-        console.error(
-          "[Stone] Pinterest OAuth error:",
-          error
-        );
-
-        setErrorMessage(
-          formatOAuthError(
-            "Pinterest",
-            error
-          )
-        );
+        console.error("[Stone] Pinterest OAuth error:", error);
+        setErrorMessage(formatOAuthError("Pinterest", error));
       } finally {
         if (!redirecting) {
           setPendingKey(null);
-          pinterestBusy.current =
-            false;
+          pinterestBusy.current = false;
         }
       }
     };
 
   const handleYouTubeToggle =
     async () => {
-      if (
-        youtubeBusy.current
-      ) {
+      if (youtubeBusy.current) {
         return;
       }
 
       youtubeBusy.current = true;
-
       setPendingKey("youtube");
 
       let redirecting = false;
 
       try {
-        if (
-          connections.youtube
-            .connected
-        ) {
+        if (connections.youtube.connected) {
           await disconnectYouTube();
-
-          if (userId) {
-            clearCache(
-              userId,
-              "youtube"
-            );
-          }
-
-          setConnections(
-            (current) => ({
-              ...current,
-              youtube: {
-                connected: false,
-              },
-            })
-          );
+          if (userId) clearCache(userId, "youtube");
+          setConnections((current) => ({
+            ...current,
+            youtube: { connected: false },
+          }));
         } else {
           await startYouTubeLogin();
           redirecting = true;
         }
       } catch (error) {
-        console.error(
-          "[Stone] YouTube OAuth error:",
-          error
-        );
-
-        setErrorMessage(
-          formatOAuthError(
-            "YouTube",
-            error
-          )
-        );
+        console.error("[Stone] YouTube OAuth error:", error);
+        setErrorMessage(formatOAuthError("YouTube", error));
       } finally {
         if (!redirecting) {
           setPendingKey(null);
-          youtubeBusy.current =
-            false;
+          youtubeBusy.current = false;
         }
       }
     };
@@ -1429,24 +1288,15 @@ export default function Channels({
       setPendingKey(key);
 
       window.setTimeout(() => {
-        setConnections(
-          (current) => ({
-            ...current,
-            [key]:
-              current[key].connected
-                ? {
-                    connected: false,
-                  }
-                : {
-                    connected: true,
-                    handle:
-                      mockHandleFor(
-                        key
-                      ),
-                  },
-          })
-        );
-
+        setConnections((current) => ({
+          ...current,
+          [key]: current[key].connected
+            ? { connected: false }
+            : {
+                connected: true,
+                handle: mockHandleFor(key),
+              },
+        }));
         setPendingKey(null);
       }, 450);
     };
@@ -1462,7 +1312,6 @@ export default function Channels({
         setErrorMessage(
           `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
         );
-
         return;
       }
 
@@ -1484,12 +1333,9 @@ export default function Channels({
       handlePlaceholderToggle(key);
     };
 
-  const handleUpgrade =
-    () => {
-      console.log(
-        "[Stone] Upgrade clicked"
-      );
-    };
+  const handleUpgrade = () => {
+    console.log("[Stone] Upgrade clicked");
+  };
 
   const openModal = () => {
     setErrorMessage(null);
@@ -1515,9 +1361,7 @@ export default function Channels({
     >
       <DashboardSidebar
         theme={theme}
-        onToggleTheme={
-          onToggleTheme
-        }
+        onToggleTheme={onToggleTheme}
       />
 
       <main
@@ -1527,10 +1371,7 @@ export default function Channels({
           "duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
         ].join(" ")}
-        style={{
-          paddingLeft:
-            sidebarOffset,
-        }}
+        style={{ paddingLeft: sidebarOffset }}
       >
         <div
           className={[
@@ -1546,41 +1387,15 @@ export default function Channels({
           ================================================================ */}
 
           <header className="flex shrink-0 items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1
-                  className={[
-                    "text-[25px] font-semibold",
-                    "tracking-[-0.045em]",
-                    t.text,
-                  ].join(" ")}
-                >
-                  Channels
-                </h1>
-
-                <span
-                  className={[
-                    "rounded-full border",
-                    "px-2 py-0.5",
-                    "text-[9px] font-semibold",
-                    t.border,
-                    t.muted,
-                  ].join(" ")}
-                >
-                  {connectedCount}/
-                  {PLAN.maxChannels}
-                </span>
-              </div>
-
-              <p
-                className={[
-                  "mt-1 text-[11px]",
-                  t.muted,
-                ].join(" ")}
-              >
-                Connect your social accounts.
-              </p>
-            </div>
+            <h1
+              className={[
+                "text-[28px] font-semibold",
+                "tracking-[-0.03em]",
+                t.text,
+              ].join(" ")}
+            >
+              Channels
+            </h1>
 
             <button
               type="button"
@@ -1589,8 +1404,8 @@ export default function Channels({
                 "inline-flex shrink-0",
                 "items-center gap-2",
                 "rounded-xl",
-                "px-3.5 py-2.5",
-                "text-[11px] font-semibold",
+                "px-5 py-2.5",
+                "text-[13px] font-medium",
                 "transition-all duration-150",
                 "hover:-translate-y-px",
                 "active:scale-[0.98]",
@@ -1600,105 +1415,95 @@ export default function Channels({
                 t.ring,
               ].join(" ")}
             >
-              <PlusIcon className="h-3.5 w-3.5" />
-              Add channel
+              Connect Channel
             </button>
           </header>
 
           {/* ================================================================
-              SMALL PLAN BAR
+              PLAN BANNER
           ================================================================ */}
 
           <div
             className={[
-              "mt-5 flex shrink-0",
-              "items-center justify-between",
-              "rounded-xl border",
-              "px-3.5 py-2.5",
+              "mt-8 flex items-start gap-4",
+              "rounded-2xl border p-6",
               t.card,
               t.border,
             ].join(" ")}
           >
-            <div className="flex items-center gap-2.5">
-              <span
+            <div
+              className={[
+                "p-2 rounded-lg",
+                isDark ? "bg-[#262626]" : "bg-zinc-100",
+              ].join(" ")}
+            >
+              <LayersIcon
                 className={[
-                  "h-1.5 w-1.5 rounded-full",
-                  connectedCount > 0
-                    ? "bg-emerald-500"
-                    : "bg-zinc-400",
+                  "w-5 h-5",
+                  t.muted,
                 ].join(" ")}
               />
-
-              <span
-                className={[
-                  "text-[10px] font-medium",
-                  t.muted,
-                ].join(" ")}
-              >
-                {connectedCount > 0
-                  ? `${connectedCount} ${
-                      connectedCount === 1
-                        ? "channel"
-                        : "channels"
-                    } connected`
-                  : "No channels connected"}
-              </span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <span
+            <div className="flex-1">
+              <h3
                 className={[
-                  "text-[10px]",
+                  "text-sm font-semibold",
+                  t.text,
+                ].join(" ")}
+              >
+                Get to know your plan
+              </h3>
+              <p
+                className={[
+                  "mt-1 text-sm",
                   t.muted,
                 ].join(" ")}
               >
-                {PLAN.name}
-              </span>
-
-              {limitReached && (
-                <button
-                  type="button"
-                  onClick={
-                    handleUpgrade
-                  }
-                  className={[
-                    "text-[10px] font-semibold",
-                    "underline underline-offset-2",
-                    t.text,
-                  ].join(" ")}
-                >
-                  Upgrade
-                </button>
-              )}
+                You are on the {PLAN.name} plan and can connect up to{" "}
+                {PLAN.maxChannels} channels.
+              </p>
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                className={[
+                  "mt-4 px-4 py-2",
+                  "text-xs font-medium",
+                  "rounded-lg",
+                  "transition-colors",
+                  isDark
+                    ? "bg-[#262626] text-white hover:bg-[#333]"
+                    : "bg-zinc-100 text-black hover:bg-zinc-200",
+                  t.ring,
+                ].join(" ")}
+              >
+                Upgrade Plan
+              </button>
             </div>
           </div>
 
           {/* ================================================================
-              ERROR
+              ERROR MESSAGE
           ================================================================ */}
 
           {errorMessage && (
             <div
               role="alert"
               className={[
-                "mt-3 flex shrink-0 items-center",
+                "mt-4 flex shrink-0 items-center",
                 "gap-2.5 rounded-xl",
                 "border border-red-500/20",
                 "bg-red-500/[0.06]",
-                "px-3.5 py-2.5",
-                "text-[10px] text-red-500",
+                "px-4 py-3",
+                "text-xs text-red-400",
               ].join(" ")}
             >
               <span className="flex-1">
                 {errorMessage}
               </span>
-
               <button
                 type="button"
                 aria-label="Dismiss"
-                onClick={() =>
-                  setErrorMessage(null)
-                }
+                onClick={() => setErrorMessage(null)}
                 className="rounded-md p-1 hover:bg-red-500/10"
               >
                 <CloseIcon className="h-3.5 w-3.5" />
@@ -1707,51 +1512,97 @@ export default function Channels({
           )}
 
           {/* ================================================================
-              GRID
+              CONTENT (EMPTY STATE OR GRID)
           ================================================================ */}
 
-          <div
-            className={[
-              "mt-5 grid min-h-0 flex-1",
-              "grid-cols-1",
-              "gap-2.5",
-              "sm:grid-cols-2",
-              "lg:grid-cols-3",
-              "content-start",
-            ].join(" ")}
-          >
-            {CHANNELS.map(
-              (channel) => (
+          {connectedCount === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center mt-12 pb-20">
+              <button
+                type="button"
+                onClick={openModal}
+                className={[
+                  "w-16 h-16 rounded-full",
+                  "flex items-center justify-center",
+                  "transition-colors group",
+                  isDark
+                    ? "bg-[#1a1a1a] border border-[#262626] hover:bg-[#262626]"
+                    : "bg-zinc-100 border border-zinc-200 hover:bg-zinc-200",
+                  t.ring,
+                ].join(" ")}
+              >
+                <PlusIcon
+                  className={[
+                    "w-8 h-8",
+                    "transition-colors",
+                    isDark
+                      ? "text-zinc-400 group-hover:text-white"
+                      : "text-zinc-500 group-hover:text-black",
+                  ].join(" ")}
+                />
+              </button>
+
+              <h2
+                className={[
+                  "mt-6 text-lg font-semibold",
+                  t.text,
+                ].join(" ")}
+              >
+                Connect a channel to get started
+              </h2>
+
+              <p
+                className={[
+                  "mt-2 text-sm text-center max-w-sm",
+                  t.muted,
+                ].join(" ")}
+              >
+                Once connected, you'll see your channels listed here.
+              </p>
+
+              <button
+                type="button"
+                onClick={openModal}
+                className={[
+                  "mt-8 px-6 py-2.5",
+                  "text-sm font-medium",
+                  "rounded-lg",
+                  "transition-colors",
+                  isDark
+                    ? "bg-white text-black hover:bg-zinc-200"
+                    : "bg-zinc-950 text-white hover:bg-zinc-800",
+                  t.ring,
+                ].join(" ")}
+              >
+                Connect Channel
+              </button>
+            </div>
+          ) : (
+            <div
+              className={[
+                "mt-6 grid min-h-0 flex-1",
+                "grid-cols-1",
+                "gap-4",
+                "sm:grid-cols-2",
+                "lg:grid-cols-3",
+                "content-start",
+              ].join(" ")}
+            >
+              {CHANNELS.map((channel) => (
                 <ChannelCard
-                  key={
-                    channel.key
-                  }
+                  key={channel.key}
                   channel={channel}
-                  connection={
-                    connections[
-                      channel.key
-                    ]
-                  }
-                  pending={
-                    pendingKey ===
-                    channel.key
-                  }
+                  connection={connections[channel.key]}
+                  pending={pendingKey === channel.key}
                   disabled={
-                    !connections[
-                      channel.key
-                    ].connected &&
+                    !connections[channel.key].connected &&
                     limitReached
                   }
                   t={t}
-                  onToggle={() =>
-                    handleToggle(
-                      channel.key
-                    )
-                  }
+                  onToggle={() => handleToggle(channel.key)}
                 />
-              )
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* ================================================================
               FOOTER
@@ -1761,23 +1612,18 @@ export default function Channels({
             className={[
               "mt-4 flex shrink-0",
               "items-center justify-between",
-              "text-[9px]",
+              "text-[10px]",
               t.muted,
             ].join(" ")}
           >
             <span>
               {slotsLeft > 0
                 ? `${slotsLeft} ${
-                    slotsLeft === 1
-                      ? "slot"
-                      : "slots"
+                    slotsLeft === 1 ? "slot" : "slots"
                   } remaining`
                 : "Plan limit reached"}
             </span>
-
-            <span>
-              Secure OAuth connections
-            </span>
+            <span>Secure OAuth connections</span>
           </div>
         </div>
       </main>
@@ -1799,6 +1645,29 @@ export default function Channels({
           onToggle={handleToggle}
           onClose={closeModal}
         />
+      )}
+
+      {/* ================================================================
+          TOAST NOTIFICATION
+      ================================================================ */}
+
+      {notification && (
+        <div
+          className={[
+            "fixed bottom-6 right-6 z-50",
+            "flex items-center gap-3",
+            "rounded-xl border px-4 py-3",
+            "shadow-2xl transition-all duration-300",
+            "animate-in slide-in-from-bottom-5 fade-in",
+            isDark
+              ? "border-[#333] bg-[#1a1a1a] text-white"
+              : "border-zinc-200 bg-white text-black",
+          ].join(" ")}
+        >
+          <span className="text-sm font-medium">
+            {notification.message}
+          </span>
+        </div>
       )}
     </div>
   );
