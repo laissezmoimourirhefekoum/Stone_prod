@@ -520,8 +520,190 @@ function ChannelCard({
 }
 
 /* ============================================================================
-   MODAL 1: CONFIRM ACCOUNT
+   ONBOARDING MODALS (Buffer style)
 ============================================================================ */
+
+const ACCENT = "#8fd98f";
+
+const CONFETTI = [
+  { l: "11%", t: 18, c: "#22e03a", w: 7, h: 7, r: 0, d: "0s", s: "circle" },
+  { l: "16%", t: 52, c: "#22e03a", w: 12, h: 4, r: 20, d: "0.2s", s: "rect" },
+  { l: "22%", t: 30, c: "#22e03a", w: 16, h: 6, r: 10, d: "0.1s", s: "rect" },
+  { l: "27%", t: 66, c: "#f5c518", w: 8, h: 14, r: 25, d: "0.3s", s: "rect" },
+  { l: "20%", t: 70, c: "#2aa8ff", w: 8, h: 6, r: 0, d: "0.15s", s: "tri" },
+  { l: "39%", t: 8, c: "#f5c518", w: 14, h: 5, r: -15, d: "0.05s", s: "rect" },
+  { l: "46%", t: 72, c: "#ffffff", w: 14, h: 10, r: 15, d: "0.25s", s: "rect" },
+  { l: "50%", t: 4, c: "#f5c518", w: 14, h: 12, r: 10, d: "0.12s", s: "rect" },
+  { l: "55%", t: 76, c: "#2aa8ff", w: 6, h: 6, r: 0, d: "0.35s", s: "tri" },
+  { l: "68%", t: 28, c: "#6f6fe0", w: 18, h: 9, r: 5, d: "0.08s", s: "rect" },
+  { l: "75%", t: 6, c: "#22e03a", w: 10, h: 4, r: -30, d: "0.22s", s: "rect" },
+  { l: "80%", t: 10, c: "#f5c518", w: 12, h: 12, r: 8, d: "0.18s", s: "rect" },
+  { l: "82%", t: 58, c: "#22e03a", w: 12, h: 4, r: 15, d: "0.28s", s: "rect" },
+  { l: "88%", t: 40, c: "#ff2d8a", w: 8, h: 8, r: 0, d: "0.1s", s: "circle" },
+  { l: "89%", t: 6, c: "#ffffff", w: 14, h: 12, r: 25, d: "0.3s", s: "rect" },
+  { l: "86%", t: 52, c: "#f5c518", w: 8, h: 16, r: 18, d: "0.2s", s: "rect" },
+];
+
+function Confetti() {
+  return (
+    <>
+      <style>{`
+        @keyframes stone-confetti-fall {
+          0%   { opacity: 0; transform: translateY(-40px) rotate(0deg); }
+          20%  { opacity: 1; }
+          100% { opacity: 1; transform: translateY(0) rotate(var(--rot)); }
+        }
+      `}</style>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[110px] overflow-hidden">
+        {CONFETTI.map((p, i) => (
+          <span
+            key={i}
+            className="absolute block"
+            style={
+              {
+                left: p.l,
+                top: p.t,
+                width: p.w,
+                height: p.h,
+                background: p.s === "tri" ? "transparent" : p.c,
+                borderRadius: p.s === "circle" ? "9999px" : 1,
+                borderLeft: p.s === "tri" ? `${p.w / 2}px solid transparent` : undefined,
+                borderRight: p.s === "tri" ? `${p.w / 2}px solid transparent` : undefined,
+                borderBottom: p.s === "tri" ? `${p.h}px solid ${p.c}` : undefined,
+                "--rot": `${p.r}deg`,
+                transform: `rotate(${p.r}deg)`,
+                animation: `stone-confetti-fall 0.9s ease-out ${p.d} both`,
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ModalShell({
+  isDark,
+  onClose,
+  children,
+  footer,
+}: {
+  isDark: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  footer: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 backdrop-blur-[2px]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={[
+          "relative flex min-h-[560px] w-full max-w-[680px] flex-col overflow-hidden rounded-[20px] border shadow-2xl",
+          isDark ? "border-[#3b3f3c] bg-[#222423]" : "border-zinc-200 bg-white",
+        ].join(" ")}
+      >
+        <Confetti />
+
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-6 top-6 z-10 flex h-7 w-7 items-center justify-center rounded-md border text-white transition-colors hover:bg-white/10"
+          style={{ borderColor: ACCENT, color: isDark ? "#fff" : "#000" }}
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="flex flex-1 flex-col items-center px-[115px] pb-8 pt-[78px]">
+          {children}
+        </div>
+
+        <div
+          className={[
+            "flex h-[62px] shrink-0 items-center justify-between border-t px-7",
+            isDark ? "border-[#34373a]" : "border-zinc-200",
+          ].join(" ")}
+        >
+          {footer}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalAvatar({
+  channel,
+  connection,
+  isDark,
+}: {
+  channel: Channel;
+  connection: Connection;
+  isDark: boolean;
+}) {
+  const Icon = channel.icon;
+  const [failed, setFailed] = useState(false);
+  const hasAvatar = Boolean(connection.avatarUrl) && !failed;
+
+  return (
+    <div className="relative mb-9 h-[64px] w-[64px]">
+      {hasAvatar ? (
+        <img
+          src={connection.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded-[10px] object-cover"
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-[10px]",
+            isDark ? "bg-[#33373a] text-white" : "bg-zinc-100 text-black",
+          ].join(" ")}
+        >
+          <Icon className="h-7 w-7" size={28} />
+        </div>
+      )}
+
+      {/* check badge (top-left) */}
+      <span
+        className="absolute -left-[10px] -top-[10px] flex h-[24px] w-[24px] items-center justify-center rounded-full text-white"
+        style={{ background: "#4c7a52" }}
+      >
+        <CheckIcon className="h-3 w-3" />
+      </span>
+
+      {/* platform badge (bottom-right) */}
+      <span className="absolute -bottom-[10px] -right-[12px] flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-white text-black shadow">
+        <Icon className="h-[14px] w-[14px]" size={14} />
+      </span>
+    </div>
+  );
+}
+
+function PrimaryButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-[34px] items-center gap-2 rounded-[8px] px-5 text-[14px] font-medium text-[#10230f] transition-all hover:brightness-110 active:scale-[0.98]"
+      style={{ background: ACCENT }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   MODAL 1: CONFIRM ACCOUNT
+--------------------------------------------------------------------------- */
 
 function ConfirmAccountModal({
   channel,
@@ -539,89 +721,78 @@ function ConfirmAccountModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <ModalShell
+      isDark={isDark}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            className={["flex items-center gap-2 text-[13px] font-semibold", t.text].join(" ")}
+          >
+            <HelpIcon className="h-4 w-4" /> Need Help?
+          </button>
+          <PrimaryButton onClick={onFinish}>
+            Finish Connection <ArrowIcon className="h-4 w-4" />
+          </PrimaryButton>
+        </>
+      }
+    >
+      <ModalAvatar channel={channel} connection={connection} isDark={isDark} />
+
+      <h2 className={["text-center text-[20px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+        Confirm your account
+      </h2>
+      <p className={["mb-8 mt-3 text-center text-[14px]", t.text].join(" ")}>
+        Is this the account you want to connect?
+      </p>
+
       <div
         className={[
-          "w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col",
-          isDark ? "bg-[#141414] border-[#262626]" : "bg-white border-zinc-200",
+          "flex h-[52px] w-full items-center gap-3 rounded-[10px] border px-3",
+          isDark ? "border-[#34373a] bg-[#1f2120]" : "border-zinc-200 bg-zinc-50",
         ].join(" ")}
+        style={{ borderColor: ACCENT }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-inherit">
-          <span className={["text-sm font-medium", t.text].join(" ")}>Switch Account</span>
-          <div className="flex items-center gap-2">
-            {/* Provider icons (mock) */}
-            <div className="flex -space-x-1">
-              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-[#333] flex items-center justify-center">
-                <LayersIcon className="w-3 h-3 text-zinc-400" />
-              </div>
-              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-[#333] flex items-center justify-center">
-                <channel.icon className="w-3 h-3 text-zinc-400" />
-              </div>
-            </div>
-            <button onClick={onClose} className={["p-1 rounded-md hover:bg-white/10", t.muted].join(" ")}>
-              <CloseIcon className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="flex-1">
+          <p className={["text-[14px] font-medium", t.text].join(" ")}>
+            {connection.handle || channel.name}
+          </p>
+          <p className={["text-[11px]", t.muted].join(" ")}>{channel.accountLabel}</p>
         </div>
-
-        {/* Body */}
-        <div className="p-8 flex flex-col items-center">
-          <h2 className={["text-xl font-semibold mb-6", t.text].join(" ")}>
-            Confirm your Account
-          </h2>
-
-          <div
-            className={[
-              "w-full max-w-sm flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors",
-              isDark ? "border-zinc-700 bg-zinc-800/50" : "border-zinc-300 bg-zinc-50",
-            ].join(" ")}
-          >
-            <ChannelIcon channel={channel} connection={connection} />
-            <div className="flex-1">
-              <p className={["font-semibold text-sm", t.text].join(" ")}>
-                {connection.handle || channel.name}
-              </p>
-              <p className={["text-xs", t.muted].join(" ")}>Account</p>
-            </div>
-            <div className={["w-5 h-5 rounded flex items-center justify-center", isDark ? "bg-white text-black" : "bg-black text-white"].join(" ")}>
-              <CheckIcon className="w-3.5 h-3.5" />
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-inherit">
-          <button className={["flex items-center gap-1 text-xs font-medium", t.muted].join(" ")}>
-            Need Help <ArrowIcon className="w-3 h-3 rotate-90" />
-          </button>
-          <button
-            onClick={onFinish}
-            className={[
-              "px-6 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
-            ].join(" ")}
-          >
-            Finish Connection
-          </button>
-        </div>
+        <span
+          className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
+          style={{ borderColor: ACCENT }}
+        >
+          <span className="h-[8px] w-[8px] rounded-full" style={{ background: ACCENT }} />
+        </span>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
-/* ============================================================================
+/* ---------------------------------------------------------------------------
    MODAL 2: POSTING FREQUENCY
-============================================================================ */
+--------------------------------------------------------------------------- */
+
+type FrequencyOption = {
+  id: string;
+  label: string;
+  tile: ReactNode;
+  tileBg: string;
+  tileFg: string;
+};
 
 function PostingFrequencyModal({
   channel,
+  connection,
   t,
   isDark,
   onNext,
   onClose,
 }: {
   channel: Channel;
+  connection: Connection;
   t: ThemeTokens;
   isDark: boolean;
   onNext: () => void;
@@ -629,116 +800,83 @@ function PostingFrequencyModal({
 }) {
   const [selected, setSelected] = useState("3x");
 
-  const options = [
-    { id: "1x", label: "Keep it steady · 1 time/week", icon: "1x" },
-    { id: "3x", label: "Build a presence · 3 times/week", icon: "3x" },
-    { id: "5x", label: "Reach new heights · 5 times/week", icon: "5x" },
-    { id: "custom", label: "Choose your goal", icon: <PencilIcon className="w-4 h-4" /> },
+  const options: FrequencyOption[] = [
+    { id: "1x", label: "Keep it steady · 1 time/week", tile: "1x", tileBg: "#2a1f4a", tileFg: "#cdb8ff" },
+    { id: "3x", label: "Build a presence · 3 times/week", tile: "3x", tileBg: "#5a2f10", tileFg: "#ffd2a8" },
+    { id: "5x", label: "Reach new heights · 5 times/week", tile: "5x", tileBg: "#0f4a44", tileFg: "#a8f0e4" },
+    { id: "custom", label: "Choose your goal", tile: <PencilIcon className="h-4 w-4" />, tileBg: "#4a1a4a", tileFg: "#f0a8f0" },
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div
-        className={[
-          "w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col",
-          isDark ? "bg-[#141414] border-[#262626]" : "bg-white border-zinc-200",
-        ].join(" ")}
-      >
-        {/* Header with Close */}
-        <div className="flex justify-end p-4">
-          <button onClick={onClose} className={["p-1.5 rounded-lg border hover:bg-white/5", t.border, t.muted].join(" ")}>
-            <CloseIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-8 pb-8 flex flex-col items-center">
-          {/* Avatar + Provider badge */}
-          <div className="relative mb-6">
-            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-[#333]">
-              <channel.icon className="w-8 h-8 text-white" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center border-2 border-[#141414]">
-              <channel.icon className="w-3 h-3 text-black" />
-            </div>
-          </div>
-
-          <h2 className={["text-xl font-semibold text-center mb-2", t.text].join(" ")}>
-            How many times a week would you like to post?
-          </h2>
-          <p className={["text-sm text-center mb-8", t.muted].join(" ")}>
-            This posting goal will tell us how many times to recommend per week.
-          </p>
-
-          <div className="w-full space-y-3">
-            {options.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => setSelected(opt.id)}
-                className={[
-                  "w-full flex items-center gap-4 p-3.5 rounded-xl border transition-all text-left",
-                  selected === opt.id
-                    ? isDark
-                      ? "border-white bg-white/5"
-                      : "border-black bg-black/5"
-                    : isDark
-                    ? "border-[#262626] hover:border-[#333]"
-                    : "border-zinc-200 hover:border-zinc-300",
-                ].join(" ")}
-              >
-                <div
-                  className={[
-                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                    isDark ? "bg-[#262626] text-white" : "bg-zinc-100 text-black",
-                  ].join(" ")}
-                >
-                  {typeof opt.icon === "string" ? (
-                    <span className="text-xs font-bold">{opt.icon}</span>
-                  ) : (
-                    opt.icon
-                  )}
-                </div>
-                <span className={["flex-1 text-sm font-medium", t.text].join(" ")}>
-                  {opt.label}
-                </span>
-                <div
-                  className={[
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                    selected === opt.id
-                      ? isDark
-                        ? "border-white"
-                        : "border-black"
-                      : isDark
-                      ? "border-zinc-600"
-                      : "border-zinc-300",
-                  ].join(" ")}
-                >
-                  {selected === opt.id && (
-                    <div className={["w-2.5 h-2.5 rounded-full", isDark ? "bg-white" : "bg-black"].join(" ")} />
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-inherit">
-          <button className={["flex items-center gap-1.5 text-xs font-medium", t.muted].join(" ")}>
-            <HelpIcon className="w-4 h-4" /> What's a Recommended Time?
-          </button>
+    <ModalShell
+      isDark={isDark}
+      onClose={onClose}
+      footer={
+        <>
           <button
-            onClick={onNext}
-            className={[
-              "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              isDark ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-950 text-white hover:bg-zinc-800",
-            ].join(" ")}
+            type="button"
+            className={["flex items-center gap-2 text-[13px] font-semibold", t.text].join(" ")}
           >
-            Next <ArrowIcon className="w-4 h-4" />
+            <HelpIcon className="h-4 w-4" /> What's a Recommended Time?
           </button>
-        </div>
+          <PrimaryButton onClick={onNext}>
+            Next <ArrowIcon className="h-4 w-4" />
+          </PrimaryButton>
+        </>
+      }
+    >
+      <ModalAvatar channel={channel} connection={connection} isDark={isDark} />
+
+      <h2 className={["text-center text-[20px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+        How many times a week would you like to post?
+      </h2>
+      <p className={["mb-8 mt-3 text-center text-[13.5px]", t.text].join(" ")}>
+        This posting goal will tell us how many times to recommend per week.
+      </p>
+
+      <div className="flex w-full flex-col gap-[7px]">
+        {options.map((opt) => {
+          const active = selected === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setSelected(opt.id)}
+              className={[
+                "flex h-[50px] w-full items-center gap-4 rounded-[10px] border px-[7px] text-left transition-colors",
+                isDark ? "bg-[#222423]" : "bg-white",
+                active
+                  ? ""
+                  : isDark
+                  ? "border-[#2c2f2d] hover:border-[#3d413e]"
+                  : "border-zinc-200 hover:border-zinc-300",
+              ].join(" ")}
+              style={active ? { borderColor: ACCENT } : undefined}
+            >
+              <span
+                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[7px] text-[16px] font-medium"
+                style={{ background: opt.tileBg, color: opt.tileFg }}
+              >
+                {opt.tile}
+              </span>
+
+              <span className={["flex-1 text-[14px] font-medium", t.text].join(" ")}>
+                {opt.label}
+              </span>
+
+              <span
+                className="mr-3 flex h-[16px] w-[16px] items-center justify-center rounded-full border-2"
+                style={{ borderColor: active ? ACCENT : isDark ? "#6b6f6c" : "#d4d4d8" }}
+              >
+                {active && (
+                  <span className="h-[7px] w-[7px] rounded-full" style={{ background: ACCENT }} />
+                )}
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -1233,6 +1371,7 @@ export default function Channels({
       {showFrequencyModal && onboardingChannel && (
         <PostingFrequencyModal
           channel={CHANNELS.find((c) => c.key === onboardingChannel)!}
+          connection={connections[onboardingChannel]}
           t={t}
           isDark={isDark}
           onNext={handleFrequencyNext}
