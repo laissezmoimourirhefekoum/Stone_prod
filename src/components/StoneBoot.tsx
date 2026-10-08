@@ -9,33 +9,18 @@ const HOLD_AFTER_FILL = 500; // pause une fois le logo plein
 const FADE_OUT = 600; // fondu final
 const WAVE_AMPLITUDE = 3; // hauteur de la vague (en % de la hauteur)
 
-// Pour changer de police : modifie le nom ici ET dans l'@import plus bas
-const FONT_FAMILY = "'Montserrat', 'Helvetica Neue', Arial, sans-serif";
-
 const easeInOut = (t: number) =>
   t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
 function Brand({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
+    <div className={`flex items-center justify-center ${className}`}>
       <img
         src="/images/icon_nav.png"
         alt=""
         draggable={false}
-        className="h-40 w-auto select-none object-contain sm:h-56 md:h-64"
+        className="h-52 w-auto select-none object-contain sm:h-72 md:h-80"
       />
-      <span
-        className="mt-8 select-none text-center uppercase leading-none text-white"
-        style={{
-          fontFamily: FONT_FAMILY,
-          fontWeight: 700,
-          fontSize: "clamp(56px, 11vw, 128px)",
-          letterSpacing: "-0.05em", // lettres serrées
-          paddingRight: "0.05em", // recentre le mot après l'espacement négatif
-        }}
-      >
-        STONE
-      </span>
     </div>
   );
 }
@@ -115,8 +100,6 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
-
         @keyframes stone-enter {
           from { opacity: 0; transform: scale(0.96); }
           to   { opacity: 1; transform: scale(1); }
