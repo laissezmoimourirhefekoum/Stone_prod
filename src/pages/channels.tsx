@@ -334,6 +334,26 @@ function toConnection(status: StatusResponse): Connection {
   };
 }
 
+const RETURN_KEY = "stone:oauth-returned";
+
+function readReturned(): CacheProvider[] {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
+    return Array.isArray(parsed) ? (parsed as CacheProvider[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeReturned(list: CacheProvider[]) {
+  try {
+    if (list.length === 0) sessionStorage.removeItem(RETURN_KEY);
+    else sessionStorage.setItem(RETURN_KEY, JSON.stringify(list));
+  } catch {
+    /* storage indisponible */
+  }
+}
+
 function buildAccount(
   channel: Channel,
   connection: Connection
@@ -634,10 +654,31 @@ export default function Channels({
     const pinterestError = params.get("pinterest_error");
     const youtubeError = params.get("youtube_error");
 
-    const returned: Record<CacheProvider, boolean> = {
+    const fromUrl: Record<CacheProvider, boolean> = {
       tiktok: params.has("tiktok") || Boolean(tiktokError),
       pinterest: params.has("pinterest") || Boolean(pinterestError),
       youtube: params.has("youtube") || Boolean(youtubeError),
+    };
+    const oauthErrors: Record<CacheProvider, string | null> = {
+      tiktok: tiktokError,
+      pinterest: pinterestError,
+      youtube: youtubeError,
+    };
+
+    // StrictMode relance l'effet après le nettoyage de l'URL : on garde donc
+    // le "je reviens d'OAuth" en sessionStorage jusqu'à ce que le statut soit lu.
+    const providers: CacheProvider[] = ["tiktok", "pinterest", "youtube"];
+    const pendingReturn = new Set<CacheProvider>(readReturned());
+    providers.forEach((p) => {
+      if (fromUrl[p]) pendingReturn.add(p);
+      if (oauthErrors[p]) pendingReturn.delete(p);
+    });
+    writeReturned([...pendingReturn]);
+
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: pendingReturn.has("tiktok"),
+      pinterest: pendingReturn.has("pinterest"),
+      youtube: pendingReturn.has("youtube"),
     };
 
     if (tiktokError) setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
@@ -667,6 +708,9 @@ export default function Channels({
         try {
           const status = await fetchStatus();
           if (cancelled) return;
+          if (justReturned) {
+            writeReturned(readReturned().filter((p) => p !== provider));
+          }
           const connection = toConnection(status);
           if (connection.connected) writeCache(userId, connection, provider);
           else clearCache(userId, provider);
