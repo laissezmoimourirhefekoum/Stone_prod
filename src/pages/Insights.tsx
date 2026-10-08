@@ -1,5 +1,6 @@
 // src/pages/Insights.tsx
-// Page Insights : période, comparaison, graphique interactif, impact du contenu, export CSV.
+// Page Insights — refonte UX : hiérarchie progressive (1 focus principal,
+// 1 colonne d'highlights, impact contenu), style Black & White aligné sur Channels.
 // Les données sont fournies par `useInsights` : branche-le sur ton backend.
 import {
   useEffect,
@@ -15,34 +16,21 @@ import {
 import {
   Activity,
   BarChart3,
-  Check,
-  ChevronDown,
   Download,
   Eye,
-  FileText,
   Heart,
   MessageCircle,
+  MoreHorizontal,
   Play,
   Plus,
   Share2,
   TrendingDown,
   TrendingUp,
   Users,
+  FileText,
+  Check,
+  ChevronDown,
 } from "lucide-react";
-import {
-  InstagramIcon,
-  FacebookIcon,
-  TikTokIcon,
-  YouTubeIcon,
-  PinterestIcon,
-  ThreadsIcon,
-} from "../components/IntegrationIcons";
-
-/** Composant d'icône de réseau (même signature que dans Channels.tsx). */
-type IconComponent = ComponentType<{
-  className?: string;
-  size?: number;
-}>;
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
@@ -52,10 +40,24 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
+import {
+  InstagramIcon,
+  FacebookIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "../components/IntegrationIcons";
 
 /* ============================================================
    TYPES
 ============================================================ */
+
+/** Composant d'icône de réseau (même signature que dans Channels.tsx). */
+type IconComponent = ComponentType<{
+  className?: string;
+  size?: number;
+}>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type Metric = "followers" | "posts";
@@ -95,23 +97,60 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 /* ============================================================
-   STYLE TOKENS (mêmes teintes que la Home, containers plus sombres)
+   STYLE TOKENS — Black & White, aligné sur la page Channels
 ============================================================ */
 
-const cardClass = (d: boolean) =>
-  d ? "border border-white/[0.06] bg-[#0d0d0f]" : "border border-black/[0.06] bg-white";
+type Tokens = {
+  page: string;
+  text: string;
+  muted: string;
+  soft: string;
+  card: string;
+  border: string;
+  inner: string;
+  chipOn: string;
+  chipOff: string;
+  accentBtn: string;
+  iconBox: string;
+  ring: string;
+  hover: string;
+  badgeBg: string;
+};
 
-const innerClass = (d: boolean) =>
-  d ? "border border-white/[0.06] bg-[#070708]" : "border border-black/[0.06] bg-neutral-50";
-
-const mutedClass = (d: boolean) => (d ? "text-neutral-600" : "text-neutral-400");
-const softClass = (d: boolean) => (d ? "text-neutral-400" : "text-neutral-500");
-const strongClass = (d: boolean) => (d ? "text-white" : "text-neutral-900");
-const hairClass = (d: boolean) => (d ? "border-white/[0.06]" : "border-black/[0.06]");
-const iconBoxClass = (d: boolean) => (d ? "bg-white text-black" : "bg-neutral-900 text-white");
-const ringClass = (d: boolean) =>
-  d ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
-const hoverClass = (d: boolean) => (d ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]");
+const tokens = (isDark: boolean): Tokens =>
+  isDark
+    ? {
+        page: "bg-[#0a0a0a] text-white",
+        text: "text-white",
+        muted: "text-zinc-500",
+        soft: "text-zinc-400",
+        card: "bg-[#141414] border-[#262626]",
+        border: "border-[#262626]",
+        inner: "bg-[#0f0f0f] border-[#262626]",
+        chipOn: "bg-white text-black",
+        chipOff: "text-zinc-400 hover:text-white hover:bg-white/[0.06]",
+        accentBtn: "bg-white text-black hover:bg-zinc-200",
+        iconBox: "bg-[#262626] text-white",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        hover: "hover:bg-white/[0.05]",
+        badgeBg: "bg-white text-black",
+      }
+    : {
+        page: "bg-[#f7f7f5] text-black",
+        text: "text-black",
+        muted: "text-zinc-500",
+        soft: "text-zinc-600",
+        card: "bg-white border-zinc-200",
+        border: "border-zinc-200",
+        inner: "bg-zinc-50 border-zinc-200",
+        chipOn: "bg-zinc-950 text-white",
+        chipOff: "text-zinc-500 hover:text-black hover:bg-black/[0.05]",
+        accentBtn: "bg-zinc-950 text-white hover:bg-zinc-800",
+        iconBox: "bg-zinc-100 text-black",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+        hover: "hover:bg-black/[0.04]",
+        badgeBg: "bg-white text-black",
+      };
 
 /* ============================================================
    DATES & FORMAT
@@ -267,7 +306,7 @@ function smoothPath(pts: [number, number][]): string {
 }
 
 /* ============================================================
-   CHART
+   CHART — interactions clavier + pointer conservées
 ============================================================ */
 
 function Chart({
@@ -288,8 +327,8 @@ function Chart({
   const [hover, setHover] = useState<number | null>(null);
   const gradId = useId().replace(/:/g, "");
   const W = 720;
-  const H = 280;
-  const pad = { l: 34, r: 12, t: 16, b: 28 };
+  const H = 260;
+  const pad = { l: 34, r: 12, t: 16, b: 26 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = current.length;
@@ -317,7 +356,7 @@ function Chart({
   const axis = isDark ? "#6b6b73" : "#9a9aa3";
 
   const ticks = Array.from(new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4))));
-  const labelIdx = Array.from(new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((r) => Math.round(r * (n - 1)))));
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -338,7 +377,7 @@ function Chart({
 
   return (
     <div
-      className={`relative rounded-2xl focus-visible:outline-none focus-visible:ring-2 ${ringClass(isDark)}`}
+      className={`relative rounded-2xl ${isDark ? "ring-white/30" : "ring-black/20"} focus-visible:outline-none focus-visible:ring-2`}
       tabIndex={0}
       role="group"
       aria-label={`${unit} chart. Use the left and right arrow keys to inspect each day.`}
@@ -355,7 +394,7 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.14 : 0.28} />
+            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.12 : 0.24} />
             <stop offset="100%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -393,20 +432,20 @@ function Chart({
           />
         )}
         <path d={area} fill={`url(#${gradId})`} />
-        <path d={line} fill="none" stroke={ink} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
 
         {hover !== null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
-            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#0d0d0f" : "#fff"} stroke={ink} strokeWidth="2.5" />
+            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#141414" : "#fff"} stroke={ink} strokeWidth="2.5" />
           </g>
         )}
       </svg>
 
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-1 min-w-[140px] rounded-2xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${
-            isDark ? "bg-[#0d0d0f] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/5"
+          className={`pointer-events-none absolute top-1 min-w-[150px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${
+            isDark ? "bg-[#1a1a1a] text-white ring-1 ring-white/10" : "bg-white text-black ring-1 ring-black/5"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -442,23 +481,17 @@ function Segmented<T extends string>({
   value,
   options,
   onChange,
-  isDark,
+  t,
   label,
 }: {
   value: T;
   options: { key: T; label: string }[];
   onChange: (k: T) => void;
-  isDark: boolean;
+  t: Tokens;
   label: string;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className={`inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1 ${
-        isDark ? "bg-[#070708]" : "bg-neutral-100"
-      }`}
-    >
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-xl p-1">
       {options.map((o) => {
         const active = value === o.key;
         return (
@@ -467,16 +500,8 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-              isDark
-            )} ${
-              active
-                ? isDark
-                  ? "bg-white text-black"
-                  : "bg-neutral-900 text-white"
-                : isDark
-                ? "text-neutral-400 hover:text-white"
-                : "text-neutral-500 hover:text-neutral-900"
+            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+              active ? t.chipOn : t.chipOff
             }`}
           >
             {o.label}
@@ -491,12 +516,12 @@ function Switch({
   checked,
   onChange,
   label,
-  isDark,
+  t,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
-  isDark: boolean;
+  t: Tokens;
 }) {
   return (
     <button
@@ -504,19 +529,17 @@ function Switch({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-3.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-        isDark
-      )} ${softClass(isDark)} ${hoverClass(isDark)}`}
+      className={`flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.soft} ${t.hover}`}
     >
       <span
-        className={`relative h-5 w-9 rounded-full transition-colors motion-reduce:transition-none ${
-          checked ? (isDark ? "bg-white" : "bg-neutral-900") : isDark ? "bg-white/15" : "bg-black/15"
+        className={`relative h-[18px] w-8 rounded-full transition-colors motion-reduce:transition-none ${
+          checked ? (t.chipOn.includes("bg-white") ? "bg-white" : "bg-zinc-950") : "bg-zinc-400/40"
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full transition-all motion-reduce:transition-none ${
-            checked ? "left-[18px]" : "left-0.5"
-          } ${checked ? (isDark ? "bg-black" : "bg-white") : isDark ? "bg-neutral-400" : "bg-white"}`}
+          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full transition-all motion-reduce:transition-none ${
+            checked ? "left-[16px]" : "left-[2px]"
+          } ${checked ? (t.chipOn.includes("bg-white") ? "bg-black" : "bg-white") : "bg-white"}`}
         />
       </span>
       {label}
@@ -524,7 +547,7 @@ function Switch({
   );
 }
 
-function Chip({ value, isDark, children }: { value: number; isDark: boolean; children: ReactNode }) {
+function Delta({ value, isDark }: { value: number; isDark: boolean }) {
   const tone =
     value > 0
       ? isDark
@@ -535,60 +558,14 @@ function Chip({ value, isDark, children }: { value: number; isDark: boolean; chi
         ? "bg-rose-500/10 text-rose-400"
         : "bg-rose-50 text-rose-700"
       : isDark
-      ? "bg-white/[0.05] text-neutral-400"
-      : "bg-neutral-100 text-neutral-500";
+      ? "bg-white/[0.06] text-zinc-400"
+      : "bg-zinc-100 text-zinc-500";
   const Icon = value < 0 ? TrendingDown : TrendingUp;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${tone}`}>
       {value !== 0 && <Icon className="h-3 w-3" aria-hidden="true" />}
-      {children}
+      {signed(value)}
     </span>
-  );
-}
-
-function Bar({ value, isDark }: { value: number; isDark: boolean }) {
-  return (
-    <div
-      className={`h-1.5 w-full overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/[0.06]"}`}
-      role="progressbar"
-      aria-valuenow={value}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    >
-      <div
-        className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-}
-
-function Kpi({
-  isDark,
-  icon,
-  label,
-  value,
-  chip,
-}: {
-  isDark: boolean;
-  icon: ReactNode;
-  label: string;
-  value: string;
-  chip?: ReactNode;
-}) {
-  return (
-    <div className={`flex min-w-0 flex-col gap-4 rounded-3xl p-4 ${cardClass(isDark)}`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBoxClass(isDark)}`}>{icon}</span>
-        {chip}
-      </div>
-      <div className="min-w-0">
-        <p className={`truncate text-[12px] ${mutedClass(isDark)}`}>{label}</p>
-        <p className={`mt-0.5 text-[24px] font-semibold leading-tight tracking-tight tabular-nums ${strongClass(isDark)}`}>
-          {value}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -614,28 +591,24 @@ function channelNetwork(c?: ConnectedChannel): string {
   return String(raw).toLowerCase();
 }
 
-function NetworkIcon({ channel, isDark, size = 13 }: { channel?: ConnectedChannel; isDark: boolean; size?: number }) {
+function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?: number }) {
   const Icon = NETWORK_ICONS[channelNetwork(channel)];
   if (!Icon) return null;
   return (
-    <span
-      className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black"
-      style={{ width: size + 6, height: size + 6, boxShadow: `0 0 0 2px ${isDark ? "#0d0d0f" : "#fff"}` }}
-      aria-hidden="true"
-    >
-      <Icon className="h-[11px] w-[11px]" size={size} />
+    <span className={`absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full ring-2 ring-[#141414] ${"bg-white text-black"}`}>
+      <span className="flex h-[19px] w-[19px] items-center justify-center">
+        <Icon className="h-[11px] w-[11px]" size={size} />
+      </span>
     </span>
   );
 }
 
 function Avatar({
   channel,
-  isDark,
   size = 36,
   showNetwork = true,
 }: {
   channel?: ConnectedChannel;
-  isDark: boolean;
   size?: number;
   showNetwork?: boolean;
 }) {
@@ -658,12 +631,12 @@ function Avatar({
       ) : (
         <span
           style={box}
-          className={`flex items-center justify-center rounded-full text-[13px] font-semibold ${iconBoxClass(isDark)}`}
+          className="flex items-center justify-center rounded-full bg-zinc-200 text-[13px] font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
         >
           {label.charAt(0).toUpperCase() || "?"}
         </span>
       )}
-      {showNetwork && <NetworkIcon channel={channel} isDark={isDark} />}
+      {showNetwork && <NetworkIcon channel={channel} />}
     </span>
   );
 }
@@ -671,10 +644,12 @@ function Avatar({
 function ChannelMenu({
   channels,
   current,
+  t,
   isDark,
 }: {
   channels: ConnectedChannel[];
   current?: ConnectedChannel;
+  t: Tokens;
   isDark: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -705,22 +680,17 @@ function ChannelMenu({
         aria-expanded={open}
         disabled={!canSwitch}
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-4 transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-default ${ringClass(
-          isDark
-        )} ${cardClass(isDark)} ${canSwitch ? hoverClass(isDark) : ""}`}
+        className={`flex items-center gap-2.5 rounded-xl border py-1.5 pl-1.5 pr-3 transition-colors disabled:cursor-default ${t.ring} ${t.border} ${
+          isDark ? "bg-[#141414]" : "bg-white"
+        } ${canSwitch ? t.hover : ""}`}
       >
-        <Avatar channel={current} isDark={isDark} />
+        <Avatar channel={current} />
         <span className="min-w-0 text-left">
-          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${strongClass(isDark)}`}>
-            {name(current)}
-          </span>
-          <span className={`block text-[11px] ${mutedClass(isDark)}`}>
-            {canSwitch ? "Switch channel" : "Connected channel"}
-          </span>
+          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${t.text}`}>{name(current)}</span>
         </span>
         {canSwitch && (
           <ChevronDown
-            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${softClass(isDark)}`}
+            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
             aria-hidden="true"
           />
         )}
@@ -729,7 +699,9 @@ function ChannelMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${cardClass(isDark)}`}
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${
+            isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
+          }`}
         >
           {channels.map((c) => {
             const active = c.key === current?.key;
@@ -743,26 +715,22 @@ function ChannelMenu({
                   setOpen(false);
                   navigate(`insights?channel=${encodeURIComponent(c.key)}`);
                 }}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-                  isDark
-                )} ${hoverClass(isDark)}`}
+                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
               >
-                <Avatar channel={c} isDark={isDark} size={28} />
-                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${strongClass(isDark)}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${strongClass(isDark)}`} aria-hidden="true" />}
+                <Avatar channel={c} size={28} />
+                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${t.text}`}>{name(c)}</span>
+                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
               </button>
             );
           })}
-          <div className={`my-1 border-t ${hairClass(isDark)}`} />
+          <div className={`my-1 border-t ${t.border}`} />
           <button
             type="button"
             role="menuitem"
             onClick={() => navigate("channels")}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-              isDark
-            )} ${hoverClass(isDark)} ${softClass(isDark)}`}
+            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
-            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${innerClass(isDark)}`}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             Manage channels
@@ -779,6 +747,7 @@ function DateField({
   min,
   max,
   onChange,
+  t,
   isDark,
 }: {
   label: string;
@@ -786,10 +755,11 @@ function DateField({
   min?: string;
   max: string;
   onChange: (v: string) => void;
+  t: Tokens;
   isDark: boolean;
 }) {
   return (
-    <label className={`flex items-center gap-2 text-[12px] ${mutedClass(isDark)}`}>
+    <label className={`flex items-center gap-2 text-[12px] ${t.muted}`}>
       {label}
       <input
         type="date"
@@ -797,21 +767,24 @@ function DateField({
         min={min}
         max={max}
         onChange={(e) => e.target.value && onChange(e.target.value)}
-        className={`rounded-full px-3 py-1.5 text-[12px] focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-          isDark
-        )} ${innerClass(isDark)} ${strongClass(isDark)} ${isDark ? "[color-scheme:dark]" : ""}`}
+        className={`rounded-xl border px-3 py-1.5 text-[12px] ${t.ring} ${t.inner} ${t.text} ${isDark ? "[color-scheme:dark]" : ""}`}
       />
     </label>
   );
 }
 
 /* ============================================================
-   PAGE
+   PAGE — hiérarchie progressive
+   1. Focus : tendance audience (grand chiffre + graphique)
+   2. Highlights : métriques clés en liste compacte
+   3. Impact du contenu
+   4. Posts
 ============================================================ */
 
 export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const t = useMemo(() => tokens(isDark), [isDark]);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
   const channelKey = useHashChannel();
@@ -839,7 +812,6 @@ export default function Insights() {
   const prevDelta = previous[days - 1].followers - previous[0].followers;
   const totalPosts = current.reduce((a, p) => a + p.posts, 0);
 
-  const period = `${fmtFull(start)} – ${fmtFull(end)}`;
   const compared = `${fmtFull(previous[0].date)} – ${fmtFull(previous[days - 1].date)}`;
   const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "";
 
@@ -847,6 +819,17 @@ export default function Insights() {
     metric === "followers"
       ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers" }
       : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts" };
+
+  /* --- Highlights : une seule carte, liste compacte plutôt que 6 tuiles --- */
+  const highlights: { icon: ReactNode; label: string; value: string; delta?: number }[] = [
+    { icon: <Users className="h-4 w-4" />, label: "Followers", value: nf(summary.followers), delta },
+    { icon: <FileText className="h-4 w-4" />, label: "Posts", value: nf(summary.posts) },
+    { icon: <Eye className="h-4 w-4" />, label: "Reach", value: nf(summary.reach) },
+    { icon: <Heart className="h-4 w-4" />, label: "Reactions", value: nf(summary.reactions) },
+    { icon: <MessageCircle className="h-4 w-4" />, label: "Comments", value: nf(summary.comments) },
+    { icon: <Share2 className="h-4 w-4" />, label: "Shares", value: nf(summary.shares) },
+    { icon: <Play className="h-4 w-4" />, label: "Video views", value: nf(summary.videoViews) },
+  ];
 
   const impact: Record<
     Tab,
@@ -861,7 +844,6 @@ export default function Insights() {
         { label: "Reactions", value: nf(summary.reactions) },
         { label: "Comments", value: nf(summary.comments) },
         { label: "Shares", value: nf(summary.shares) },
-        { label: "Posts", value: nf(summary.posts) },
       ],
     },
     video: {
@@ -895,31 +877,29 @@ export default function Insights() {
     downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
-  const outer = isDark ? "bg-[#09090a] text-white" : "bg-[#f5f3ef] text-neutral-900";
-
   return (
     <main
-      className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${outer}`}
+      className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${t.page}`}
       style={{ paddingLeft: sidebarOffset }}
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="flex w-full flex-col gap-5 p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 py-[clamp(20px,4vh,36px)] sm:px-6 lg:px-8">
+        {/* HEADER — titre + période en un coup d'œil, actions à droite */}
+        <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-[26px] font-semibold tracking-tight">Insights</h1>
-            <p className={`mt-0.5 text-[13px] ${mutedClass(isDark)}`}>{period}</p>
+            <h1 className="text-[28px] font-semibold tracking-[-0.03em]">Insights</h1>
+            <p className={`mt-1 text-[13px] ${t.muted}`}>
+              {fmtFull(start)} – {fmtFull(end)}
+            </p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
-            <ChannelMenu channels={channels} current={channel} isDark={isDark} />
+            <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
             <button
               type="button"
               onClick={exportCsv}
               disabled={!channel}
-              className={`flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-semibold transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40 ${ringClass(
-                isDark
-              )} ${isDark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-150 hover:-translate-y-px active:scale-[0.98] disabled:opacity-40 disabled:hover:translate-y-0 ${t.ring} ${t.accentBtn}`}
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               Export CSV
@@ -928,22 +908,18 @@ export default function Insights() {
         </header>
 
         {!channel ? (
-          <section
-            className={`flex flex-col items-center gap-3 rounded-3xl px-6 py-20 text-center ${cardClass(isDark)}`}
-          >
-            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBoxClass(isDark)}`}>
+          <section className={`flex flex-col items-center gap-3 rounded-[20px] border px-6 py-20 text-center ${t.card}`}>
+            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.iconBox}`}>
               <BarChart3 className="h-5 w-5" aria-hidden="true" />
             </span>
             <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
-            <p className={`max-w-[360px] text-[14px] ${softClass(isDark)}`}>
+            <p className={`max-w-[360px] text-[14px] ${t.soft}`}>
               Followers, reach and engagement show up here once a social account is connected.
             </p>
             <button
               type="button"
               onClick={() => navigate("channels")}
-              className={`mt-2 flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-                isDark
-              )} ${isDark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
+              className={`mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium ${t.ring} ${t.accentBtn}`}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Connect a channel
@@ -951,10 +927,10 @@ export default function Insights() {
           </section>
         ) : (
           <>
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* TOOLBAR — période à gauche, comparaison à droite, une seule ligne */}
+            <div className={`flex flex-wrap items-center justify-between gap-3 rounded-[20px] border px-3 py-2.5 ${t.card}`}>
               <div className="flex flex-wrap items-center gap-3">
-                <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} isDark={isDark} />
+                <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} t={t} />
                 {range === "custom" && (
                   <div className="flex flex-wrap items-center gap-3">
                     <DateField
@@ -962,6 +938,7 @@ export default function Insights() {
                       value={toInput(start)}
                       max={toInput(end)}
                       onChange={setCustomStart}
+                      t={t}
                       isDark={isDark}
                     />
                     <DateField
@@ -970,133 +947,149 @@ export default function Insights() {
                       min={toInput(start)}
                       max={todayInput}
                       onChange={setCustomEnd}
+                      t={t}
                       isDark={isDark}
                     />
                   </div>
                 )}
               </div>
-              <Switch checked={compare} onChange={setCompare} label="Compare with previous period" isDark={isDark} />
+              <Switch checked={compare} onChange={setCompare} label="Compare with previous period" t={t} />
             </div>
 
-            {/* KPIs */}
-            <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <Kpi
-                isDark={isDark}
-                icon={<Users className="h-4 w-4" />}
-                label="Followers"
-                value={nf(summary.followers)}
-                chip={<Chip value={delta} isDark={isDark}>{signed(delta)}</Chip>}
-              />
-              <Kpi isDark={isDark} icon={<FileText className="h-4 w-4" />} label="Posts" value={nf(summary.posts)} />
-              <Kpi isDark={isDark} icon={<Eye className="h-4 w-4" />} label="Reach" value={nf(summary.reach)} />
-              <Kpi isDark={isDark} icon={<Heart className="h-4 w-4" />} label="Reactions" value={nf(summary.reactions)} />
-              <Kpi
-                isDark={isDark}
-                icon={<MessageCircle className="h-4 w-4" />}
-                label="Comments"
-                value={nf(summary.comments)}
-              />
-              <Kpi isDark={isDark} icon={<Share2 className="h-4 w-4" />} label="Shares" value={nf(summary.shares)} />
-            </section>
-
-            {/* Chart + impact */}
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.7fr_1fr]">
-              <section className={`rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="trend-title">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 id="trend-title" className="text-[16px] font-semibold">
-                    Trend
-                  </h2>
-                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} isDark={isDark} />
+            {/* NIVEAU 1 — FOCUS PRINCIPAL : audience */}
+            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="focus-title">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className={`text-[12px] font-medium uppercase tracking-wide ${t.muted}`}>
+                    {metric === "followers" ? "Followers" : "Posts published"}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">
+                      {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
+                    </span>
+                    <span className="flex flex-col gap-1.5">
+                      {metric === "followers" && <Delta value={delta} isDark={isDark} />}
+                      {compare && metric === "followers" && (
+                        <span className={`text-[11px] ${t.muted}`}>prev. {signed(prevDelta)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <p className={`mt-2 text-[13px] ${t.soft}`}>
+                    {metric === "followers"
+                      ? delta === 0
+                        ? "Your audience was flat in this period."
+                        : delta > 0
+                        ? `You gained ${nf(delta)} followers in this period.`
+                        : `You lost ${nf(Math.abs(delta))} followers in this period.`
+                      : totalPosts === 0
+                      ? "No posts published in this period."
+                      : `${nf(totalPosts)} posts published in this period.`}
+                  </p>
                 </div>
 
-                <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <p className={`text-[12px] ${mutedClass(isDark)}`}>
-                      {metric === "followers" ? "Followers on " + fmt(end) : "Posts in this period"}
-                    </p>
-                    <div className="mt-1 flex items-center gap-3">
-                      <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums">
-                        {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
-                      </span>
-                      {metric === "followers" && <Chip value={delta} isDark={isDark}>{signed(delta)}</Chip>}
-                    </div>
-                  </div>
-
-                  <div className={`flex items-center gap-4 text-[12px] ${softClass(isDark)}`} aria-hidden="true">
-                    <span className="flex items-center gap-2">
-                      <span className={`h-0.5 w-5 rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`} />
+                <div className="flex flex-col items-end gap-3">
+                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} t={t} />
+                  <div className={`flex items-center gap-4 text-[11px] ${t.muted}`} aria-hidden="true">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`h-0.5 w-4 rounded-full ${isDark ? "bg-white" : "bg-zinc-950"}`} />
                       This period
                     </span>
                     {compare && (
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5">
                         <span
-                          className="h-0 w-5 border-t-2 border-dashed"
-                          style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}
+                          className="h-0 w-4 border-t-2 border-dashed"
+                          style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)" }}
                         />
-                        Previous
+                        {compared}
                       </span>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <p className={`mt-3 text-[13px] ${softClass(isDark)}`}>
-                  {metric === "followers"
-                    ? delta === 0
-                      ? "Your audience was flat in this period."
-                      : delta > 0
-                      ? `You gained ${nf(delta)} followers in this period.`
-                      : `You lost ${nf(Math.abs(delta))} followers in this period.`
-                    : totalPosts === 0
-                    ? "You didn't publish any posts in this period."
-                    : `You published ${nf(totalPosts)} posts in this period.`}
-                  {compare && metric === "followers" && (
-                    <span className={mutedClass(isDark)}> Previous period: {signed(prevDelta)}.</span>
-                  )}
-                </p>
+              <h2 id="focus-title" className="sr-only">Trend</h2>
+              <div className="mt-4">
+                <Chart
+                  dates={dates}
+                  current={series.cur}
+                  previous={series.prev}
+                  compare={compare}
+                  isDark={isDark}
+                  unit={series.unit}
+                />
+              </div>
+            </section>
 
-                <div className="mt-5">
-                  <Chart
-                    dates={dates}
-                    current={series.cur}
-                    previous={series.prev}
-                    compare={compare}
-                    isDark={isDark}
-                    unit={series.unit}
-                  />
-                </div>
-                {compare && <p className={`mt-3 text-[11px] ${mutedClass(isDark)}`}>Dashed line: {compared}</p>}
+            {/* NIVEAU 2 + 3 — highlights compactes + impact du contenu, côte à côte */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
+              <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="highlights-title">
+                <h2 id="highlights-title" className="text-[15px] font-semibold">
+                  Highlights
+                </h2>
+                <ul className="mt-1">
+                  {highlights.map((h) => (
+                    <li
+                      key={h.label}
+                      className={`flex items-center justify-between gap-3 border-b py-3 last:border-b-0 ${t.border}`}
+                    >
+                      <span className={`flex items-center gap-3 text-[13px] ${t.soft}`}>
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${t.iconBox}`}>{h.icon}</span>
+                        {h.label}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-[15px] font-semibold tabular-nums">{h.value}</span>
+                        {h.delta !== undefined && <Delta value={h.delta} isDark={isDark} />}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </section>
 
-              <section className={`flex flex-col rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="impact-title">
-                <h2 id="impact-title" className="text-[16px] font-semibold">
-                  Content impact
-                </h2>
-                <div className="mt-4">
-                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} isDark={isDark} />
+              <section className={`flex flex-col rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="impact-title">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="impact-title" className="text-[15px] font-semibold">
+                    Content impact
+                  </h2>
+                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} t={t} />
                 </div>
 
-                <div className={`mt-5 rounded-2xl p-4 ${innerClass(isDark)}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBoxClass(isDark)}`}>
-                      {group.icon}
+                <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-4 ${t.inner}`}>
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${t.iconBox}`}>{group.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[12px] ${t.muted}`}>{group.title}</p>
+                    <p className="text-[24px] font-semibold leading-tight tabular-nums">{group.headline}</p>
+                  </div>
+                  <div
+                    className="relative h-11 w-11"
+                    role="img"
+                    aria-label={`${group.value} percent`}
+                  >
+                    <svg viewBox="0 0 36 36" className="h-11 w-11 -rotate-90">
+                      <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="4" className={isDark ? "stroke-white/10" : "stroke-black/10"} />
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r="15.5"
+                        fill="none"
+                        strokeWidth="4"
+                        stroke={isDark ? "#ffffff" : "#171717"}
+                        strokeDasharray={`${(group.value / 100) * 97.4} 97.4`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums ${t.text}`}>
+                      {group.value}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate text-[12px] ${mutedClass(isDark)}`}>{group.title}</p>
-                      <p className="text-[22px] font-semibold leading-tight tabular-nums">{group.headline}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Bar value={group.value} isDark={isDark} />
                   </div>
                 </div>
 
-                <dl className="mt-2 flex-1">
+                <dl className="mt-1 flex-1">
                   {group.rows.map((r) => (
                     <div
                       key={r.label}
-                      className={`flex items-center justify-between border-b py-3.5 last:border-b-0 ${hairClass(isDark)}`}
+                      className={`flex items-center justify-between border-b py-3 last:border-b-0 ${t.border}`}
                     >
-                      <dt className={`text-[13px] ${softClass(isDark)}`}>{r.label}</dt>
+                      <dt className={`text-[13px] ${t.soft}`}>{r.label}</dt>
                       <dd className="text-[14px] font-semibold tabular-nums">{r.value}</dd>
                     </div>
                   ))}
@@ -1104,32 +1097,33 @@ export default function Insights() {
               </section>
             </div>
 
-            {/* Performance per post */}
-            <section className={`rounded-3xl p-5 sm:p-6 ${cardClass(isDark)}`} aria-labelledby="perf-title">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="perf-title" className="text-[16px] font-semibold">
+            {/* NIVEAU 4 — performance par post */}
+            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="perf-title">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="perf-title" className="text-[15px] font-semibold">
                   Performance per post
                 </h2>
-                <p className={`text-[12px] ${mutedClass(isDark)}`}>{period}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("posts")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                  View all posts
+                </button>
               </div>
 
-              <div
-                className={`mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-12 text-center ${
-                  isDark ? "border-white/10" : "border-black/10"
-                }`}
-              >
-                <Activity className={`h-6 w-6 ${mutedClass(isDark)}`} aria-hidden="true" />
+              <div className={`mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-12 text-center ${t.border}`}>
+                <Activity className={`h-6 w-6 ${t.muted}`} aria-hidden="true" />
                 <p className="text-[14px] font-medium">No posts in this period</p>
-                <p className={`max-w-[360px] text-[13px] ${softClass(isDark)}`}>
+                <p className={`max-w-[360px] text-[13px] ${t.soft}`}>
                   Choose a longer range to see how your earlier posts performed.
                 </p>
                 {days < 30 && (
                   <button
                     type="button"
                     onClick={() => setRange("30d")}
-                    className={`mt-2 rounded-full border px-4 py-2 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ringClass(
-                      isDark
-                    )} ${hairClass(isDark)} ${hoverClass(isDark)}`}
+                    className={`mt-2 rounded-xl border px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.border} ${t.hover}`}
                   >
                     Show last 30 days
                   </button>
