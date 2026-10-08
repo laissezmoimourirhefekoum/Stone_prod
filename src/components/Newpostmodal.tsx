@@ -22,6 +22,7 @@ import { useNewPostShortcut } from "../hooks/useNewPostShortcut";
 import {
   getTikTokCreatorInfo,
   publishToTikTok,
+  publishPhotosToTikTok,
   waitForTikTokPublish,
   type TikTokCreatorInfo,
   type TikTokPostOptions,
@@ -114,13 +115,35 @@ const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
 
 // Repli si les infos créateur TikTok ne sont pas disponibles :
 // le serveur force de toute façon SELF_ONLY par défaut.
+// (Proposé comme option, jamais présélectionné : règle TikTok.)
 const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
+
+const TIKTOK_MUSIC_URL =
+  "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
+const TIKTOK_BRANDED_URL =
+  "https://www.tiktok.com/legal/page/global/bc-policy/en";
 
 const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
   privacy_level: "",
   disable_comment: false,
   disable_duet: false,
   disable_stitch: false,
+};
+
+// TikTok : aucune interaction cochée par défaut.
+type TikTokAllow = { comment: boolean; duet: boolean; stitch: boolean };
+const TIKTOK_DEFAULT_ALLOW: TikTokAllow = {
+  comment: false,
+  duet: false,
+  stitch: false,
+};
+
+// TikTok : divulgation de contenu commercial désactivée par défaut.
+type TikTokCommercial = { on: boolean; yourBrand: boolean; branded: boolean };
+const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
+  on: false,
+  yourBrand: false,
+  branded: false,
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -192,6 +215,56 @@ function getLocalTimezone(): string {
   } catch {
     return "Local";
   }
+}
+
+/** Durée d'une vidéo en secondes (lecture des métadonnées uniquement). */
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read the video duration."));
+    };
+    video.src = url;
+  });
+}
+
+/**
+ * TikTok n'accepte que JPEG et WebP pour les photos :
+ * les autres formats (PNG, GIF...) sont convertis en JPEG.
+ */
+async function toTikTokImage(file: File): Promise<File> {
+  if (file.type === "image/jpeg" || file.type === "image/webp") return file;
+
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not convert an image for TikTok.");
+
+  // Fond blanc : le JPEG n'a pas de transparence.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close?.();
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.92)
+  );
+
+  if (!blob) throw new Error("Could not convert an image for TikTok.");
+
+  return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
+    type: "image/jpeg",
+  });
 }
 
 /**
@@ -454,12 +527,15 @@ export default function NewPostModal({
   const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
     TIKTOK_DEFAULT_OPTIONS
   );
+  const [tiktokAllow, setTiktokAllow] = useState<TikTokAllow>(TIKTOK_DEFAULT_ALLOW);
+  const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
+    TIKTOK_DEFAULT_COMMERCIAL
+  );
 
   const tiktokSelected = networks.includes("tiktok");
 
   // Visibilités proposées : celles de TikTok si disponibles ;
-  // en cas d'échec du chargement, on retombe sur « Only me » pour
-  // ne jamais laisser le bouton bloqué à vie.
+  // en cas d'échec du chargement, on propose « Only me » (jamais présélectionné).
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
@@ -547,9 +623,8 @@ export default function NewPostModal({
   }, [isOpen]);
 
   // Ouverture depuis une case du calendrier : date/heure préremplies.
-  // FIX : on dépend de la VALEUR (getTime) et non de l'objet Date. Si le parent
-  // recrée une Date à chaque rendu, l'ancien effet repassait l'action sur
-  // « set_date » en boucle et écrasait le choix « Now » de l'utilisateur.
+  // On dépend de la VALEUR (getTime) et non de l'objet Date, pour ne pas
+  // repasser l'action sur « set_date » si le parent recrée la Date à chaque rendu.
   const initialScheduledTime = initialScheduledAt
     ? initialScheduledAt.getTime()
     : null;
@@ -588,8 +663,9 @@ export default function NewPostModal({
     };
   }, [showEmojiPicker]);
 
-  // Charge les infos créateur TikTok (visibilités autorisées, etc.)
-  // dès que TikTok est sélectionné. (Avant le `if (!isOpen) return null;`.)
+  // Charge les infos créateur TikTok (pseudo, visibilités autorisées, durée max...)
+  // à chaque fois que TikTok est (re)sélectionné : TikTok exige les infos les
+  // plus récentes. `tiktokInfo` est remis à null à la désélection / fermeture.
   // `tiktokInfoAttempt` permet de relancer le chargement via « Retry ».
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
@@ -600,12 +676,6 @@ export default function NewPostModal({
         if (cancelled) return;
         setTiktokInfo(info);
         setTiktokInfoError(null);
-        setTiktokOptions((o) => ({
-          ...o,
-          disable_comment: info.comment_disabled || o.disable_comment,
-          disable_duet: info.duet_disabled || o.disable_duet,
-          disable_stitch: info.stitch_disabled || o.disable_stitch,
-        }));
       })
       .catch((e) => {
         if (cancelled) return;
@@ -618,17 +688,6 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
-
-  // FIX : s'il n'y a qu'une seule visibilité possible, on la sélectionne
-  // automatiquement (sinon le bouton reste bloqué sur « Choose who can view »).
-  useEffect(() => {
-    if (tiktokPrivacyOptions.length === 1 && !tiktokOptions.privacy_level) {
-      setTiktokOptions((o) => ({
-        ...o,
-        privacy_level: tiktokPrivacyOptions[0] as TikTokPostOptions["privacy_level"],
-      }));
-    }
-  }, [tiktokPrivacyOptions, tiktokOptions.privacy_level]);
 
   if (!isOpen) return null;
 
@@ -658,8 +717,12 @@ export default function NewPostModal({
     setSubmitError(null);
     setSubmitProgress(null);
     setShowEmojiPicker(false);
+    setTiktokInfo(null);
+    setTiktokInfoError(null);
     setTiktokMode("direct");
     setTiktokOptions(TIKTOK_DEFAULT_OPTIONS);
+    setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
+    setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
     caretRef.current = null;
   };
 
@@ -744,6 +807,13 @@ export default function NewPostModal({
   };
 
   const toggleNetwork = (id: SocialNetworkId) => {
+    // Désélection de TikTok : on oublie les infos créateur pour les
+    // recharger à la prochaine sélection.
+    if (id === "tiktok" && networks.includes("tiktok")) {
+      setTiktokInfo(null);
+      setTiktokInfoError(null);
+    }
+
     setNetworks((prev) =>
       prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
     );
@@ -819,7 +889,20 @@ export default function NewPostModal({
   // TikTok n'a pas d'API de programmation : seule la publication immédiate
   // (ou le brouillon dans l'app TikTok) est possible.
   // "save_in_folder" reste géré par le parent (rien n'est envoyé à TikTok).
+  //
+  // Type de post :
+  //   - une vidéo présente → post vidéo (les images sont ignorées pour TikTok)
+  //   - sinon, 1 à N images → post photo (2+ images = carrousel)
   const tiktokVideo = media.find((m) => m.kind === "video")?.file ?? null;
+  const tiktokImages = media.filter((m) => m.kind === "image");
+  const tiktokPostType: "video" | "photo" | null = tiktokVideo
+    ? "video"
+    : tiktokImages.length > 0
+    ? "photo"
+    : null;
+
+  const brandedChosen =
+    tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
 
   const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
@@ -827,12 +910,17 @@ export default function NewPostModal({
     ? "TikTok doesn't support scheduling. Choose “Now” or remove TikTok."
     : scheduleAction === "save_in_folder"
     ? null
-    : !tiktokVideo
-    ? "TikTok requires a video. Add one, or deselect TikTok."
+    : !tiktokPostType
+    ? "TikTok requires a video or at least one photo. Add media, or deselect TikTok."
     : tiktokMode === "direct" && !tiktokOptions.privacy_level
     ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
       ? "Loading TikTok settings…"
       : "Choose who can view your TikTok."
+    : tiktokMode === "direct" &&
+      tiktokCommercial.on &&
+      !tiktokCommercial.yourBrand &&
+      !tiktokCommercial.branded
+    ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
   // Raison affichée à côté du bouton pour les autres conditions bloquantes.
@@ -853,6 +941,18 @@ export default function NewPostModal({
     !isSubmitting;
 
   const footerHint = isSubmitting ? null : tiktokBlockingReason ?? otherBlockingReason;
+
+  // Libellé légal obligatoire (« Promotional content » / « Paid partnership »).
+  const tiktokLabelNotice =
+    tiktokMode === "direct" && tiktokCommercial.on
+      ? tiktokCommercial.branded
+        ? `Your ${tiktokPostType === "photo" ? "photo" : "video"} will be labeled as “Paid partnership”`
+        : tiktokCommercial.yourBrand
+        ? `Your ${tiktokPostType === "photo" ? "photo" : "video"} will be labeled as “Promotional content”`
+        : null
+      : null;
+
+  const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -881,7 +981,7 @@ export default function NewPostModal({
       setSubmitError(null);
       setSubmitProgress(null);
 
-      if (tiktokNow && tiktokVideo) {
+      if (tiktokNow && tiktokPostType) {
         const caption = [
           content.trim(),
           hashtags.map((t) => `#${t}`).join(" "),
@@ -889,31 +989,85 @@ export default function NewPostModal({
           .filter(Boolean)
           .join("\n\n");
 
-        setSubmitProgress("Uploading video to TikTok…");
+        const isPhoto = tiktokPostType === "photo";
 
-        // Les restrictions imposées par TikTok sont réappliquées ici
-        // (elles pourraient avoir été réinitialisées par clearForm).
+        // Vidéo : la durée doit respecter la limite du compte TikTok.
+        if (tiktokVideo) {
+          const maxDuration = (
+            tiktokInfo as unknown as { max_video_post_duration_sec?: number } | null
+          )?.max_video_post_duration_sec;
+
+          if (maxDuration) {
+            const duration = await getVideoDuration(tiktokVideo);
+            if (duration > maxDuration) {
+              throw new Error(
+                `This video is too long for your TikTok account (max ${Math.floor(
+                  maxDuration / 60
+                )} min ${maxDuration % 60 ? `${maxDuration % 60} s` : ""}).`.replace(
+                  /\s+\)/,
+                  ")"
+                )
+              );
+            }
+          }
+        }
+
+        // Interactions : rien n'est autorisé par défaut, et TikTok peut
+        // en désactiver certaines au niveau du compte.
         const options: TikTokPostOptions = {
           ...tiktokOptions,
           disable_comment:
-            tiktokOptions.disable_comment || Boolean(tiktokInfo?.comment_disabled),
+            !tiktokAllow.comment || Boolean(tiktokInfo?.comment_disabled),
           disable_duet:
-            tiktokOptions.disable_duet || Boolean(tiktokInfo?.duet_disabled),
+            isPhoto || !tiktokAllow.duet || Boolean(tiktokInfo?.duet_disabled),
           disable_stitch:
-            tiktokOptions.disable_stitch || Boolean(tiktokInfo?.stitch_disabled),
+            isPhoto || !tiktokAllow.stitch || Boolean(tiktokInfo?.stitch_disabled),
+          brand_content_toggle:
+            tiktokMode === "direct" &&
+            tiktokCommercial.on &&
+            tiktokCommercial.branded,
+          brand_organic_toggle:
+            tiktokMode === "direct" &&
+            tiktokCommercial.on &&
+            tiktokCommercial.yourBrand,
         };
 
-        const publishId = await publishToTikTok({
-          video: tiktokVideo,
-          caption,
-          mode: tiktokMode,
-          options,
-        });
+        let publishId: string;
+
+        if (isPhoto) {
+          setSubmitProgress(
+            tiktokImages.length > 1
+              ? "Preparing your carousel…"
+              : "Preparing your photo…"
+          );
+
+          const photos = await Promise.all(
+            tiktokImages.map((item) => toTikTokImage(item.file))
+          );
+
+          setSubmitProgress("Uploading photos to TikTok…");
+
+          publishId = await publishPhotosToTikTok({
+            photos,
+            caption,
+            mode: tiktokMode,
+            options,
+          });
+        } else {
+          setSubmitProgress("Uploading video to TikTok…");
+
+          publishId = await publishToTikTok({
+            video: tiktokVideo as File,
+            caption,
+            mode: tiktokMode,
+            options,
+          });
+        }
 
         await waitForTikTokPublish(publishId, (status) => {
           setSubmitProgress(
             status === "PROCESSING_UPLOAD" || status === "PROCESSING_DOWNLOAD"
-              ? "TikTok is processing your video…"
+              ? "TikTok is processing your content…"
               : "Finalizing…"
           );
         });
@@ -930,11 +1084,13 @@ export default function NewPostModal({
       discardAndClose();
     } catch (error) {
       console.error("Erreur lors de la création du post:", error);
-      setSubmitError(
-        error instanceof Error && error.message
-          ? error.message
-          : "Something went wrong while publishing."
-      );
+
+      const raw = error instanceof Error ? error.message : "";
+      const message = /too_many_posts|spam_risk/i.test(raw)
+        ? "This TikTok account has reached its posting limit for now. Please try again later."
+        : raw || "Something went wrong while publishing.";
+
+      setSubmitError(message);
       setSubmitProgress(null);
       setIsSubmitting(false);
     }
@@ -990,6 +1146,23 @@ export default function NewPostModal({
   const accentCheck = isDark ? "text-white" : "text-neutral-900";
   const accentSolid = isDark ? "bg-white/5" : "bg-neutral-100";
   const accentBorder = isDark ? "border-white/15" : "border-black/10";
+
+  // Interactions affichées (Duet / Stitch n'existent pas pour les photos).
+  const allowRows: {
+    key: keyof TikTokAllow;
+    label: string;
+    forced: boolean;
+  }[] = [
+    { key: "comment", label: "Allow comments", forced: Boolean(tiktokInfo?.comment_disabled) },
+    ...(tiktokPostType === "photo"
+      ? []
+      : [
+          { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
+          { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
+        ]),
+  ];
+
+  const linkClass = "underline underline-offset-2 hover:opacity-80";
 
   return (
     <div
@@ -1212,8 +1385,22 @@ export default function NewPostModal({
             {/* ── Options TikTok ── */}
             {tiktokSelected && scheduleAction !== "save_in_folder" && (
               <div className={["mt-3 rounded-xl border p-3 text-[13px]", border, bgPanel].join(" ")}>
-                <p className={["mb-2 font-semibold", textPrimary].join(" ")}>
-                  TikTok{tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}
+                {/* Compte de destination (obligatoire : le pseudo du créateur) */}
+                <p className={["mb-1 font-semibold", textPrimary].join(" ")}>
+                  Posting to TikTok
+                  {tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}
+                </p>
+
+                <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
+                  {tiktokPostType === "photo"
+                    ? tiktokImages.length > 1
+                      ? `Carousel of ${tiktokImages.length} photos`
+                      : "Photo post"
+                    : tiktokPostType === "video"
+                    ? tiktokImages.length > 0
+                      ? "Video post (your images won't be sent to TikTok)"
+                      : "Video post"
+                    : "Add a video, or one or more photos (several photos make a carousel)."}
                 </p>
 
                 {tiktokInfoError && (
@@ -1252,6 +1439,7 @@ export default function NewPostModal({
 
                 {tiktokMode === "direct" && (
                   <>
+                    {/* Visibilité : choix manuel obligatoire, aucune valeur par défaut */}
                     <select
                       value={tiktokOptions.privacy_level}
                       onChange={(e) =>
@@ -1261,43 +1449,140 @@ export default function NewPostModal({
                         }))
                       }
                       className={[
-                        "mb-2 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
+                        "mb-1 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
                         border,
                         isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900",
                       ].join(" ")}
                     >
-                      <option value="">Who can view this video…</option>
+                      <option value="">Who can view this {tiktokPostType === "photo" ? "post" : "video"}…</option>
                       {tiktokPrivacyOptions.map((p) => (
-                        <option key={p} value={p}>
+                        <option
+                          key={p}
+                          value={p}
+                          disabled={p === "SELF_ONLY" && brandedChosen}
+                        >
                           {TIKTOK_PRIVACY_LABELS[p] ?? p}
                         </option>
                       ))}
                     </select>
 
-                    <div className="flex flex-wrap gap-4">
-                      {([
-                        ["disable_comment", "Disable comments", tiktokInfo?.comment_disabled],
-                        ["disable_duet", "Disable duet", tiktokInfo?.duet_disabled],
-                        ["disable_stitch", "Disable stitch", tiktokInfo?.stitch_disabled],
-                      ] as const).map(([key, label, forced]) => (
+                    {brandedChosen && (
+                      <p className={["mb-2 text-[11.5px]", textSecondary].join(" ")}>
+                        Branded content visibility cannot be set to private.
+                      </p>
+                    )}
+
+                    {/* Interactions : décochées par défaut, grisées si désactivées par TikTok */}
+                    <div className="mt-2 flex flex-wrap gap-4">
+                      {allowRows.map(({ key, label, forced }) => (
                         <label
                           key={key}
-                          className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}
+                          title={forced ? "Disabled in your TikTok settings" : undefined}
+                          className={[
+                            "flex items-center gap-1.5 text-[12.5px]",
+                            forced ? "cursor-not-allowed opacity-50" : "",
+                            textSecondary,
+                          ].join(" ")}
                         >
                           <input
                             type="checkbox"
-                            checked={tiktokOptions[key]}
-                            disabled={Boolean(forced)}
+                            checked={!forced && tiktokAllow[key]}
+                            disabled={forced}
                             onChange={(e) =>
-                              setTiktokOptions((o) => ({ ...o, [key]: e.target.checked }))
+                              setTiktokAllow((a) => ({ ...a, [key]: e.target.checked }))
                             }
                           />
                           {label}
                         </label>
                       ))}
                     </div>
+
+                    {/* Divulgation de contenu commercial : désactivée par défaut */}
+                    <div className={["mt-3 border-t pt-3", border].join(" ")}>
+                      <label className={["flex items-center justify-between gap-3", textPrimary].join(" ")}>
+                        <span>
+                          <span className="block text-[12.5px] font-semibold">
+                            Content disclosure
+                          </span>
+                          <span className={["block text-[11.5px]", textSecondary].join(" ")}>
+                            Turn on to disclose that this content promotes yourself, a brand, product or service.
+                          </span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={tiktokCommercial.on}
+                          onChange={(e) =>
+                            setTiktokCommercial(
+                              e.target.checked
+                                ? { ...tiktokCommercial, on: true }
+                                : TIKTOK_DEFAULT_COMMERCIAL
+                            )
+                          }
+                        />
+                      </label>
+
+                      {tiktokCommercial.on && (
+                        <div className="mt-2 flex flex-col gap-1.5 pl-1">
+                          <label className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}>
+                            <input
+                              type="checkbox"
+                              checked={tiktokCommercial.yourBrand}
+                              onChange={(e) =>
+                                setTiktokCommercial((c) => ({ ...c, yourBrand: e.target.checked }))
+                              }
+                            />
+                            Your brand
+                            <span className="text-[11.5px] opacity-80">
+                              — you are promoting yourself or your own business
+                            </span>
+                          </label>
+
+                          <label
+                            title={
+                              tiktokOptions.privacy_level === "SELF_ONLY"
+                                ? "Visibility for branded content can't be private."
+                                : undefined
+                            }
+                            className={[
+                              "flex items-center gap-1.5 text-[12.5px]",
+                              tiktokOptions.privacy_level === "SELF_ONLY" ? "cursor-not-allowed opacity-50" : "",
+                              textSecondary,
+                            ].join(" ")}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={tiktokCommercial.branded}
+                              disabled={tiktokOptions.privacy_level === "SELF_ONLY"}
+                              onChange={(e) =>
+                                setTiktokCommercial((c) => ({ ...c, branded: e.target.checked }))
+                              }
+                            />
+                            Branded content
+                            <span className="text-[11.5px] opacity-80">
+                              — you are promoting another brand or a third party
+                            </span>
+                          </label>
+
+                          {tiktokOptions.privacy_level === "SELF_ONLY" && (
+                            <p className={["text-[11.5px]", textSecondary].join(" ")}>
+                              Visibility for branded content can't be private. Pick another visibility to enable it.
+                            </p>
+                          )}
+
+                          {tiktokLabelNotice && (
+                            <p className={["text-[12px] font-medium", textPrimary].join(" ")}>
+                              {tiktokLabelNotice}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
+
+                <p className={["mt-3 text-[11.5px]", textSecondary].join(" ")}>
+                  After you publish, it may take a few minutes for your content to be processed and visible on your TikTok profile.
+                </p>
 
                 {tiktokBlockingReason && (
                   <p className="mt-2 text-[12px] text-amber-500">{tiktokBlockingReason}</p>
@@ -1399,11 +1684,16 @@ export default function NewPostModal({
                     </p>
                   )}
                   {media.length > 0 && (
-                    <div className="mt-3 overflow-hidden rounded-lg">
+                    <div className="relative mt-3 overflow-hidden rounded-lg">
                       {media[0].kind === "image" ? (
                         <img src={media[0].url} alt="" className="w-full object-cover" />
                       ) : (
                         <video src={media[0].url} className="w-full object-cover" muted playsInline />
+                      )}
+                      {media.length > 1 && (
+                        <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          1/{media.length}
+                        </span>
                       )}
                     </div>
                   )}
@@ -1426,15 +1716,37 @@ export default function NewPostModal({
 
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-5 py-3", border].join(" ")}>
-          {/* Raison pour laquelle le bouton est désactivé */}
-          {footerHint && (
-            <p
-              role="status"
-              className="mr-auto min-w-0 flex-1 truncate text-[12.5px] text-amber-500"
-              title={footerHint}
-            >
-              {footerHint}
-            </p>
+          {/* Raison du blocage + déclaration TikTok (juste avant le bouton) */}
+          {(footerHint || showTikTokDeclaration) && (
+            <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
+              {footerHint && (
+                <p
+                  role="status"
+                  className="text-[12.5px] text-amber-500"
+                  title={footerHint}
+                >
+                  {footerHint}
+                </p>
+              )}
+
+              {showTikTokDeclaration && (
+                <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
+                  By posting, you agree to TikTok's{" "}
+                  {brandedChosen && (
+                    <>
+                      <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                        Branded Content Policy
+                      </a>{" "}
+                      and{" "}
+                    </>
+                  )}
+                  <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                    Music Usage Confirmation
+                  </a>
+                  .
+                </p>
+              )}
+            </div>
           )}
 
           <div className="relative shrink-0" ref={dropdownRef}>

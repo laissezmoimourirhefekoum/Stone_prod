@@ -29,6 +29,10 @@ export interface TikTokPostOptions {
   disable_comment: boolean;
   disable_duet: boolean;
   disable_stitch: boolean;
+  /** Contenu de marque (« Paid partnership »). Interdit avec SELF_ONLY. */
+  brand_content_toggle?: boolean;
+  /** Promotion de sa propre marque (« Promotional content »). */
+  brand_organic_toggle?: boolean;
 }
 
 export type TikTokPublishStatus =
@@ -141,10 +145,64 @@ export async function publishToTikTok(params: {
   form.append("disable_comment", String(params.options.disable_comment));
   form.append("disable_duet", String(params.options.disable_duet));
   form.append("disable_stitch", String(params.options.disable_stitch));
+  form.append(
+    "brand_content_toggle",
+    String(Boolean(params.options.brand_content_toggle))
+  );
+  form.append(
+    "brand_organic_toggle",
+    String(Boolean(params.options.brand_organic_toggle))
+  );
   form.append("video", params.video);
 
   const data = await apiRequest<{ publish_id: string }>(
     "/api/tiktok/publish",
+    { method: "POST", body: form }
+  );
+
+  return data.publish_id;
+}
+
+/**
+ * Envoie 1 à 35 photos (JPEG / WebP) au backend.
+ * 1 photo = post photo, 2+ photos = carrousel TikTok.
+ * mode "direct" = publication, mode "draft" = brouillon dans l'app TikTok.
+ *
+ * Duet / Stitch n'existent pas pour les photos : seul disable_comment est envoyé.
+ */
+export async function publishPhotosToTikTok(params: {
+  photos: File[];
+  caption: string;
+  mode: "direct" | "draft";
+  options: TikTokPostOptions;
+}): Promise<string> {
+  if (params.photos.length === 0) {
+    throw new Error("No photos to publish.");
+  }
+
+  const form = new FormData();
+
+  // Les champs texte AVANT les fichiers
+  form.append("mode", params.mode);
+  form.append("title", params.caption);
+  form.append("cover_index", "1");
+  form.append("privacy_level", params.options.privacy_level || "SELF_ONLY");
+  form.append("disable_comment", String(params.options.disable_comment));
+  form.append(
+    "brand_content_toggle",
+    String(Boolean(params.options.brand_content_toggle))
+  );
+  form.append(
+    "brand_organic_toggle",
+    String(Boolean(params.options.brand_organic_toggle))
+  );
+
+  for (const photo of params.photos) {
+    form.append("photos", photo);
+  }
+
+  const data = await apiRequest<{ publish_id: string }>(
+    "/api/tiktok/publish/photos",
     { method: "POST", body: form }
   );
 
@@ -182,5 +240,5 @@ export async function waitForTikTokPublish(
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
 
-  throw new Error("TikTok is taking too long to process the video");
+  throw new Error("TikTok is taking too long to process your content");
 }
