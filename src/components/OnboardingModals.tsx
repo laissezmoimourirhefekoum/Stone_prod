@@ -7,6 +7,7 @@
 // Les deux sont reliés par sessionStorage (queueFrequencyOnboarding).
 
 import { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 import type { ComponentType, KeyboardEvent, ReactNode } from "react";
 
 import { useTheme } from "../hooks/useTheme";
@@ -730,6 +731,44 @@ export function PostingFrequencyModal({
    À MONTER SUR LA PAGE /insights
 ============================================================================ */
 
+/**
+ * Affiche la popup "objectif de publication" PAR-DESSUS la page courante, via
+ * un root React indépendant. Elle survit donc au changement de route
+ * (Channels -> /insights) sans rien ajouter dans la page Insights.
+ */
+export function openFrequencyOnboarding(account: OnboardingAccount, isDark: boolean) {
+  document.querySelectorAll("[data-stone-onboarding]").forEach((node) => node.remove());
+
+  const host = document.createElement("div");
+  host.setAttribute("data-stone-onboarding", "");
+  document.body.appendChild(host);
+
+  const root = createRoot(host);
+  const close = () => {
+    window.setTimeout(() => {
+      root.unmount();
+      host.remove();
+    }, 0);
+  };
+
+  root.render(
+    <PostingFrequencyModal
+      account={account}
+      isDark={isDark}
+      onClose={close}
+      onNext={(postsPerWeek) => {
+        try {
+          localStorage.setItem(GOAL_KEY(account.key), String(postsPerWeek));
+        } catch {
+          /* noop */
+        }
+        close();
+      }}
+    />
+  );
+}
+
+/** Optionnel : à monter sur la page Insights si tu préfères la méthode par sessionStorage. */
 export default function FrequencyOnboarding() {
   const { theme } = useTheme();
   const [account, setAccount] = useState<OnboardingAccount | null>(() => readQueued());
