@@ -595,7 +595,7 @@ function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?
   const Icon = NETWORK_ICONS[channelNetwork(channel)];
   if (!Icon) return null;
   return (
-    <span className={`absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full ring-2 ring-[#141414] ${"bg-white text-black"}`}>
+    <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black">
       <span className="flex h-[19px] w-[19px] items-center justify-center">
         <Icon className="h-[11px] w-[11px]" size={size} />
       </span>
