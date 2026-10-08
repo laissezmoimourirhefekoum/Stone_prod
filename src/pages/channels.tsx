@@ -153,6 +153,7 @@ type ThemeTokens = {
   danger: string;
   success: string;
   ring: string;
+  avatarBadgeBg: string;
 };
 
 /* ============================================================================
@@ -459,14 +460,18 @@ function Toast({
 
 /* ============================================================================
    CHANNEL ICON
+   Avatar photo de profil avec le logo du réseau incrusté en bas à droite
+   (même style que l'avatar de la sidebar).
 ============================================================================ */
 
 function ChannelIcon({
   channel,
   connection,
+  t,
 }: {
   channel: Channel;
   connection: Connection;
+  t: ThemeTokens;
 }) {
   const Icon = channel.icon;
   const [imageFailed, setImageFailed] = useState(false);
@@ -476,18 +481,32 @@ function ChannelIcon({
     setImageFailed(false);
   }, [connection.avatarUrl]);
 
+  /* Connecté avec photo : la photo remplit la tuile et le logo du réseau
+     est incrusté en bas à droite, sur un petit carré blanc. */
   if (connection.connected && hasAvatar) {
     return (
-      <img
-        src={connection.avatarUrl}
-        alt=""
-        referrerPolicy="no-referrer"
-        onError={() => setImageFailed(true)}
-        className="h-11 w-11 rounded-[14px] object-cover"
-      />
+      <span className="relative h-11 w-11 shrink-0">
+        <img
+          src={connection.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+          className="h-11 w-11 select-none rounded-[14px] object-cover"
+        />
+        <span
+          className={[
+            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
+            "rounded-[5px] text-black ring-2",
+            t.avatarBadgeBg,
+          ].join(" ")}
+        >
+          <Icon className="h-[11px] w-[11px]" size={11} />
+        </span>
+      </span>
     );
   }
 
+  /* Pas de photo : simple tuile avec le logo (comme avant). */
   return (
     <div
       className={[
@@ -556,20 +575,19 @@ function ChannelCard({
       ].join(" ")}
     >
       <div className="flex items-center gap-3.5">
-        <ChannelIcon channel={channel} connection={connection} />
+        <ChannelIcon channel={channel} connection={connection} t={t} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className={["truncate text-[13px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
-              {isConnected ? connection.handle || channel.name : channel.name}
-            </p>
-            {isConnected && (
-              <span className={["h-1.5 w-1.5 shrink-0 rounded-full bg-current", t.text].join(" ")} />
-            )}
-          </div>
-          <p className={["mt-0.5 truncate text-[10px]", t.muted].join(" ")}>
-            {isConnected ? channel.accountLabel : channel.subtitle}
+          {/* Nom du compte — plus de point de connexion ni de sous-titre
+              "TikTok Account" quand le canal est connecté. */}
+          <p className={["truncate text-[13px] font-semibold tracking-[-0.01em]", t.text].join(" ")}>
+            {isConnected ? connection.handle || channel.name : channel.name}
           </p>
+          {!isConnected && (
+            <p className={["mt-0.5 truncate text-[10px]", t.muted].join(" ")}>
+              {channel.subtitle}
+            </p>
+          )}
         </div>
 
         {isConnected && (
@@ -855,6 +873,7 @@ export default function Channels({
             danger: "text-red-400",
             success: "text-white",
             ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+            avatarBadgeBg: "bg-[#0a0a0a] text-white ring-[#0a0a0a]",
           }
         : {
             page: "bg-[#f7f7f5] text-black",
@@ -871,6 +890,7 @@ export default function Channels({
             danger: "text-red-600",
             success: "text-black",
             ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+            avatarBadgeBg: "bg-white text-black ring-white",
           },
     [isDark]
   );
