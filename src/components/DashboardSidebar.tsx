@@ -315,7 +315,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /** Petite pastille « touche » affichée à côté des libellés. */
-function Kbd({ children, className }: { children: ReactNode; className: string }) {
+function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <kbd
       className={[
@@ -1038,6 +1038,173 @@ function ChannelAvatar({
   );
 }
 
+/* ============================================================================
+   Popover au survol de l'avatar d'un canal (style TikTok)
+   Nom du compte en tête, puis liens rapides Publish / Community / Insights.
+   Rendu en portal (document.body) car la nav a overflow hidden : il est donc
+   visible même quand la sidebar est réduite.
+============================================================================ */
+
+const HOVER_CARD_SHOW_MS = 200;
+const HOVER_CARD_HIDE_MS = 120;
+
+function ChannelHoverCard({
+  channel,
+  label,
+  NetworkIcon,
+  currentRoute,
+  hashChannel,
+  firstChannelKey,
+  focus,
+  t,
+  onNavigate,
+  children,
+}: {
+  channel: ConnectedChannel;
+  label: string;
+  NetworkIcon?: IconComponent;
+  currentRoute: string;
+  hashChannel: string | null;
+  firstChannelKey?: string;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+  children: ReactNode;
+}) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const showTimer = useRef<number | undefined>(undefined);
+  const hideTimer = useRef<number | undefined>(undefined);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  /* Annule une fermeture en cours (la souris revient sur le popover). */
+  const cancelHide = useCallback(() => {
+    window.clearTimeout(hideTimer.current);
+  }, []);
+
+  const show = useCallback(() => {
+    cancelHide();
+    window.clearTimeout(showTimer.current);
+    showTimer.current = window.setTimeout(() => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (rect) setPos({ top: rect.top - 4, left: rect.right + 10 });
+    }, HOVER_CARD_SHOW_MS);
+  }, [cancelHide]);
+
+  /* Petit délai avant fermeture : on peut glisser la souris de l'avatar
+     vers le popover sans qu'il disparaisse. */
+  const hide = useCallback(() => {
+    window.clearTimeout(showTimer.current);
+    hideTimer.current = window.setTimeout(() => setPos(null), HOVER_CARD_HIDE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(showTimer.current);
+      window.clearTimeout(hideTimer.current);
+    },
+    []
+  );
+
+  return (
+    <span
+      ref={anchorRef}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      className="relative inline-flex shrink-0"
+    >
+      {children}
+
+      {pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="menu"
+            aria-label={label}
+            style={{ top: pos.top, left: pos.left }}
+            onMouseEnter={cancelHide}
+            onMouseLeave={hide}
+            className={[
+              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-2xl border p-2",
+              t.menu,
+            ].join(" ")}
+          >
+            {/* En-tête : avatar + nom du compte */}
+            <div className="flex items-center gap-2.5 px-1 pb-2 pt-1">
+              <ChannelAvatar
+                channel={channel}
+                NetworkIcon={NetworkIcon}
+                dotRing={t.dotRing}
+              />
+              <span
+                className={[
+                  "min-w-0 flex-1 truncate text-[12.5px] font-semibold",
+                  t.title,
+                ].join(" ")}
+              >
+                {label.replace(/^@/, "")}
+              </span>
+            </div>
+
+            <div className={["border-t pt-1", t.menuDivider].join(" ")} />
+
+            {/* Liens rapides : Publish / Community / Insights */}
+            <div className="flex flex-col gap-0.5">
+              {CHANNEL_LINKS.map((link) => {
+                const Icon = link.icon;
+
+                const target = link.perChannel
+                  ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
+                  : link.route;
+
+                // Un lien "par canal" n'est actif que pour le canal ouvert.
+                const active = link.perChannel
+                  ? link.route === currentRoute &&
+                    (hashChannel === null
+                      ? firstChannelKey === channel.key
+                      : hashChannel === channel.key)
+                  : link.route === currentRoute;
+
+                return (
+                  <button
+                    key={link.route}
+                    type="button"
+                    role="menuitem"
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => {
+                      hide();
+                      onNavigate(target);
+                    }}
+                    className={[
+                      "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
+                      "rounded-lg px-2 text-left text-[12.5px] font-medium",
+                      "transition-colors duration-150 motion-reduce:transition-none",
+                      focus,
+                      active ? t.subActive : t.sub,
+                    ].join(" ")}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">{link.label}</span>
+                    {link.badge && (
+                      <span
+                        className={[
+                          "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                          t.badge,
+                        ].join(" ")}
+                      >
+                        {link.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
+    </span>
+  );
+}
+
 function SidebarChannelsImpl({
   channels,
   isCollapsed,
@@ -1146,11 +1313,24 @@ function SidebarChannelsImpl({
                     t.navIdle,
                   ].join(" ")}
                 >
-                  <ChannelAvatar
+                  {/* Avatar + popover au survol (Publish / Community / Insights) */}
+                  <ChannelHoverCard
                     channel={channel}
+                    label={label}
                     NetworkIcon={NetworkIcon}
-                    dotRing={t.dotRing}
-                  />
+                    currentRoute={currentRoute}
+                    hashChannel={hashChannel}
+                    firstChannelKey={channels[0]?.key}
+                    focus={focus}
+                    t={t}
+                    onNavigate={onNavigate}
+                  >
+                    <ChannelAvatar
+                      channel={channel}
+                      NetworkIcon={NetworkIcon}
+                      dotRing={t.dotRing}
+                    />
+                  </ChannelHoverCard>
                   <span
                     className={[
                       "min-w-0 flex-1 truncate text-left",
@@ -1287,23 +1467,22 @@ const SidebarChannels = memo(SidebarChannelsImpl);
 
 const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
 
-/** Dernier état choisi par l'utilisateur (fermée par défaut). */
-function readStoredCollapsed(): boolean {
-  if (typeof window === "undefined") return true;
-
-  try {
-    const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    return stored === null ? true : stored === "true";
-  } catch {
-    return true;
-  }
-}
-
+/* État partagé de la sidebar. La sidebar démarre toujours fermée au
+   montage (voir l'effet « Arrivée sur l'app »), donc pas de relecture
+   du localStorage à l'initialisation. */
 const sidebarMemory = {
-  collapsed: readStoredCollapsed(),
+  collapsed: true,
   openGroup: null as string | null,
   entered: false,
 };
+
+function resetSidebarModuleState() {
+  userProfileCache.profile = null;
+  setSidebarCollapsed(true);
+  sidebarMemory.openGroup = null;
+  sidebarMemory.entered = false;
+  channelsMemory.open = [];
+}
 
 /* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
    plus sa marge gauche (16px) et un espace de respiration. */
@@ -1347,14 +1526,6 @@ export function useSidebarOffset(): number {
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
-
-function resetSidebarModuleState() {
-  userProfileCache.profile = null;
-  setSidebarCollapsed(true);
-  sidebarMemory.openGroup = null;
-  sidebarMemory.entered = false;
-  channelsMemory.open = [];
-}
 
 /* ============================================================================
    Channel-connections helpers (self-contained modal)
@@ -1482,6 +1653,16 @@ export default function DashboardSidebar({
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  /* --------------------------------------------------------------------------
+     Arrivée sur l'app : la sidebar démarre toujours fermée
+     (l'état persisté est réinitialisé par l'effet de persistance ci-dessous).
+  -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    setIsCollapsed(true);
+    setOpenGroup(null);
+  }, []);
 
   /* --------------------------------------------------------------------------
      Load profile

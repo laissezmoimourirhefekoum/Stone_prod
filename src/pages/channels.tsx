@@ -354,6 +354,11 @@ function writeReturned(list: CacheProvider[]) {
   }
 }
 
+/** À appeler juste avant la redirection OAuth : au retour on saura qu'il faut ouvrir l'onboarding. */
+function markReturning(provider: CacheProvider) {
+  writeReturned(Array.from(new Set([...readReturned(), provider])));
+}
+
 function buildAccount(
   channel: Channel,
   connection: Connection
@@ -792,6 +797,7 @@ export default function Channels({
         setConnections((current) => ({ ...current, tiktok: { connected: false } }));
         showNotification("TikTok disconnected");
       } else {
+        markReturning("tiktok");
         await startTikTokLogin();
         redirecting = true;
       }
@@ -833,6 +839,7 @@ export default function Channels({
         setConnections((current) => ({ ...current, pinterest: connection }));
         startOnboarding("pinterest", connection);
       } else {
+        markReturning("pinterest");
         await startPinterestLogin();
         redirecting = true;
       }
@@ -859,6 +866,7 @@ export default function Channels({
         setConnections((current) => ({ ...current, youtube: { connected: false } }));
         showNotification("YouTube disconnected");
       } else {
+        markReturning("youtube");
         await startYouTubeLogin();
         redirecting = true;
       }
