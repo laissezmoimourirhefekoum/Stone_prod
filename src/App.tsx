@@ -87,27 +87,12 @@ function interceptOAuthCallback(
     // sessionStorage indisponible
   }
 
-  window.history.replaceState(
-    null,
-    "",
-    `/#/${provider}-callback`
-  );
+  window.history.replaceState(null, "", `/#/${provider}-callback`);
 }
 
-interceptOAuthCallback(
-  "tiktok",
-  TIKTOK_OAUTH_STORAGE_KEY
-);
-
-interceptOAuthCallback(
-  "pinterest",
-  PINTEREST_OAUTH_STORAGE_KEY
-);
-
-interceptOAuthCallback(
-  "youtube",
-  YOUTUBE_OAUTH_STORAGE_KEY
-);
+interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
 
 /* ──────────────────────────────────────────────────────────────
    GOOGLE / SUPABASE OAUTH REDIRECT
@@ -121,9 +106,7 @@ interceptOAuthCallback(
 
   const hashParams =
     rawHash.length > 1
-      ? new URLSearchParams(
-          rawHash.replace(/^#\/?/, "")
-        )
+      ? new URLSearchParams(rawHash.replace(/^#\/?/, ""))
       : new URLSearchParams();
 
   const searchParams =
@@ -142,15 +125,12 @@ interceptOAuthCallback(
   const code = readParam("code");
 
   if (oauthError) {
-    const description =
-      readParam("error_description") || oauthError;
+    const description = readParam("error_description") || oauthError;
 
     window.history.replaceState(
       null,
       "",
-      `/#/signin?oauth_error=${encodeURIComponent(
-        description
-      )}`
+      `/#/signin?oauth_error=${encodeURIComponent(description)}`
     );
 
     return;
@@ -172,10 +152,7 @@ interceptOAuthCallback(
     return;
   }
 
-  saveOAuthSession(
-    accessToken,
-    refreshToken
-  );
+  saveOAuthSession(accessToken, refreshToken);
 
   setTimeout(async () => {
     try {
@@ -183,29 +160,19 @@ interceptOAuthCallback(
         (import.meta as any).env?.VITE_API_BASE_URL ||
         "http://localhost:3002";
 
-      const res = await fetch(
-        `${baseUrl}/api/user/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const res = await fetch(`${baseUrl}/api/user/profile`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-      console.log(
-        "OAuth profile data:",
-        await res.json()
-      );
+      console.log("OAuth profile data:", await res.json());
     } catch {
       // Erreur silencieuse
     }
   }, 300);
 
-  window.history.replaceState(
-    null,
-    "",
-    "/#/home"
-  );
+  window.history.replaceState(null, "", "/#/home");
 })();
 
 /* ──────────────────────────────────────────────────────────────
@@ -217,17 +184,13 @@ type ToggleOrigin = {
   y: number;
 };
 
-type ToggleThemeFn = (
-  origin?: ToggleOrigin
-) => void;
+type ToggleThemeFn = (origin?: ToggleOrigin) => void;
 
 /* ──────────────────────────────────────────────────────────────
    SMOOTH WHEEL
    ────────────────────────────────────────────────────────────── */
 
-function useGentleWheelScroll(
-  enabled: boolean
-) {
+function useGentleWheelScroll(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
 
@@ -250,13 +213,9 @@ function useGentleWheelScroll(
         return;
       }
 
-      window.scrollTo(
-        0,
-        currentY + distance * 0.12
-      );
+      window.scrollTo(0, currentY + distance * 0.12);
 
-      animationFrame =
-        window.requestAnimationFrame(animate);
+      animationFrame = window.requestAnimationFrame(animate);
     };
 
     const onWheel = (event: WheelEvent) => {
@@ -270,36 +229,19 @@ function useGentleWheelScroll(
       }
 
       const multiplier =
-        event.deltaMode ===
-        WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : 1;
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
 
-      const delta =
-        event.deltaY *
-        multiplier *
-        0.55;
+      const delta = event.deltaY * multiplier * 0.55;
 
       const maxY =
-        document.documentElement
-          .scrollHeight -
-        window.innerHeight;
+        document.documentElement.scrollHeight - window.innerHeight;
 
-      targetY = Math.max(
-        0,
-        Math.min(
-          maxY,
-          targetY + delta
-        )
-      );
+      targetY = Math.max(0, Math.min(maxY, targetY + delta));
 
       event.preventDefault();
 
       if (!animationFrame) {
-        animationFrame =
-          window.requestAnimationFrame(
-            animate
-          );
+        animationFrame = window.requestAnimationFrame(animate);
       }
     };
 
@@ -309,33 +251,15 @@ function useGentleWheelScroll(
       }
     };
 
-    window.addEventListener(
-      "wheel",
-      onWheel,
-      { passive: false }
-    );
-
-    window.addEventListener(
-      "scroll",
-      syncTarget,
-      { passive: true }
-    );
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("scroll", syncTarget, { passive: true });
 
     return () => {
-      window.removeEventListener(
-        "wheel",
-        onWheel
-      );
-
-      window.removeEventListener(
-        "scroll",
-        syncTarget
-      );
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("scroll", syncTarget);
 
       if (animationFrame) {
-        window.cancelAnimationFrame(
-          animationFrame
-        );
+        window.cancelAnimationFrame(animationFrame);
       }
     };
   }, [enabled]);
@@ -414,8 +338,7 @@ function NotFound() {
       </h1>
 
       <p className="max-w-md text-neutral-600 dark:text-neutral-400">
-        The page you are looking for doesn&rsquo;t
-        exist or has been moved.
+        The page you are looking for doesn&rsquo;t exist or has been moved.
       </p>
 
       <a
@@ -469,92 +392,31 @@ const DASHBOARD_HOME_ROUTES = new Set([
   "create",
 ]);
 
-const AUTH_ROUTES = new Set([
-  "signin",
-  "signup",
-]);
+const AUTH_ROUTES = new Set(["signin", "signup"]);
 
-const PUBLIC_ROUTES = new Set([
-  "",
-  "pricing",
-  "faq",
-  "tos",
-  "privacy",
-]);
+const PUBLIC_ROUTES = new Set(["", "pricing", "faq", "tos", "privacy"]);
 
-function normalizeRoute(
-  route: string | null | undefined
-): string {
-  return (
-    route ?? ""
-  )
-    .replace(/^\/+|\/+$/g, "")
-    .toLowerCase();
+function normalizeRoute(route: string | null | undefined): string {
+  return (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
 }
 
 /* ──────────────────────────────────────────────────────────────
-   STONE BOOT
+   APP BOOT
    ────────────────────────────────────────────────────────────── */
 
 /**
- * Prépare l'environnement avant d'afficher
- * la moindre page de l'application.
- *
- * Important :
- * - UserProvider est déjà monté
- * - useUser() peut donc vérifier Supabase
- * - aucune landing/dashboard/auth n'est rendue
- *   tant que la session n'est pas connue
+ * Attend simplement que la session Supabase soit connue.
+ * Écran noir pendant ce temps, jamais la landing.
+ * L'animation Stone est gérée dans AppContent (à l'arrivée
+ * sur une page privée après connexion).
  */
 function AppBoot() {
-  const { user, loading } = useUser();
+  const { loading } = useUser();
 
-  const [bootFinished, setBootFinished] =
-    useState(false);
-
-  const [sessionResolved, setSessionResolved] =
-    useState(false);
-
-  useEffect(() => {
-    if (!loading) {
-      setSessionResolved(true);
-    }
-  }, [loading]);
-
-  const handleBootComplete = useCallback(() => {
-    setBootFinished(true);
-  }, []);
-
-  /*
-   * Stone reste affiché pendant 5 secondes.
-   */
-  if (!bootFinished) {
-    return (
-      <StoneBoot
-        onComplete={handleBootComplete}
-      />
-    );
+  if (loading) {
+    return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
 
-  /*
-   * Les 5 secondes sont terminées mais
-   * la session n'est pas encore connue.
-   *
-   * On garde simplement un écran noir,
-   * jamais la landing.
-   */
-  if (!sessionResolved) {
-    return (
-      <div className="fixed inset-0 z-[999999] bg-[#050505]" />
-    );
-  }
-
-  /*
-   * Maintenant on connaît l'utilisateur.
-   *
-   * user !== null → dashboard
-   * user === null → landing
-   */
   return <AppWithTheme />;
 }
 
@@ -577,20 +439,11 @@ export default function App() {
    ────────────────────────────────────────────────────────────── */
 
 function AppWithTheme() {
-  const {
-    theme,
-    toggle,
-  } = useTheme();
+  const { theme, toggle } = useTheme();
 
   const route = useHashRoute();
 
-  return (
-    <AppContent
-      theme={theme}
-      toggle={toggle}
-      route={route}
-    />
-  );
+  return <AppContent theme={theme} toggle={toggle} route={route} />;
 }
 
 type AppContentProps = {
@@ -599,54 +452,75 @@ type AppContentProps = {
   route: string;
 };
 
-function AppContent({
+/* ──────────────────────────────────────────────────────────────
+   APP CONTENT (wrapper : écran de chargement Stone)
+   ────────────────────────────────────────────────────────────── */
+
+/**
+ * Affiche l'animation Stone par-dessus la page quand un utilisateur
+ * connecté arrive sur une page privée. La page se charge derrière
+ * pendant l'animation.
+ *
+ * - Navigation entre pages privées : rien ne se rejoue.
+ * - Déconnexion : l'animation rejouera à la prochaine connexion.
+ * - Pages de callback OAuth : pas d'animation.
+ */
+function AppContent(props: AppContentProps) {
+  const { user } = useUser();
+
+  const [bootShown, setBootShown] = useState(false);
+
+  const route = normalizeRoute(props.route);
+
+  const showBoot =
+    !!user &&
+    PROTECTED_ROUTES.has(route) &&
+    !OAUTH_CALLBACK_ROUTES.has(route) &&
+    !bootShown;
+
+  const handleBootComplete = useCallback(() => {
+    setBootShown(true);
+  }, []);
+
+  useEffect(() => {
+    if (!user) setBootShown(false);
+  }, [user]);
+
+  return (
+    <>
+      <AppContentInner {...props} />
+
+      {showBoot && <StoneBoot onComplete={handleBootComplete} />}
+    </>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   APP CONTENT (routing)
+   ────────────────────────────────────────────────────────────── */
+
+function AppContentInner({
   theme,
   toggle,
   route: rawRoute,
 }: AppContentProps) {
-  const {
-    user,
-    loading,
-  } = useUser();
+  const { user, loading } = useUser();
 
-  const route =
-    normalizeRoute(rawRoute);
+  const route = normalizeRoute(rawRoute);
 
-  const isAuth =
-    AUTH_ROUTES.has(route);
+  const isAuth = AUTH_ROUTES.has(route);
+  const isProtected = PROTECTED_ROUTES.has(route);
+  const isTemplate = route === "template";
+  const isPublic = PUBLIC_ROUTES.has(route);
+  const isPricing = route === "pricing";
+  const isFaq = route === "faq";
+  const isTos = route === "tos";
+  const isPrivacy = route === "privacy";
+  const isLanding = route === "";
 
-  const isProtected =
-    PROTECTED_ROUTES.has(route);
+  const isUnknown = !isAuth && !isProtected && !isPublic;
 
-  const isTemplate =
-    route === "template";
-
-  const isPublic =
-    PUBLIC_ROUTES.has(route);
-
-  const isPricing =
-    route === "pricing";
-
-  const isFaq =
-    route === "faq";
-
-  const isTos =
-    route === "tos";
-
-  const isPrivacy =
-    route === "privacy";
-
-  const isLanding =
-    route === "";
-
-  const isUnknown =
-    !isAuth &&
-    !isProtected &&
-    !isPublic;
-
-  useGentleWheelScroll(
-    isLanding || isPricing
-  );
+  useGentleWheelScroll(isLanding || isPricing);
 
   /* ─────────────────────────────────────────────
      ROUTE GUARD
@@ -656,26 +530,18 @@ function AppContent({
     if (loading) return;
 
     /*
-     * Utilisateur déconnecté + route privée
-     * → signin
+     * Utilisateur déconnecté + route privée → signin
      */
     if (!user && isProtected) {
-      if (
-        OAUTH_CALLBACK_ROUTES.has(route)
-      ) {
+      if (OAUTH_CALLBACK_ROUTES.has(route)) {
         try {
-          sessionStorage.setItem(
-            POST_LOGIN_ROUTE_KEY,
-            route
-          );
+          sessionStorage.setItem(POST_LOGIN_ROUTE_KEY, route);
         } catch {
           // ignore
         }
       }
 
-      navigate("signin", {
-        replace: true,
-      });
+      navigate("signin", { replace: true });
 
       return;
     }
@@ -684,92 +550,62 @@ function AppContent({
      * Utilisateur connecté
      */
     if (user) {
-      let pending: string | null =
-        null;
+      let pending: string | null = null;
 
       try {
-        pending =
-          sessionStorage.getItem(
-            POST_LOGIN_ROUTE_KEY
-          );
+        pending = sessionStorage.getItem(POST_LOGIN_ROUTE_KEY);
       } catch {
         // ignore
       }
 
       /*
-       * Retour vers la route demandée
-       * avant authentification.
+       * Retour vers la route demandée avant authentification.
        */
       if (pending) {
         try {
-          sessionStorage.removeItem(
-            POST_LOGIN_ROUTE_KEY
-          );
+          sessionStorage.removeItem(POST_LOGIN_ROUTE_KEY);
         } catch {
           // ignore
         }
 
         if (route !== pending) {
-          navigate(pending, {
-            replace: true,
-          });
+          navigate(pending, { replace: true });
 
           return;
         }
       }
 
       /*
-       * Un utilisateur connecté ne doit
-       * jamais revoir :
-       *
-       * /signin
-       * /signup
-       * /
+       * Un utilisateur connecté ne doit jamais revoir
+       * /signin, /signup, /
        */
-      if (
-        isAuth ||
-        isLanding
-      ) {
-        navigate("home", {
-          replace: true,
-        });
+      if (isAuth || isLanding) {
+        navigate("home", { replace: true });
       }
     }
-  }, [
-    user,
-    loading,
-    isProtected,
-    isAuth,
-    isLanding,
-    route,
-  ]);
+  }, [user, loading, isProtected, isAuth, isLanding, route]);
 
   /*
-   * Sécurité supplémentaire.
-   *
-   * Normalement AppBoot empêche déjà ce
-   * rendu avant que loading soit terminé.
+   * Sécurité : AppBoot empêche normalement déjà ce rendu
+   * avant que loading soit terminé.
    */
   if (loading) {
-    return <StoneBoot />;
+    return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
 
   /*
-   * Empêche une frame d'une page privée
-   * avant la redirection vers signin.
+   * Empêche une frame d'une page privée avant la redirection
+   * vers signin.
    */
   if (!user && isProtected) {
     return null;
   }
 
   /*
-   * Empêche une frame de landing/signin/signup
-   * lorsqu'un utilisateur est déjà connecté.
+   * Empêche une frame de landing/signin/signup lorsqu'un
+   * utilisateur est déjà connecté.
    */
-  if (
-    user &&
-    (isAuth || isLanding)
-  ) {
+  if (user && (isAuth || isLanding)) {
     return null;
   }
 
@@ -780,11 +616,7 @@ function AppContent({
   if (isAuth) {
     return (
       <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
-        {route === "signin" ? (
-          <Signin />
-        ) : (
-          <Signup />
-        )}
+        {route === "signin" ? <Signin /> : <Signup />}
       </div>
     );
   }
@@ -841,10 +673,7 @@ function AppContent({
      TIKTOK CALLBACK
      ───────────────────────────────────────────── */
 
-  if (
-    route ===
-    "tiktok-callback"
-  ) {
+  if (route === "tiktok-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <TikTokCallback />
@@ -856,10 +685,7 @@ function AppContent({
      PINTEREST CALLBACK
      ───────────────────────────────────────────── */
 
-  if (
-    route ===
-    "pinterest-callback"
-  ) {
+  if (route === "pinterest-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <PinterestCallback />
@@ -871,10 +697,7 @@ function AppContent({
      YOUTUBE CALLBACK
      ───────────────────────────────────────────── */
 
-  if (
-    route ===
-    "youtube-callback"
-  ) {
+  if (route === "youtube-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <YouTubeCallback />
@@ -886,10 +709,7 @@ function AppContent({
      INTEGRATIONS
      ───────────────────────────────────────────── */
 
-  if (
-    route ===
-    "integrations"
-  ) {
+  if (route === "integrations") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <IntegrationsPage />
@@ -901,9 +721,7 @@ function AppContent({
      SETTINGS
      ───────────────────────────────────────────── */
 
-  if (
-    route === "settings"
-  ) {
+  if (route === "settings") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Settings />
@@ -915,10 +733,7 @@ function AppContent({
      SCHEDULE / CALENDAR
      ───────────────────────────────────────────── */
 
-  if (
-    route === "schedule" ||
-    route === "calendar"
-  ) {
+  if (route === "schedule" || route === "calendar") {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
         <Schedule />
@@ -930,9 +745,7 @@ function AppContent({
      INSIGHTS
      ───────────────────────────────────────────── */
 
-  if (
-    route === "insights"
-  ) {
+  if (route === "insights") {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
         <Insights />
@@ -944,9 +757,7 @@ function AppContent({
      COMMUNITY
      ───────────────────────────────────────────── */
 
-  if (
-    route === "community"
-  ) {
+  if (route === "community") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Community />
@@ -958,9 +769,7 @@ function AppContent({
      CHANNELS
      ───────────────────────────────────────────── */
 
-  if (
-    route === "channels"
-  ) {
+  if (route === "channels") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Channels />
@@ -984,11 +793,7 @@ function AppContent({
      DASHBOARD HOME
      ───────────────────────────────────────────── */
 
-  if (
-    DASHBOARD_HOME_ROUTES.has(
-      route
-    )
-  ) {
+  if (DASHBOARD_HOME_ROUTES.has(route)) {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <DashboardHome />
@@ -1003,10 +808,7 @@ function AppContent({
   if (isUnknown) {
     return (
       <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
-        <Navbar
-          theme={theme}
-          onToggleTheme={toggle}
-        />
+        <Navbar theme={theme} onToggleTheme={toggle} />
 
         <NotFound />
       </div>
@@ -1019,10 +821,7 @@ function AppContent({
 
   return (
     <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
-      <Navbar
-        theme={theme}
-        onToggleTheme={toggle}
-      />
+      <Navbar theme={theme} onToggleTheme={toggle} />
 
       <Home />
     </div>
