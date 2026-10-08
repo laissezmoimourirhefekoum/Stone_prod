@@ -1,17 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type StoneBootProps = {
   onComplete: () => void;
 };
 
-const BOOT_DURATION = 5000;
+const BOOT_DURATION = 5000; // durée totale
+const FADE_OUT = 500; // fondu final
+const FILL_DURATION = BOOT_DURATION - FADE_OUT - 300; // remplissage
+const WAVE_AMPLITUDE = 3; // hauteur de la vague (en % de la hauteur)
+
+const easeInOut = (t: number) =>
+  t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
 function Brand({ className = "" }: { className?: string }) {
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <img
         src="/images/icon_nav.png"
-        alt="Stone logo"
+        alt=""
         draggable={false}
         className="h-40 w-auto select-none object-contain sm:h-56 md:h-64"
       />
@@ -21,7 +27,7 @@ function Brand({ className = "" }: { className?: string }) {
           fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
           fontSize: "clamp(64px, 12vw, 140px)",
           letterSpacing: "0.12em",
-          paddingLeft: "0.12em", // compense l'espace ajouté après la dernière lettre
+          paddingLeft: "0.12em",
         }}
       >
         STONE
@@ -31,32 +37,135 @@ function Brand({ className = "" }: { className?: string }) {
 }
 
 export default function StoneBoot({ onComplete }: StoneBootProps) {
+  const fillRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const [percent, setPercent] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
-    const timer = window.setTimeout(onComplete, BOOT_DURATION);
-    return () => window.clearTimeout(timer);
+    onCompleteRef.current = onComplete;
   }, [onComplete]);
 
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setLeaving(true);
+    window.setTimeout(() => onCompleteRef.current(), FADE_OUT);
+  }, []);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const duration = reduceMotion ? 1200 : FILL_DURATION;
+    const start = performance.now();
+    let raf = 0;
+    let lastPercent = -1;
+
+    const frame = (now: number) => {
+      const elapsed = now - start;
+      const p = easeInOut(Math.min(elapsed / duration, 1));
+
+      // Niveau du liquide : de 100 % (vide) à 0 % (plein), de bas en haut
+      const level = (1 - p) * (100 + 2 * WAVE_AMPLITUDE) - WAVE_AMPLITUDE;
+      const phase = elapsed * 0.006;
+      const amp = reduceMotion ? 0 : WAVE_AMPLITUDE;
+
+      const points: string[] = [];
+      for (let x = 0; x <= 100; x += 2.5) {
+        const y = level + amp * Math.sin(x * 0.12 + phase);
+        points.push(`${x}% ${y.toFixed(2)}%`);
+      }
+      points.push("100% 100%", "0% 100%");
+
+      if (fillRef.current) {
+        fillRef.current.style.clipPath = `polygon(${points.join(",")})`;
+      }
+
+      const rounded = Math.round(p * 100);
+      if (rounded !== lastPercent) {
+        lastPercent = rounded;
+        setPercent(rounded);
+      }
+
+      if (elapsed < duration) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        window.setTimeout(finish, reduceMotion ? 200 : 300);
+      }
+    };
+
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [finish]);
+
+  // Passer l'écran de chargement : clic, Entrée, Espace ou Échap
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (["Enter", " ", "Escape"].includes(e.key)) finish();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [finish]);
+
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-[#050505]">
+    <div
+      role="progressbar"
+      aria-label="Chargement de Stone"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      onClick={finish}
+      className="fixed inset-0 z-[999999] flex cursor-pointer items-center justify-center bg-[#050505]"
+      style={{
+        opacity: leaving ? 0 : 1,
+        transition: `opacity ${FADE_OUT}ms ease`,
+        pointerEvents: leaving ? "none" : "auto",
+      }}
+    >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600&display=swap');
 
-        @keyframes stone-fill {
-          from { clip-path: inset(0 0 100% 0); }
-          to   { clip-path: inset(0 0 0 0); }
+        @keyframes stone-enter {
+          from { opacity: 0; transform: scale(0.96); }
+          to   { opacity: 1; transform: scale(1); }
         }
-
-        .stone-fill-layer {
-          animation: stone-fill ${BOOT_DURATION}ms cubic-bezier(0.45, 0, 0.25, 1) forwards;
-        }
+        .stone-enter { animation: stone-enter 600ms ease-out both; }
       `}</style>
 
-      <div className="relative">
-        {/* Fond : version terne */}
+      <div className="stone-enter relative">
+        {/* Fond : version terne (le « vide ») */}
         <Brand className="opacity-[0.12]" />
 
-        {/* Remplissage de haut en bas */}
-        <Brand className="stone-fill-layer absolute inset-0" />
+        {/* Remplissage liquide de bas en haut */}
+        <div
+          ref={fillRef}
+          className="absolute inset-0"
+          style={{ clipPath: "polygon(0% 100%, 100% 100%, 100% 100%, 0% 100%)" }}
+        >
+          <Brand />
+        </div>
+      </div>
+
+      {/* Pourcentage + indication */}
+      <div className="absolute bottom-10 flex flex-col items-center gap-2">
+        <span
+          className="text-sm font-medium text-white/60"
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "0.2em",
+          }}
+        >
+          {percent}%
+        </span>
+        <span
+          className="text-[11px] uppercase text-white/25"
+          style={{ fontFamily: "'Inter', sans-serif", letterSpacing: "0.2em" }}
+        >
+          Touche pour passer
+        </span>
       </div>
     </div>
   );
