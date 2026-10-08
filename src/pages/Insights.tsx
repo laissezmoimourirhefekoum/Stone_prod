@@ -23,6 +23,7 @@ import {
   Twitch,
   Twitter,
   Youtube,
+  Music2,
   Eye,
   FileText,
   Heart,
@@ -190,9 +191,15 @@ function useInsights(
   }, [s, e]);
 }
 
-/** Canal demandé via #/analytics?channel=<key> (re-rendu à chaque navigation). */
+/** Canal demandé via #/insights?channel=<key>. Se ré-actualise à chaque changement de hash. */
 function useHashChannel(): string | null {
+  const [, force] = useState(0);
   useHashRoute();
+  useEffect(() => {
+    const onHash = () => force((v) => v + 1);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
   const hash = window.location.hash;
   const i = hash.indexOf("?");
   return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
@@ -597,6 +604,7 @@ function NetworkIcon({ channel, isDark, size = 13 }: { channel?: ConnectedChanne
     : n.includes("twitch") ? Twitch
     : n.includes("facebook") ? Facebook
     : n.includes("twitter") || n === "x" ? Twitter
+    : n.includes("tiktok") ? Music2
     : null;
   if (!Icon) return null;
   return (
