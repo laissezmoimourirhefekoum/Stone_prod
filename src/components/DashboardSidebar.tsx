@@ -785,6 +785,17 @@ function NavItemViewImpl({
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
+        {/* Barre d'état actif : arrondie, à gauche de la ligne. */}
+        {isActive && (
+          <span
+            aria-hidden="true"
+            className={[
+              "absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
+              t.accent,
+            ].join(" ")}
+          />
+        )}
+
         {/* Icône : pas de scale, mais elle passe en pleine opacité au hover. */}
         <span
           className={[
@@ -1544,7 +1555,7 @@ function SidebarChannelsImpl({
                     <span
                       aria-hidden="true"
                       className={[
-                        "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full",
+                        "absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
                         t.accent,
                       ].join(" ")}
                     />
