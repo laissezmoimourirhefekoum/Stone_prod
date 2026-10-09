@@ -31,6 +31,10 @@ function isBeforeDay(a: Date, b: Date) {
   return startOfDay(a).getTime() < startOfDay(b).getTime();
 }
 
+function isAfterDay(a: Date, b: Date) {
+  return startOfDay(a).getTime() > startOfDay(b).getTime();
+}
+
 type GridDay = {
   date: Date;
   inMonth: boolean;
@@ -57,7 +61,7 @@ function buildMonthGrid(monthDate: Date): GridDay[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* CalendarPicker                                                       */
+/* CalendarPicker                                                      */
 /* ------------------------------------------------------------------ */
 
 export function CalendarPicker({
@@ -65,16 +69,39 @@ export function CalendarPicker({
   onChange,
   isDark = false,
   onClose,
+  /**
+   * Bornes optionnelles de sélection.
+   * `min` : première date sélectionnable (incluse).
+   * `max` : dernière date sélectionnable (incluse).
+   * Ex. Insights : `disablePast={false} max={aujourd'hui}` pour remonter
+   * dans l'historique sans sélectionner le futur.
+   */
+  min,
+  max,
+  /** true (défaut) : désactive les dates avant aujourd'hui (comportement NewPostModal). */
+  disablePast = true,
 }: {
   value: Date;
   onChange: (date: Date) => void;
   isDark?: boolean;
   onClose?: () => void;
+  min?: Date;
+  max?: Date;
+  disablePast?: boolean;
 }) {
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(value));
 
   // Aujourd'hui
   const today = useMemo(() => startOfDay(new Date()), []);
+
+  // Une date est désactivée si :
+  //  - disablePast et avant aujourd'hui, ou
+  //  - avant `min`, ou
+  //  - après `max`.
+  const isDisabled = (date: Date) =>
+    (disablePast && isBeforeDay(date, today)) ||
+    (min !== undefined && isBeforeDay(date, min)) ||
+    (max !== undefined && isAfterDay(date, max));
 
   const weeks = useMemo(() => {
     const days = buildMonthGrid(viewMonth);
@@ -159,9 +186,7 @@ export function CalendarPicker({
       {/* Grille des jours */}
       <div className="flex flex-col gap-0.5">
         {weeks.map((week, wi) => {
-          const rowHasSelected = week.some((d) =>
-            isSameDay(d.date, value)
-          );
+          const rowHasSelected = week.some((d) => isSameDay(d.date, value));
 
           return (
             <div
@@ -177,9 +202,7 @@ export function CalendarPicker({
             >
               {week.map(({ date }) => {
                 const selected = isSameDay(date, value);
-
-                // SEULEMENT les dates avant aujourd'hui sont désactivées
-                const disabled = isBeforeDay(date, today);
+                const disabled = isDisabled(date);
 
                 return (
                   <button
@@ -195,17 +218,13 @@ export function CalendarPicker({
                     className={[
                       "flex h-8 w-8 items-center justify-center justify-self-center rounded-full text-[12.5px] transition",
 
-                      /* ------------------------------------------------ */
-                      /* Dates avant aujourd'hui = GRIS                    */
-                      /* ------------------------------------------------ */
+                      /* Dates hors plage = GRIS */
                       disabled
                         ? isDark
                           ? "cursor-not-allowed text-neutral-600"
                           : "cursor-not-allowed text-neutral-300"
 
-                        /* ------------------------------------------------ */
-                        /* Aujourd'hui + TOUTES les dates futures = NOIR */
-                        /* ------------------------------------------------ */
+                        /* Dates sélectionnables */
                         : isDark
                           ? "text-neutral-200"
                           : "text-neutral-900",
