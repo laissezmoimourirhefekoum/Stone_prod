@@ -781,8 +781,10 @@ function NavItemViewImpl({
         <span
           className={[
             "relative flex shrink-0 select-none",
-            "transition-opacity duration-200 motion-reduce:transition-none",
-            isActive ? "opacity-100" : "opacity-70 group-hover:opacity-100",
+            "transition-[opacity,transform] duration-200 motion-reduce:transition-none",
+            isActive
+              ? "opacity-100"
+              : "opacity-70 group-hover:translate-x-0.5 group-hover:opacity-100 motion-reduce:group-hover:translate-x-0",
           ].join(" ")}
         >
           <Icon className="h-[18px] w-[18px]" />
@@ -1063,10 +1065,10 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full select-none rounded-full object-cover"
+          className="h-full w-full select-none rounded-full object-cover ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60">
           {initial}
         </span>
       )}
@@ -1337,10 +1339,10 @@ function ChannelHoverCard({
                   >
                     <Icon
                       className={[
-                        "h-4 w-4 shrink-0 transition-opacity duration-150",
+                        "h-4 w-4 shrink-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
                         active
                           ? "opacity-100"
-                          : "opacity-60 group-hover:opacity-100",
+                          : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
                       ].join(" ")}
                     />
                     <span className="flex-1">{link.label}</span>
@@ -1394,7 +1396,7 @@ function SidebarChannelsImpl({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   const headerButton = [
-    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
+    "group relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
     "transition-colors duration-150 motion-reduce:transition-none",
     t.menuIcon,
     focus,
@@ -1430,7 +1432,7 @@ function SidebarChannelsImpl({
             onClick={onConnect}
             className={headerButton}
           >
-            <PlusIcon className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
           </button>
         </span>
       </div>
@@ -1442,6 +1444,7 @@ function SidebarChannelsImpl({
           onClick={onConnect}
           className={[
             "mt-0.5 flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
+            "hover:border-[#ff5ec4]/50",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             t.row,
@@ -1607,10 +1610,10 @@ function SidebarChannelsImpl({
                         >
                           <Icon
                             className={[
-                              "h-4 w-4 shrink-0 transition-opacity duration-150",
+                              "h-4 w-4 shrink-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
                               active
                                 ? "opacity-100"
-                                : "opacity-60 group-hover:opacity-100",
+                                : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
                             ].join(" ")}
                           />
                           <span className="flex-1">{link.label}</span>
@@ -1656,7 +1659,7 @@ function SidebarChannelsImpl({
               t.navIdle,
             ].join(" ")}
           >
-            <PlusIcon className="h-[18px] w-[18px] shrink-0" />
+            <PlusIcon className="h-[18px] w-[18px] shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
           </button>
         </Tip>
       )}
@@ -2675,7 +2678,11 @@ export default function DashboardSidebar({
               src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
               alt="Stone logo"
               draggable={false}
-              className="h-9 w-8 shrink-0 select-none object-contain"
+              className={[
+                "h-9 w-8 shrink-0 select-none object-contain",
+                "transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "hover:-rotate-6 motion-reduce:transition-none motion-reduce:hover:rotate-0",
+              ].join(" ")}
             />
 
             <span
@@ -2936,7 +2943,7 @@ export default function DashboardSidebar({
                           navigate("pricing");
                         }}
                         className={[
-                          "mt-3 flex w-full",
+                          "group mt-3 flex w-full",
                           "select-none",
                           "items-center justify-center",
                           "gap-2 rounded-[10px]",
@@ -2952,7 +2959,7 @@ export default function DashboardSidebar({
                             : t.upgrade,
                         ].join(" ")}
                       >
-                        <BoltIcon className="h-4 w-4" />
+                        <BoltIcon className="h-4 w-4 transition-transform duration-200 group-hover:-rotate-12 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
                         {planFull ? "Upgrade to add more channels" : "Upgrade Plan"}
                       </button>
                     </div>
@@ -3071,7 +3078,7 @@ export default function DashboardSidebar({
                     aria-label="Open account menu"
                     onClick={() => setMenuOpen((value) => !value)}
                     className={[
-                      "flex h-11 w-full",
+                      "group flex h-11 w-full",
                       "select-none",
                       "items-center gap-3",
                       "overflow-hidden",
@@ -3091,13 +3098,14 @@ export default function DashboardSidebar({
                         src={account.avatarUrl}
                         alt="Profile"
                         draggable={false}
-                        className="h-8 w-8 shrink-0 select-none rounded-full object-cover"
+                        className="h-8 w-8 shrink-0 select-none rounded-full object-cover ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60"
                         onError={() => setAvatarLoadFailed(true)}
                       />
                     ) : (
                       <span
                         className={[
                           "flex h-8 w-8 shrink-0",
+                          "ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60",
                           "select-none",
                           "items-center justify-center",
                           "rounded-full",
