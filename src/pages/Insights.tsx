@@ -1107,16 +1107,19 @@ export default function Insights() {
                   }}
                   t={t}
                 />
-                <RangePicker
-                  range={range}
-                  start={start}
-                  end={end}
-                  onStartChange={setCustomStart}
-                  onEndChange={setCustomEnd}
-                  onRangeChange={setRange}
-                  t={t}
-                  isDark={isDark}
-                />
+                {/* Calendrier From / To : visible uniquement en plage « Custom » */}
+                {range === "custom" && (
+                  <RangePicker
+                    range={range}
+                    start={start}
+                    end={end}
+                    onStartChange={setCustomStart}
+                    onEndChange={setCustomEnd}
+                    onRangeChange={setRange}
+                    t={t}
+                    isDark={isDark}
+                  />
+                )}
               </div>
               <Switch checked={compare} onChange={setCompare} label="Compare with previous period" t={t} />
             </div>
