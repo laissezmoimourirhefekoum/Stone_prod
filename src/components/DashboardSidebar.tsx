@@ -168,6 +168,18 @@ type StatusResponse = {
 const SIDEBAR_WIDTH_MS = 420;
 const LABEL_DELAY_MS = 120;
 
+/**
+ * Délai de stagger des sous-liens.
+ * Le délai ne concerne QUE opacity + transform (slide d'ouverture) : les
+ * couleurs / fonds (hover) réagissent immédiatement. L'ordre correspond à
+ * `transition-[background-color,color,opacity,transform]`.
+ */
+function subLinkDelay(isOpen: boolean, index: number): string {
+  if (!isOpen) return "0ms";
+  const d = `${80 + index * 45}ms`;
+  return `0ms, 0ms, ${d}, ${d}`;
+}
+
 /* ============================================================================
    Keyframes + global UI guards
 ============================================================================ */
@@ -727,18 +739,6 @@ function NavItemViewImpl({
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
-        {/* Repère d'état actif : barre accent, lisible même quand le fond est discret. */}
-        <span
-          aria-hidden="true"
-          className={[
-            "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2",
-            "rounded-r-full bg-[#ff5ec4]",
-            "transition-[opacity,transform] duration-200",
-            "motion-reduce:transition-none",
-            isActive ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0",
-          ].join(" ")}
-        />
-
         {/* Icône : pas de scale, mais elle passe en pleine opacité au hover. */}
         <span
           className={[
@@ -837,9 +837,7 @@ function NavItemViewImpl({
                     aria-current={childActive ? "page" : undefined}
                     onClick={() => onNavigate(child.route)}
                     style={{
-                      transitionDelay: isOpen
-                        ? `${80 + childIndex * 45}ms`
-                        : "0ms",
+                      transitionDelay: subLinkDelay(isOpen, childIndex),
                     }}
                     className={[
                       "flex h-8 w-full",
@@ -897,6 +895,8 @@ type SidebarChannelsProps = {
   t: ThemeTokens;
   onNavigate: (route: string) => void;
   onExpand: () => void;
+  /** Referme la sidebar (appelé après un clic sur Publish / Community / Insights). */
+  onCollapse: () => void;
   onConnect: () => void;
 };
 
@@ -1246,6 +1246,7 @@ function SidebarChannelsImpl({
   t,
   onNavigate,
   onExpand,
+  onCollapse,
   onConnect,
 }: SidebarChannelsProps) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
@@ -1422,9 +1423,13 @@ function SidebarChannelsImpl({
                           type="button"
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
-                          onClick={() => onNavigate(target)}
+                          onClick={() => {
+                            onNavigate(target);
+                            // On quitte la sidebar ouverte : elle se referme.
+                            onCollapse();
+                          }}
                           style={{
-                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
+                            transitionDelay: subLinkDelay(isOpen, i),
                           }}
                           className={[
                             "group flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
@@ -1956,9 +1961,10 @@ export default function DashboardSidebar({
 
   /* --------------------------------------------------------------------------
      Theme tokens
-     Les états hover sont volontairement plus marqués qu'avant : en clair,
-     black/[0.04] sur fond blanc était quasi invisible. Le texte change aussi
-     de contraste au survol, pas seulement le fond.
+     Les états hover sont volontairement marqués : en clair, black/[0.04] sur
+     fond blanc était quasi invisible. Le texte change aussi de contraste au
+     survol, pas seulement le fond. Les sous-liens (Publish / Community /
+     Insights) ont un hover un peu plus appuyé que la nav principale.
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
@@ -1976,7 +1982,7 @@ export default function DashboardSidebar({
             count: "bg-white/10 text-[#d7d7d2]",
             dotRing: "ring-[#0a0a0c]",
             rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.08] hover:text-white",
+            sub: "text-[#99a2a2] hover:bg-white/[0.1] hover:text-white",
             subActive: "bg-white/[0.12] text-white",
             row: "hover:bg-white/[0.09]",
             rowOpen: "bg-white/[0.09]",
@@ -2005,7 +2011,7 @@ export default function DashboardSidebar({
             count: "bg-black/[0.06] text-[#3f3f3d]",
             dotRing: "ring-white",
             rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.06] hover:text-[#151515]",
+            sub: "text-[#71706d] hover:bg-black/[0.07] hover:text-[#151515]",
             subActive: "bg-black/[0.08] text-[#151515]",
             row: "hover:bg-black/[0.06]",
             rowOpen: "bg-black/[0.06]",
@@ -2159,6 +2165,13 @@ export default function DashboardSidebar({
   }, []);
 
   const handleExpand = useCallback(() => setIsCollapsed(false), []);
+
+  /** Referme la sidebar après un clic sur Publish / Community / Insights. */
+  const handleCollapse = useCallback(() => {
+    setMenuOpen(false);
+    setIsCollapsed(true);
+    setOpenGroup(null);
+  }, []);
 
   /* --------------------------------------------------------------------------
      Channel connect handlers (self-contained)
@@ -2507,6 +2520,7 @@ export default function DashboardSidebar({
               t={t}
               onNavigate={handleNavigate}
               onExpand={handleExpand}
+              onCollapse={handleCollapse}
               onConnect={openConnect}
             />
           </div>
