@@ -106,6 +106,8 @@ type MenuItem = {
   badge?: string;
   route?: string;
   action?: "logout" | "toggleTheme";
+  /** Entrée visible mais pas encore disponible (pas de clic mort). */
+  disabled?: boolean;
 };
 
 type ThemeTokens = {
@@ -221,6 +223,11 @@ const SIDEBAR_KEYFRAMES = `
   }
 }
 
+@keyframes sbFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .sb-menu {
   animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
@@ -231,6 +238,10 @@ const SIDEBAR_KEYFRAMES = `
 
 .sb-tip {
   animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.sb-backdrop {
+  animation: sbFadeIn 200ms ease-out both;
 }
 
 #app-sidebar button,
@@ -256,7 +267,8 @@ const SIDEBAR_KEYFRAMES = `
 @media (prefers-reduced-motion: reduce) {
   .sb-menu,
   .sb-item,
-  .sb-tip {
+  .sb-tip,
+  .sb-backdrop {
     animation: none;
   }
 }
@@ -265,7 +277,12 @@ const SIDEBAR_KEYFRAMES = `
 /* ============================================================================
    Raccourcis clavier
    - Ctrl/⌘ + B : réduire / ouvrir la sidebar
-   - Ctrl + touche : chaque partie de la sidebar
+   - Alt (⌥ sur Mac) + lettre : chaque partie de la sidebar
+
+   Ctrl + T / N / L / S / P / F / D / U / H sont réservés par le navigateur
+   (nouvel onglet, fenêtre, barre d'adresse, enregistrer, imprimer…) : ils
+   ne peuvent pas être interceptés de façon fiable. Alt + lettre est libre.
+   On lit `event.code` car ⌥ + lettre produit un autre caractère sur Mac.
 ============================================================================ */
 
 const IS_MAC =
@@ -274,10 +291,7 @@ const IS_MAC =
 /** Libellé du raccourci clavier de la sidebar selon la plateforme. */
 const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
 
-/**
- * lettre → route
- * (« d » pour Calendar : Ctrl+C est réservé à la copie.)
- */
+/** lettre → route */
 const SHORTCUT_ROUTES: Record<string, string> = {
   h: "home",
   d: "schedule",
@@ -290,14 +304,14 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   i: "integrations",
 };
 
-/** Libellé affiché : "Ctrl S" ou "⌃S". */
+/** Libellé affiché : "Alt S" ou "⌥S". */
 function shortcutLabel(key: string): string {
-  return IS_MAC ? `⌃${key.toUpperCase()}` : `Ctrl ${key.toUpperCase()}`;
+  return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
 }
 
-/** Valeur ARIA : "Control+S". */
+/** Valeur ARIA : "Alt+S". */
 function ariaShortcut(key: string): string {
-  return `Control+${key.toUpperCase()}`;
+  return `Alt+${key.toUpperCase()}`;
 }
 
 /** Lettre associée à une route (undefined si aucune). */
@@ -312,9 +326,8 @@ function shortcutForRoute(route?: string): string | undefined {
   return key ? shortcutLabel(key) : undefined;
 }
 
-/** Lettre pressée (event.key, avec repli sur event.code). */
+/** Lettre pressée, fiable même avec ⌥ sur Mac (event.code). */
 function shortcutKey(event: KeyboardEvent): string {
-  if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase();
   return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
 }
 
@@ -338,6 +351,31 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
       {children}
     </kbd>
   );
+}
+
+/* ============================================================================
+   Responsive : sous 768 px la sidebar devient un tiroir
+============================================================================ */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function subscribeMobile(listener: () => void) {
+  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+
+  const mq = window.matchMedia(MOBILE_QUERY);
+  mq.addEventListener("change", listener);
+
+  return () => mq.removeEventListener("change", listener);
+}
+
+function getMobileSnapshot(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia)
+    ? window.matchMedia(MOBILE_QUERY).matches
+    : false;
+}
+
+function useIsMobile(): boolean {
+  return useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false);
 }
 
 /* ============================================================================
@@ -637,7 +675,7 @@ const menuGroups: MenuItem[][] = [
   [
     { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
     { label: "Integrations", icon: AppsIcon, route: "integrations" },
-    { label: "Beta Features", icon: BetaIcon },
+    { label: "Beta Features", icon: BetaIcon, badge: "Soon", disabled: true },
   ],
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
 ];
@@ -895,8 +933,6 @@ type SidebarChannelsProps = {
   t: ThemeTokens;
   onNavigate: (route: string) => void;
   onExpand: () => void;
-  /** Referme la sidebar (appelé après un clic sur Publish / Community / Insights). */
-  onCollapse: () => void;
   onConnect: () => void;
 };
 
@@ -964,6 +1000,12 @@ const InsightsIcon = (p: IconProps) => (
 const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
+const MenuIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
   </Svg>
 );
 
@@ -1045,7 +1087,7 @@ function ChannelAvatar({
 }
 
 /* ============================================================================
-   Popover au survol d'une ligne de canal (style TikTok)
+   Popover au survol / focus d'une ligne de canal (style TikTok)
    Nom du compte en tête, puis liens rapides Publish / Community / Insights.
    Rendu en portal (document.body) car la nav a overflow hidden : il est donc
    visible même quand la sidebar est réduite.
@@ -1053,8 +1095,12 @@ function ChannelAvatar({
    - Le survol couvre toute la ligne (pas seulement l'avatar).
    - Actif uniquement quand la sidebar est réduite : ouverte, les sous-liens
      sont déjà visibles dans la ligne dépliable.
-   - stopPropagation : les événements React remontent à travers les portals,
-     sans ça un clic dans le popover déclencherait aussi le bouton de la ligne.
+   - Clavier : le focus sur la ligne ouvre le popover, → ou Entrée-sur-flèche
+     place le focus dans le menu, ↑/↓ naviguent, Échap / ← referment et
+     rendent le focus à la ligne.
+   - stopPropagation sur le clic : les événements React remontent à travers
+     les portals, sans ça un clic dans le popover déclencherait aussi le
+     bouton de la ligne.
 ============================================================================ */
 
 const HOVER_CARD_SHOW_MS = 200;
@@ -1086,6 +1132,7 @@ function ChannelHoverCard({
   children: ReactNode;
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const showTimer = useRef<number | undefined>(undefined);
   const hideTimer = useRef<number | undefined>(undefined);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -1095,22 +1142,39 @@ function ChannelHoverCard({
     window.clearTimeout(hideTimer.current);
   }, []);
 
+  const openNow = useCallback(() => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (rect) setPos({ top: rect.top, left: rect.right + 10 });
+  }, []);
+
   const show = useCallback(() => {
     if (!enabled) return;
 
     cancelHide();
     window.clearTimeout(showTimer.current);
-    showTimer.current = window.setTimeout(() => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (rect) setPos({ top: rect.top, left: rect.right + 10 });
-    }, HOVER_CARD_SHOW_MS);
-  }, [cancelHide, enabled]);
+    showTimer.current = window.setTimeout(openNow, HOVER_CARD_SHOW_MS);
+  }, [cancelHide, enabled, openNow]);
 
   /* Petit délai avant fermeture : on peut glisser la souris de la ligne
      vers le popover sans qu'il disparaisse. */
   const hide = useCallback(() => {
     window.clearTimeout(showTimer.current);
     hideTimer.current = window.setTimeout(() => setPos(null), HOVER_CARD_HIDE_MS);
+  }, []);
+
+  const closeAndRefocus = useCallback(() => {
+    window.clearTimeout(showTimer.current);
+    window.clearTimeout(hideTimer.current);
+    setPos(null);
+    anchorRef.current?.querySelector<HTMLElement>("button")?.focus();
+  }, []);
+
+  const focusFirstItem = useCallback(() => {
+    requestAnimationFrame(() => {
+      popRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]')
+        ?.focus({ preventScroll: true });
+    });
   }, []);
 
   /* La sidebar s'ouvre : le popover n'a plus lieu d'être. */
@@ -1129,11 +1193,73 @@ function ChannelHoverCard({
     []
   );
 
+  const onAnchorBlur = (event: React.FocusEvent) => {
+    const next = event.relatedTarget as Node | null;
+
+    // Le focus reste dans la ligne ou dans le popover : on ne ferme pas.
+    if (
+      next &&
+      (anchorRef.current?.contains(next) || popRef.current?.contains(next))
+    ) {
+      return;
+    }
+
+    hide();
+  };
+
+  const onAnchorKeyDown = (event: React.KeyboardEvent) => {
+    // Les événements du popover (portal) remontent ici : on ne traite que la ligne.
+    if (!anchorRef.current?.contains(event.target as Node)) return;
+
+    if (event.key === "Escape" && pos) {
+      event.preventDefault();
+      setPos(null);
+      return;
+    }
+
+    if (event.key === "ArrowRight" && enabled) {
+      event.preventDefault();
+      if (!pos) openNow();
+      focusFirstItem();
+    }
+  };
+
+  const onPopKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    );
+    const current = items.indexOf(document.activeElement as HTMLElement);
+
+    if (event.key === "Escape" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAndRefocus();
+      return;
+    }
+
+    let next = -1;
+
+    if (event.key === "ArrowDown") next = (current + 1) % items.length;
+    else if (event.key === "ArrowUp")
+      next = (current - 1 + items.length) % items.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = items.length - 1;
+
+    if (next >= 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      items[next].focus();
+    }
+  };
+
   return (
     <span
       ref={anchorRef}
       onMouseEnter={show}
       onMouseLeave={hide}
+      onFocus={show}
+      onBlur={onAnchorBlur}
+      onKeyDown={onAnchorKeyDown}
       className="relative block w-full"
     >
       {children}
@@ -1142,11 +1268,13 @@ function ChannelHoverCard({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            ref={popRef}
             role="menu"
             aria-label={label}
             style={{ top: pos.top, left: pos.left }}
             onMouseEnter={cancelHide}
             onMouseLeave={hide}
+            onKeyDown={onPopKeyDown}
             onClick={(event) => event.stopPropagation()}
             className={[
               "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-2xl border p-2",
@@ -1196,7 +1324,7 @@ function ChannelHoverCard({
                     role="menuitem"
                     aria-current={active ? "page" : undefined}
                     onClick={() => {
-                      hide();
+                      setPos(null);
                       onNavigate(target);
                     }}
                     className={[
@@ -1246,7 +1374,6 @@ function SidebarChannelsImpl({
   t,
   onNavigate,
   onExpand,
-  onCollapse,
   onConnect,
 }: SidebarChannelsProps) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
@@ -1298,7 +1425,7 @@ function SidebarChannelsImpl({
             type="button"
             tabIndex={isCollapsed ? -1 : 0}
             aria-label="Connect a channel"
-            aria-keyshortcuts="Control+N"
+            aria-keyshortcuts={ariaShortcut("n")}
             title={`Connect a channel (${shortcutLabel("n")})`}
             onClick={onConnect}
             className={headerButton}
@@ -1308,6 +1435,28 @@ function SidebarChannelsImpl({
         </span>
       </div>
 
+      {/* État vide : un appel à l'action clair plutôt qu'une section blanche. */}
+      {channels.length === 0 && !isCollapsed && (
+        <button
+          type="button"
+          onClick={onConnect}
+          className={[
+            "mt-0.5 flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
+            "transition-colors duration-150 motion-reduce:transition-none",
+            t.rail,
+            t.row,
+            focus,
+          ].join(" ")}
+        >
+          <span className={["text-[12.5px] font-semibold", t.title].join(" ")}>
+            Connect your first channel
+          </span>
+          <span className={["text-[11px] leading-snug", t.muted].join(" ")}>
+            Link Instagram, TikTok, YouTube… to start scheduling.
+          </span>
+        </button>
+      )}
+
       <div className="flex flex-col gap-0.5">
         {channels.map((channel) => {
           const id = getNetworkId(channel);
@@ -1315,6 +1464,13 @@ function SidebarChannelsImpl({
           const label = channel.handle || channel.name;
           const groupKey = `channel:${channel.key}`;
           const isOpen = openKeys.includes(groupKey) && !isCollapsed;
+
+          // Canal actuellement affiché (Insights / Community) : repère visuel.
+          const isActiveChannel =
+            CHANNEL_ROUTES.has(currentRoute) &&
+            (hashChannel === null
+              ? channels[0]?.key === channel.key
+              : hashChannel === channel.key);
 
           return (
             <div key={channel.key}>
@@ -1336,6 +1492,7 @@ function SidebarChannelsImpl({
                 <button
                   type="button"
                   aria-expanded={isOpen}
+                  aria-haspopup={isCollapsed ? "menu" : undefined}
                   aria-label={label.replace(/^@/, "")}
                   onClick={() => {
                     if (isCollapsed) {
@@ -1346,7 +1503,7 @@ function SidebarChannelsImpl({
                     }
                   }}
                   className={[
-                    "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
+                    "group relative flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
                     "rounded-xl px-[9px] text-[12.5px] font-medium",
                     "transition-[background-color,color,transform] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none",
@@ -1356,6 +1513,13 @@ function SidebarChannelsImpl({
                     t.navIdle,
                   ].join(" ")}
                 >
+                  {isActiveChannel && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-[#ff5ec4]"
+                    />
+                  )}
+
                   <ChannelAvatar
                     channel={channel}
                     NetworkIcon={NetworkIcon}
@@ -1423,11 +1587,9 @@ function SidebarChannelsImpl({
                           type="button"
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
-                          onClick={() => {
-                            onNavigate(target);
-                            // On quitte la sidebar ouverte : elle se referme.
-                            onCollapse();
-                          }}
+                          /* La sidebar reste ouverte : on enchaîne souvent
+                             plusieurs liens du même canal. */
+                          onClick={() => onNavigate(target)}
                           style={{
                             transitionDelay: subLinkDelay(isOpen, i),
                           }}
@@ -1484,7 +1646,7 @@ function SidebarChannelsImpl({
           <button
             type="button"
             aria-label="Connect a channel"
-            aria-keyshortcuts="Control+N"
+            aria-keyshortcuts={ariaShortcut("n")}
             onClick={onConnect}
             className={[
               "group mt-1 flex h-9 w-full select-none items-center gap-3 rounded-xl px-3",
@@ -1510,11 +1672,22 @@ const SidebarChannels = memo(SidebarChannelsImpl);
 
 const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
 
-/* État partagé de la sidebar. La sidebar démarre toujours fermée au
-   montage (voir l'effet « Arrivée sur l'app »), donc pas de relecture
-   du localStorage à l'initialisation. */
+/** Relit la préférence de l'utilisateur (fermée par défaut). */
+function readStoredCollapsed(): boolean {
+  if (typeof window === "undefined") return true;
+
+  try {
+    const value = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return value === null ? true : value === "true";
+  } catch {
+    return true;
+  }
+}
+
+/* État partagé de la sidebar. Il est initialisé depuis le localStorage :
+   la préférence d'ouverture est conservée d'un rechargement à l'autre. */
 const sidebarMemory = {
-  collapsed: true,
+  collapsed: readStoredCollapsed(),
   openGroup: null as string | null,
   entered: false,
 };
@@ -1555,13 +1728,19 @@ function subscribeSidebar(listener: () => void) {
   };
 }
 
-/** Marge gauche que les pages doivent appliquer pour ne pas toucher la sidebar. */
+/**
+ * Marge gauche que les pages doivent appliquer pour ne pas toucher la sidebar.
+ * Sur mobile la sidebar est un tiroir qui recouvre la page : aucun décalage.
+ */
 export function useSidebarOffset(): number {
   const collapsed = useSyncExternalStore(
     subscribeSidebar,
     () => sidebarMemory.collapsed,
     () => true
   );
+  const isMobile = useIsMobile();
+
+  if (isMobile) return 0;
 
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
@@ -1650,11 +1829,13 @@ export default function DashboardSidebar({
 
   const currentRoute = useHashRoute();
   const connectedChannels = useConnectedChannels();
+  const isMobile = useIsMobile();
 
   const { user } = useUser();
   const userId = user?.id ?? null;
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(
     sidebarMemory.openGroup
   );
@@ -1666,6 +1847,11 @@ export default function DashboardSidebar({
   );
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+
+  /* Sur mobile le tiroir est soit fermé (invisible), soit ouvert en grand :
+     il n'y a pas d'état « réduit à 68 px ». */
+  const compact = isMobile ? false : isCollapsed;
+  const drawerHidden = isMobile && !mobileOpen;
 
   /* ── Channel connections (self-contained) ── */
   const [connections, setConnections] = useState<ConnectionState>(() => {
@@ -1696,16 +1882,6 @@ export default function DashboardSidebar({
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  /* --------------------------------------------------------------------------
-     Arrivée sur l'app : la sidebar démarre toujours fermée
-     (l'état persisté est réinitialisé par l'effet de persistance ci-dessous).
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    setIsCollapsed(true);
-    setOpenGroup(null);
-  }, []);
 
   /* --------------------------------------------------------------------------
      Load profile
@@ -1885,12 +2061,38 @@ export default function DashboardSidebar({
   );
 
   /* --------------------------------------------------------------------------
-     Account menu : fermeture auto à chaque navigation
+     Navigation : menu du compte et tiroir mobile se ferment tout seuls
   -------------------------------------------------------------------------- */
 
   useEffect(() => {
     setMenuOpen(false);
+    setMobileOpen(false);
   }, [currentRoute]);
+
+  /* Repasse en desktop : le tiroir n'a plus de sens. */
+  useEffect(() => {
+    if (!isMobile) setMobileOpen(false);
+  }, [isMobile]);
+
+  /* Tiroir mobile : Échap pour fermer + pas de scroll de la page derrière. */
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !menuOpen && !connectOpen) {
+        setMobileOpen(false);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen, menuOpen, connectOpen]);
 
   /* --------------------------------------------------------------------------
      Account menu events (clic extérieur, Échap) + focus initial
@@ -2056,11 +2258,11 @@ export default function DashboardSidebar({
         "transition-[opacity,transform]",
         "ease-[cubic-bezier(0.4,0,0.2,1)]",
         "motion-reduce:transition-none",
-        isCollapsed
+        compact
           ? "-translate-x-2 opacity-0 delay-0 duration-100"
           : "translate-x-0 opacity-100 delay-[120ms] duration-300",
       ].join(" "),
-    [isCollapsed]
+    [compact]
   );
 
   /* --------------------------------------------------------------------------
@@ -2069,9 +2271,15 @@ export default function DashboardSidebar({
 
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
+
+    if (isMobile) {
+      setMobileOpen((previous) => !previous);
+      return;
+    }
+
     setIsCollapsed((previous) => !previous);
     setOpenGroup(null);
-  }, []);
+  }, [isMobile]);
 
   /* Raccourci Cmd/Ctrl + B (ignoré pendant la saisie de texte). */
   useEffect(() => {
@@ -2115,14 +2323,14 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Raccourcis Ctrl + touche (ignorés pendant la saisie ou si le modal est ouvert).
-       Ctrl P       menu du compte
-       Ctrl N       modal « Connect a channel »
-       Ctrl H/D/T   Home / Calendar / Templates
-       Ctrl S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
+  /* Raccourcis Alt (⌥) + touche (ignorés pendant la saisie ou si le modal est ouvert).
+       Alt P       menu du compte
+       Alt N       modal « Connect a channel »
+       Alt H/D/T   Home / Calendar / Templates
+       Alt S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
 
@@ -2165,13 +2373,6 @@ export default function DashboardSidebar({
   }, []);
 
   const handleExpand = useCallback(() => setIsCollapsed(false), []);
-
-  /** Referme la sidebar après un clic sur Publish / Community / Insights. */
-  const handleCollapse = useCallback(() => {
-    setMenuOpen(false);
-    setIsCollapsed(true);
-    setOpenGroup(null);
-  }, []);
 
   /* --------------------------------------------------------------------------
      Channel connect handlers (self-contained)
@@ -2233,7 +2434,7 @@ export default function DashboardSidebar({
 
   const pinterestManualToken = async (): Promise<Connection | null> => {
     const token = window.prompt(
-      "Pinterest access token (généré dans le portail développeur) :"
+      "Pinterest access token (generated in the developer portal):"
     );
 
     if (!token?.trim()) return null;
@@ -2352,6 +2553,14 @@ export default function DashboardSidebar({
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
 
+  /* Usage du plan : barre de progression dans le menu du compte. */
+  const planMax = Number.isFinite(PLAN.maxChannels) ? PLAN.maxChannels : 0;
+  const planPct =
+    planMax > 0
+      ? Math.min(100, Math.round((account.channels / planMax) * 100))
+      : 0;
+  const planFull = planMax > 0 && account.channels >= planMax;
+
   /* --------------------------------------------------------------------------
      Modal props
   -------------------------------------------------------------------------- */
@@ -2370,454 +2579,564 @@ export default function DashboardSidebar({
     onToggle: handleToggle,
   };
 
+  /* Tiroir fermé : le contenu est retiré du focus et de l'arbre d'accessibilité. */
+  const inertProps = drawerHidden
+    ? ({ inert: "", "aria-hidden": true } as Record<string, unknown>)
+    : {};
+
   /* ==========================================================================
      Render
   ========================================================================== */
 
   return (
-    <div
-      className={[
-        "fixed inset-y-8 left-4 z-20",
-        "transition-[opacity,transform]",
-        "duration-500",
-        "ease-[cubic-bezier(0.32,0.72,0,1)]",
-        "motion-reduce:transition-none",
-        hasMounted
-          ? "translate-x-0 opacity-100"
-          : "-translate-x-6 opacity-0",
-      ].join(" ")}
-    >
-      <style>{SIDEBAR_KEYFRAMES}</style>
-
-      {/*
-        Largeur : 420 ms.
-        - Ouverture : la largeur démarre tout de suite, les textes suivent.
-        - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
-        La classe de durée est écrite en dur (Tailwind ne génère pas de
-        classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
-      */}
-      <aside
-        id="app-sidebar"
-        data-width-ms={SIDEBAR_WIDTH_MS}
-        className={[
-          "relative flex h-full flex-col",
-          "overflow-visible rounded-[28px]",
-          "border px-3 py-6",
-          "transition-[width,box-shadow]",
-          "duration-[420ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-          t.aside,
-          isCollapsed ? "w-[68px] delay-[120ms]" : "w-[200px] delay-0",
-        ].join(" ")}
-      >
-        {/* Logo */}
-        <div
+    <>
+      {/* Mobile : bouton flottant qui ouvre le tiroir. */}
+      {isMobile && !mobileOpen && (
+        <button
+          type="button"
+          aria-label="Open navigation"
+          aria-controls="app-sidebar"
+          onClick={() => setMobileOpen(true)}
           className={[
-            "flex items-center gap-2",
-            "select-none",
-            "overflow-hidden px-1.5",
-            t.brand,
+            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-xl border",
+            "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
+            focus,
+            t.aside,
+            t.menuIcon,
           ].join(" ")}
         >
-          <img
-            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-            alt="Stone logo"
-            draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
-          />
+          <MenuIcon className="h-[18px] w-[18px]" />
+        </button>
+      )}
 
-          <span
-            className={[
-              "select-none",
-              "text-[20px] font-semibold",
-              "leading-none tracking-tight",
-              labelClass,
-            ].join(" ")}
-          >
-            Stone
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <nav
-          className={[
-            "-mx-1 mt-5 flex min-h-0 flex-1",
-            "flex-col overflow-y-auto",
-            "overflow-x-hidden px-1",
-            "[scrollbar-width:none]",
-            "[&::-webkit-scrollbar]:hidden",
-          ].join(" ")}
-          aria-label="Main"
-        >
-          {navSections.map((section, sectionIndex) => (
-            <div
-              key={section.label}
-              className={sectionIndex === 0 ? "" : "mt-3"}
-            >
-              {sectionIndex > 0 && (
-                <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-              )}
-
-              <div
-                aria-hidden={isCollapsed}
-                className={[
-                  "select-none",
-                  "overflow-hidden",
-                  "whitespace-nowrap",
-                  "px-3 text-[12px]",
-                  "font-medium leading-4",
-                  "transition-[height,margin,opacity,transform]",
-                  "duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "motion-reduce:transition-none",
-                  t.muted,
-                  isCollapsed
-                    ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
-                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
-                ].join(" ")}
-              >
-                {section.label}
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                {section.items.map((item) => {
-                  const hasChildren = Boolean(item.children?.length);
-
-                  const isOpen =
-                    hasChildren && openGroup === item.label && !isCollapsed;
-
-                  return (
-                    <NavItemView
-                      key={item.label}
-                      index={itemIndex++}
-                      item={item}
-                      currentRoute={currentRoute}
-                      isCollapsed={isCollapsed}
-                      isOpen={isOpen}
-                      labelClass={labelClass}
-                      focus={focus}
-                      t={t}
-                      onNavigate={handleNavigate}
-                      onToggleGroup={handleToggleGroup}
-                      onExpandAndOpen={handleExpandAndOpen}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Channels */}
-          <div className="mt-3">
-            <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-            <SidebarChannels
-              channels={connectedChannels}
-              isCollapsed={isCollapsed}
-              currentRoute={currentRoute}
-              labelClass={labelClass}
-              focus={focus}
-              t={t}
-              onNavigate={handleNavigate}
-              onExpand={handleExpand}
-              onCollapse={handleCollapse}
-              onConnect={openConnect}
-            />
-          </div>
-        </nav>
-
-        {/* Account */}
+      {/* Mobile : fond cliquable derrière le tiroir. */}
+      {isMobile && mobileOpen && (
         <div
-          ref={profileRef}
-          className={["mt-3 border-t pt-3", t.rail].join(" ")}
-        >
-          {/*
-            Fermée : le toggle est au-dessus de la photo de profil (colonne).
-            Ouverte : le toggle est à droite, aligné avec le profil (ligne).
-          */}
-          <div
-            className={[
-              "flex gap-1",
-              isCollapsed ? "flex-col" : "flex-row items-center gap-1.5",
-            ].join(" ")}
-          >
-            {/* Toggle sidebar */}
-            <button
-              type="button"
-              aria-expanded={!isCollapsed}
-              aria-controls="app-sidebar"
-              aria-keyshortcuts="Control+B Meta+B"
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={toggleCollapsed}
-              className={[
-                "group/toggle relative flex shrink-0 select-none",
-                "items-center justify-center rounded-xl",
-                "transition-[background-color,color,transform] duration-200",
-                "active:scale-[0.94]",
-                "motion-reduce:transition-none",
-                "motion-reduce:active:scale-100",
-                isCollapsed
-                  ? "order-first h-9 w-full"
-                  : "order-last h-9 w-9",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <SidebarToggleIcon className="h-[18px] w-[18px]" open={!isCollapsed} />
-
-              {/* Infobulle : libellé + raccourci */}
-              <span
-                role="tooltip"
-                className={[
-                  "pointer-events-none absolute z-50 flex items-center gap-2",
-                  "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-                  "text-[11.5px] font-medium",
-                  "opacity-0 transition-opacity duration-150 delay-0",
-                  "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
-                  "group-focus-visible/toggle:opacity-100",
-                  "motion-reduce:transition-none",
-                  isCollapsed
-                    ? "left-full top-1/2 ml-3 -translate-y-1/2"
-                    : "bottom-full right-0 mb-2",
-                  t.menu,
-                ].join(" ")}
-              >
-                {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                <Kbd className={t.count}>{TOGGLE_SHORTCUT_LABEL}</Kbd>
-              </span>
-            </button>
-
-            {/* Profil */}
-            <div className="relative min-w-0 flex-1">
-              {/* Account menu */}
-              {menuOpen && (
-                <div
-                  ref={menuRef}
-                  id="account-menu"
-                  role="menu"
-                  aria-label="Account menu"
-                  onKeyDown={onMenuKeyDown}
-                  className={[
-                    "sb-menu absolute",
-                    "bottom-full left-[6px]",
-                    "z-50 mb-2 w-[264px]",
-                    "origin-bottom-left",
-                    "overflow-hidden",
-                    "rounded-[16px]",
-                    "border",
-                    t.menu,
-                  ].join(" ")}
-                >
-                  {/* Account header */}
-                  <div
-                    className="sb-item px-3.5 pb-3 pt-3.5"
-                    style={{ animationDelay: "30ms" }}
-                  >
-                    <div
-                      className={["truncate text-[11px]", t.muted].join(" ")}
-                    >
-                      {account.email}
-                    </div>
-
-                    <div className="mt-2.5 truncate text-[14px] font-semibold">
-                      {account.name}
-                    </div>
-
-                    <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
-                      {account.plan} · {pluralizeChannels(account.channels)}
-                    </div>
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        navigate("pricing");
-                      }}
-                      className={[
-                        "mt-3 flex w-full",
-                        "select-none",
-                        "items-center justify-center",
-                        "gap-2 rounded-[10px]",
-                        "border px-3 py-2",
-                        "text-[12px] font-semibold",
-                        "transition-[background-color,border-color,transform]",
-                        "duration-150",
-                        "active:scale-[0.98]",
-                        "motion-reduce:transition-none",
-                        focus,
-                        t.upgrade,
-                      ].join(" ")}
-                    >
-                      <BoltIcon className="h-4 w-4" />
-                      Upgrade Plan
-                    </button>
-                  </div>
-
-                  {/* Menu groups */}
-                  {menuGroups.map((group, groupIndex) => (
-                    <div
-                      key={group[0]?.label ?? groupIndex}
-                      role="none"
-                      className={["border-t px-1.5 py-1.5", t.menuDivider].join(
-                        " "
-                      )}
-                    >
-                      {group.map((item) => {
-                        const Icon = item.icon;
-                        const delay = 60 + menuItemIndex++ * 25;
-                        const isLogout = item.action === "logout";
-
-                        return (
-                          <button
-                            key={item.label}
-                            type="button"
-                            role="menuitem"
-                            disabled={isLogout && loggingOut}
-                            style={{ animationDelay: `${delay}ms` }}
-                            onClick={() => {
-                              if (isLogout) {
-                                void handleLogout();
-                                return;
-                              }
-
-                              setMenuOpen(false);
-
-                              if (item.route) {
-                                navigate(item.route);
-                              }
-                            }}
-                            className={[
-                              "sb-item group flex",
-                              "w-full",
-                              "select-none",
-                              "items-center gap-3",
-                              "rounded-[10px]",
-                              "px-2.5 py-2",
-                              "text-left text-[12.5px]",
-                              "font-medium",
-                              "transition-[background-color,transform] duration-150",
-                              "active:scale-[0.98]",
-                              "motion-reduce:transition-none",
-                              "disabled:cursor-wait disabled:opacity-60",
-                              focus,
-                              t.menuItem,
-                            ].join(" ")}
-                          >
-                            <Icon
-                              className={[
-                                "h-4 w-4 shrink-0",
-                                "opacity-70 transition-opacity duration-150",
-                                "group-hover:opacity-100",
-                                t.menuIcon,
-                              ].join(" ")}
-                            />
-
-                            <span className="flex-1 truncate">
-                              {isLogout && loggingOut
-                                ? "Logging out..."
-                                : item.label}
-                            </span>
-
-                            {item.badge && (
-                              <span
-                                className={[
-                                  "select-none",
-                                  "rounded-full",
-                                  "px-2 py-0.5",
-                                  "text-[10px]",
-                                  "font-semibold",
-                                  t.badge,
-                                ].join(" ")}
-                              >
-                                {item.badge}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Profile trigger */}
-              <button
-                ref={triggerRef}
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-controls={menuOpen ? "account-menu" : undefined}
-                aria-keyshortcuts="Control+P"
-                aria-label="Open account menu"
-                title={isCollapsed ? account.name : "Account menu"}
-                onClick={() => setMenuOpen((value) => !value)}
-                className={[
-                  "flex h-11 w-full",
-                  "select-none",
-                  "items-center gap-3",
-                  "overflow-hidden",
-                  "rounded-xl px-1.5",
-                  "transition-[background-color,transform]",
-                  "duration-200",
-                  "active:scale-[0.97]",
-                  "motion-reduce:transition-none",
-                  "motion-reduce:active:scale-100",
-                  focus,
-                  menuOpen ? t.rowOpen : t.row,
-                ].join(" ")}
-              >
-                {showAvatarImage ? (
-                  <img
-                    key={account.avatarUrl}
-                    src={account.avatarUrl}
-                    alt="Profile"
-                    draggable={false}
-                    className="h-8 w-8 shrink-0 select-none rounded-full object-cover"
-                    onError={() => setAvatarLoadFailed(true)}
-                  />
-                ) : (
-                  <span
-                    className={[
-                      "flex h-8 w-8 shrink-0",
-                      "select-none",
-                      "items-center justify-center",
-                      "rounded-full",
-                      "text-[10px] font-semibold",
-                      t.avatar,
-                    ].join(" ")}
-                  >
-                    {account.initials}
-                  </span>
-                )}
-
-                <span
-                  className={[
-                    "min-w-0 flex-1",
-                    "select-none",
-                    "truncate text-left",
-                    "text-[13px] font-medium",
-                    t.title,
-                    labelClass,
-                  ].join(" ")}
-                >
-                  {account.name}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ConnectChannelModal fait lui-même son createPortal(document.body). */}
-      {connectOpen && (
-        <ConnectChannelModal
-          {...channelConnectProps}
-          isDark={isDark}
-          onClose={closeConnect}
+          aria-hidden="true"
+          onClick={() => setMobileOpen(false)}
+          className="sb-backdrop fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px]"
         />
       )}
-    </div>
+
+      <div
+        {...inertProps}
+        className={[
+          "fixed",
+          isMobile ? "inset-y-3 left-3 z-40" : "inset-y-8 left-4 z-20",
+          "transition-[opacity,transform]",
+          "duration-500",
+          "ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "motion-reduce:transition-none",
+          drawerHidden
+            ? "pointer-events-none -translate-x-[120%] opacity-0"
+            : hasMounted
+              ? "translate-x-0 opacity-100"
+              : "-translate-x-6 opacity-0",
+        ].join(" ")}
+      >
+        <style>{SIDEBAR_KEYFRAMES}</style>
+
+        {/*
+          Largeur : 420 ms.
+          - Ouverture : la largeur démarre tout de suite, les textes suivent.
+          - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
+          La classe de durée est écrite en dur (Tailwind ne génère pas de
+          classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
+        */}
+        <aside
+          id="app-sidebar"
+          data-width-ms={SIDEBAR_WIDTH_MS}
+          className={[
+            "relative flex h-full flex-col",
+            "overflow-visible rounded-[28px]",
+            "border px-3 py-6",
+            "transition-[width,box-shadow]",
+            "duration-[420ms]",
+            "ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "motion-reduce:transition-none",
+            t.aside,
+            compact
+              ? "w-[68px] delay-[120ms]"
+              : isMobile
+                ? "w-[248px] max-w-[calc(100vw-24px)] delay-0"
+                : "w-[200px] delay-0",
+          ].join(" ")}
+        >
+          {/* Logo */}
+          <div
+            className={[
+              "flex items-center gap-2",
+              "select-none",
+              "overflow-hidden px-1.5",
+              t.brand,
+            ].join(" ")}
+          >
+            <img
+              src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+              alt="Stone logo"
+              draggable={false}
+              className="h-9 w-8 shrink-0 select-none object-contain"
+            />
+
+            <span
+              className={[
+                "select-none",
+                "text-[20px] font-semibold",
+                "leading-none tracking-tight",
+                labelClass,
+              ].join(" ")}
+            >
+              Stone
+            </span>
+          </div>
+
+          {/* Navigation */}
+          <nav
+            className={[
+              "-mx-1 mt-5 flex min-h-0 flex-1",
+              "flex-col overflow-y-auto",
+              "overflow-x-hidden px-1",
+              "[scrollbar-width:none]",
+              "[&::-webkit-scrollbar]:hidden",
+            ].join(" ")}
+            aria-label="Main"
+          >
+            {navSections.map((section, sectionIndex) => (
+              <div
+                key={section.label}
+                className={sectionIndex === 0 ? "" : "mt-3"}
+              >
+                {sectionIndex > 0 && (
+                  <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
+                )}
+
+                <div
+                  aria-hidden={compact}
+                  className={[
+                    "select-none",
+                    "overflow-hidden",
+                    "whitespace-nowrap",
+                    "px-3 text-[12px]",
+                    "font-medium leading-4",
+                    "transition-[height,margin,opacity,transform]",
+                    "duration-300",
+                    "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                    "motion-reduce:transition-none",
+                    t.muted,
+                    compact
+                      ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
+                      : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
+                  ].join(" ")}
+                >
+                  {section.label}
+                </div>
+
+                <div className="flex flex-col gap-0.5">
+                  {section.items.map((item) => {
+                    const hasChildren = Boolean(item.children?.length);
+
+                    const isOpen =
+                      hasChildren && openGroup === item.label && !compact;
+
+                    return (
+                      <NavItemView
+                        key={item.label}
+                        index={itemIndex++}
+                        item={item}
+                        currentRoute={currentRoute}
+                        isCollapsed={compact}
+                        isOpen={isOpen}
+                        labelClass={labelClass}
+                        focus={focus}
+                        t={t}
+                        onNavigate={handleNavigate}
+                        onToggleGroup={handleToggleGroup}
+                        onExpandAndOpen={handleExpandAndOpen}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Channels */}
+            <div className="mt-3">
+              <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
+              <SidebarChannels
+                channels={connectedChannels}
+                isCollapsed={compact}
+                currentRoute={currentRoute}
+                labelClass={labelClass}
+                focus={focus}
+                t={t}
+                onNavigate={handleNavigate}
+                onExpand={handleExpand}
+                onConnect={openConnect}
+              />
+            </div>
+          </nav>
+
+          {/* Account */}
+          <div
+            ref={profileRef}
+            className={["mt-3 border-t pt-3", t.rail].join(" ")}
+          >
+            {/*
+              Fermée : le toggle est au-dessus de la photo de profil (colonne).
+              Ouverte : le toggle est à droite, aligné avec le profil (ligne).
+            */}
+            <div
+              className={[
+                "flex gap-1",
+                compact ? "flex-col" : "flex-row items-center gap-1.5",
+              ].join(" ")}
+            >
+              {/* Toggle sidebar */}
+              <button
+                type="button"
+                aria-expanded={!compact}
+                aria-controls="app-sidebar"
+                aria-keyshortcuts="Control+B Meta+B"
+                aria-label={
+                  isMobile
+                    ? "Close navigation"
+                    : isCollapsed
+                      ? "Expand sidebar"
+                      : "Collapse sidebar"
+                }
+                onClick={toggleCollapsed}
+                className={[
+                  "group/toggle relative flex shrink-0 select-none",
+                  "items-center justify-center rounded-xl",
+                  "transition-[background-color,color,transform] duration-200",
+                  "active:scale-[0.94]",
+                  "motion-reduce:transition-none",
+                  "motion-reduce:active:scale-100",
+                  compact ? "order-first h-9 w-full" : "order-last h-9 w-9",
+                  focus,
+                  t.menuIcon,
+                  t.row,
+                ].join(" ")}
+              >
+                <SidebarToggleIcon
+                  className="h-[18px] w-[18px]"
+                  open={!compact}
+                />
+
+                {/* Infobulle : libellé + raccourci (pas sur écran tactile) */}
+                {!isMobile && (
+                  <span
+                    role="tooltip"
+                    className={[
+                      "pointer-events-none absolute z-50 flex items-center gap-2",
+                      "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
+                      "text-[11.5px] font-medium",
+                      "opacity-0 transition-opacity duration-150 delay-0",
+                      "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
+                      "group-focus-visible/toggle:opacity-100",
+                      "motion-reduce:transition-none",
+                      compact
+                        ? "left-full top-1/2 ml-3 -translate-y-1/2"
+                        : "bottom-full right-0 mb-2",
+                      t.menu,
+                    ].join(" ")}
+                  >
+                    {compact ? "Expand sidebar" : "Collapse sidebar"}
+                    <Kbd className={t.count}>{TOGGLE_SHORTCUT_LABEL}</Kbd>
+                  </span>
+                )}
+              </button>
+
+              {/* Profil */}
+              <div className="relative min-w-0 flex-1">
+                {/* Account menu */}
+                {menuOpen && (
+                  <div
+                    ref={menuRef}
+                    id="account-menu"
+                    role="menu"
+                    aria-label="Account menu"
+                    onKeyDown={onMenuKeyDown}
+                    className={[
+                      "sb-menu absolute",
+                      "bottom-full left-[6px]",
+                      "z-50 mb-2 w-[264px] max-w-[calc(100vw-48px)]",
+                      "origin-bottom-left",
+                      "overflow-hidden",
+                      "rounded-[16px]",
+                      "border",
+                      t.menu,
+                    ].join(" ")}
+                  >
+                    {/* Account header */}
+                    <div
+                      className="sb-item px-3.5 pb-3 pt-3.5"
+                      style={{ animationDelay: "30ms" }}
+                    >
+                      <div
+                        className={["truncate text-[11px]", t.muted].join(" ")}
+                      >
+                        {account.email}
+                      </div>
+
+                      <div className="mt-2.5 truncate text-[14px] font-semibold">
+                        {account.name}
+                      </div>
+
+                      {/* Usage du plan */}
+                      <div className="mt-2">
+                        <div
+                          className={[
+                            "flex items-center justify-between text-[11px]",
+                            t.muted,
+                          ].join(" ")}
+                        >
+                          <span>{account.plan}</span>
+                          <span>
+                            {planMax > 0
+                              ? `${account.channels}/${planMax} channels`
+                              : pluralizeChannels(account.channels)}
+                          </span>
+                        </div>
+
+                        {planMax > 0 && (
+                          <div
+                            role="progressbar"
+                            aria-label="Channels used"
+                            aria-valuemin={0}
+                            aria-valuemax={planMax}
+                            aria-valuenow={Math.min(account.channels, planMax)}
+                            aria-valuetext={`${pluralizeChannels(
+                              account.channels
+                            )} of ${planMax}`}
+                            className={[
+                              "mt-1.5 h-1 overflow-hidden rounded-full",
+                              t.divider,
+                            ].join(" ")}
+                          >
+                            <div
+                              className={[
+                                "h-full rounded-full",
+                                "transition-[width] duration-500 motion-reduce:transition-none",
+                                planFull
+                                  ? "bg-[#ff5ec4]"
+                                  : "bg-current opacity-60",
+                              ].join(" ")}
+                              style={{ width: `${planPct}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          navigate("pricing");
+                        }}
+                        className={[
+                          "mt-3 flex w-full",
+                          "select-none",
+                          "items-center justify-center",
+                          "gap-2 rounded-[10px]",
+                          "border px-3 py-2",
+                          "text-[12px] font-semibold",
+                          "transition-[background-color,border-color,transform,filter]",
+                          "duration-150",
+                          "active:scale-[0.98]",
+                          "motion-reduce:transition-none",
+                          focus,
+                          planFull
+                            ? "border-transparent bg-[#ff5ec4] text-white hover:brightness-110"
+                            : t.upgrade,
+                        ].join(" ")}
+                      >
+                        <BoltIcon className="h-4 w-4" />
+                        {planFull ? "Upgrade to add more channels" : "Upgrade Plan"}
+                      </button>
+                    </div>
+
+                    {/* Menu groups */}
+                    {menuGroups.map((group, groupIndex) => (
+                      <div
+                        key={group[0]?.label ?? groupIndex}
+                        role="none"
+                        className={["border-t px-1.5 py-1.5", t.menuDivider].join(
+                          " "
+                        )}
+                      >
+                        {group.map((item) => {
+                          const Icon = item.icon;
+                          const delay = 60 + menuItemIndex++ * 25;
+                          const isLogout = item.action === "logout";
+                          const isDisabled =
+                            Boolean(item.disabled) || (isLogout && loggingOut);
+
+                          return (
+                            <button
+                              key={item.label}
+                              type="button"
+                              role="menuitem"
+                              disabled={isDisabled}
+                              aria-disabled={isDisabled || undefined}
+                              style={{ animationDelay: `${delay}ms` }}
+                              onClick={(event) => {
+                                if (isLogout) {
+                                  void handleLogout();
+                                  return;
+                                }
+
+                                setMenuOpen(false);
+
+                                // Activation au clavier : on rend le focus au déclencheur.
+                                if (event.detail === 0) {
+                                  triggerRef.current?.focus();
+                                }
+
+                                if (item.route) {
+                                  navigate(item.route);
+                                }
+                              }}
+                              className={[
+                                "sb-item group flex",
+                                "w-full",
+                                "select-none",
+                                "items-center gap-3",
+                                "rounded-[10px]",
+                                "px-2.5 py-2",
+                                "text-left text-[12.5px]",
+                                "font-medium",
+                                "transition-[background-color,transform] duration-150",
+                                "active:scale-[0.98]",
+                                "motion-reduce:transition-none",
+                                "disabled:cursor-not-allowed disabled:opacity-50",
+                                "disabled:hover:bg-transparent disabled:active:scale-100",
+                                focus,
+                                t.menuItem,
+                              ].join(" ")}
+                            >
+                              <Icon
+                                className={[
+                                  "h-4 w-4 shrink-0",
+                                  "opacity-70 transition-opacity duration-150",
+                                  "group-hover:opacity-100",
+                                  t.menuIcon,
+                                ].join(" ")}
+                              />
+
+                              <span className="flex-1 truncate">
+                                {isLogout && loggingOut
+                                  ? "Logging out..."
+                                  : item.label}
+                              </span>
+
+                              {item.badge && (
+                                <span
+                                  className={[
+                                    "select-none",
+                                    "rounded-full",
+                                    "px-2 py-0.5",
+                                    "text-[10px]",
+                                    "font-semibold",
+                                    t.badge,
+                                  ].join(" ")}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Profile trigger : tooltip stylé (nom + raccourci) quand réduit */}
+                <Tip
+                  label={account.name}
+                  shortcut={shortcutLabel("p")}
+                  enabled={compact && !menuOpen}
+                  menuClass={t.menu}
+                  countClass={t.count}
+                >
+                  <button
+                    ref={triggerRef}
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    aria-controls={menuOpen ? "account-menu" : undefined}
+                    aria-keyshortcuts={ariaShortcut("p")}
+                    aria-label="Open account menu"
+                    onClick={() => setMenuOpen((value) => !value)}
+                    className={[
+                      "flex h-11 w-full",
+                      "select-none",
+                      "items-center gap-3",
+                      "overflow-hidden",
+                      "rounded-xl px-1.5",
+                      "transition-[background-color,transform]",
+                      "duration-200",
+                      "active:scale-[0.97]",
+                      "motion-reduce:transition-none",
+                      "motion-reduce:active:scale-100",
+                      focus,
+                      menuOpen ? t.rowOpen : t.row,
+                    ].join(" ")}
+                  >
+                    {showAvatarImage ? (
+                      <img
+                        key={account.avatarUrl}
+                        src={account.avatarUrl}
+                        alt="Profile"
+                        draggable={false}
+                        className="h-8 w-8 shrink-0 select-none rounded-full object-cover"
+                        onError={() => setAvatarLoadFailed(true)}
+                      />
+                    ) : (
+                      <span
+                        className={[
+                          "flex h-8 w-8 shrink-0",
+                          "select-none",
+                          "items-center justify-center",
+                          "rounded-full",
+                          "text-[10px] font-semibold",
+                          t.avatar,
+                        ].join(" ")}
+                      >
+                        {account.initials}
+                      </span>
+                    )}
+
+                    <span
+                      className={[
+                        "min-w-0 flex-1",
+                        "select-none",
+                        "truncate text-left",
+                        "text-[13px] font-medium",
+                        t.title,
+                        labelClass,
+                      ].join(" ")}
+                    >
+                      {account.name}
+                    </span>
+                  </button>
+                </Tip>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ConnectChannelModal fait lui-même son createPortal(document.body). */}
+        {connectOpen && (
+          <ConnectChannelModal
+            {...channelConnectProps}
+            isDark={isDark}
+            onClose={closeConnect}
+          />
+        )}
+      </div>
+    </>
   );
 }
