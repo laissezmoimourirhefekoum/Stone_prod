@@ -134,6 +134,14 @@ type ThemeTokens = {
   upgrade: string;
   badge: string;
   ring: string;
+  /** Accent monochrome (blanc en sombre, noir en clair) : barres, points, jauge. */
+  accent: string;
+  /** Bouton plein monochrome (ex. Upgrade quand la limite est atteinte). */
+  accentSolid: string;
+  /** Anneau d'avatar au survol. */
+  avatarRing: string;
+  /** Bordure au survol (état vide). */
+  hoverBorder: string;
 };
 
 type ToggleOrigin = {
@@ -796,7 +804,8 @@ function NavItemViewImpl({
                 "absolute -right-0.5 -top-0.5",
                 "h-2 w-2 rounded-full",
                 "select-none",
-                "bg-[#ff5ec4] ring-2",
+                t.accent,
+                "ring-2",
                 t.dotRing,
                 isCollapsed
                   ? "opacity-100 delay-150 duration-200"
@@ -1042,10 +1051,13 @@ function ChannelAvatar({
   channel,
   NetworkIcon,
   dotRing,
+  ringClass = "",
 }: {
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
+  /** Anneau affiché au survol de la ligne parente (classe `group-hover:ring-…`). */
+  ringClass?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -1065,10 +1077,21 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full select-none rounded-full object-cover ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60"
+          className={[
+            "h-full w-full select-none rounded-full object-cover",
+            "ring-2 ring-transparent transition-shadow duration-200",
+            ringClass,
+          ].join(" ")}
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60">
+        <span
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full bg-neutral-700",
+            "text-[10px] font-semibold text-white",
+            "ring-2 ring-transparent transition-shadow duration-200",
+            ringClass,
+          ].join(" ")}
+        >
           {initial}
         </span>
       )}
@@ -1289,6 +1312,7 @@ function ChannelHoverCard({
                 channel={channel}
                 NetworkIcon={NetworkIcon}
                 dotRing={t.dotRing}
+                ringClass={t.avatarRing}
               />
               <span
                 className={[
@@ -1444,7 +1468,7 @@ function SidebarChannelsImpl({
           onClick={onConnect}
           className={[
             "mt-0.5 flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
-            "hover:border-[#ff5ec4]/50",
+            t.hoverBorder,
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             t.row,
@@ -1519,7 +1543,10 @@ function SidebarChannelsImpl({
                   {isActiveChannel && (
                     <span
                       aria-hidden="true"
-                      className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-[#ff5ec4]"
+                      className={[
+                        "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full",
+                        t.accent,
+                      ].join(" ")}
                     />
                   )}
 
@@ -1527,6 +1554,7 @@ function SidebarChannelsImpl({
                     channel={channel}
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
+                ringClass={t.avatarRing}
                   />
 
                   <span
@@ -2180,28 +2208,33 @@ export default function DashboardSidebar({
               "border-white/10 bg-[#0a0a0c]/95 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
             brand: "text-white",
             divider: "bg-white/10",
-            navActive: "bg-white/[0.12] text-white",
-            navIdle: "text-white/70 hover:bg-white/[0.08] hover:text-white",
+            navActive: "bg-[#34343a] text-white",
+            navIdle: "text-white/70 hover:bg-[#2a2a2e] hover:text-white",
             handle:
               "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
             count: "bg-white/10 text-[#d7d7d2]",
             dotRing: "ring-[#0a0a0c]",
             rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.1] hover:text-white",
-            subActive: "bg-white/[0.12] text-white",
-            row: "hover:bg-white/[0.09]",
-            rowOpen: "bg-white/[0.09]",
+            sub: "text-[#99a2a2] hover:bg-[#2c2c30] hover:text-white",
+            subActive: "bg-[#34343a] text-white",
+            row: "hover:bg-[#2a2a2e]",
+            rowOpen: "bg-[#303034]",
             avatar: "bg-[#f0f0ed] text-[#111111]",
             title: "text-[#f3f3ef]",
             muted: "text-[#99a2a2]",
             menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
             menuDivider: "border-white/10",
             menuItem:
-              "text-[#ecece8] hover:bg-white/[0.09] focus-visible:bg-white/[0.09]",
+              "text-[#ecece8] hover:bg-[#2e2f2f] focus-visible:bg-[#2e2f2f]",
             menuIcon: "text-[#a9aeae] hover:text-white",
             upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:border-white/20 hover:bg-white/[0.1]",
-            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
+              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:border-white/20 hover:bg-[#2e2f2f]",
+            badge: "bg-white text-black",
+            accent: "bg-white",
+            accentSolid:
+              "border-transparent bg-white text-black hover:bg-white/90",
+            avatarRing: "group-hover:ring-white/60",
+            hoverBorder: "hover:border-white/40",
             ring: "focus-visible:ring-white/30",
           }
         : {
@@ -2209,28 +2242,33 @@ export default function DashboardSidebar({
               "border-black/10 bg-white/95 backdrop-blur-xl shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
             brand: "text-[#151515]",
             divider: "bg-black/[0.07]",
-            navActive: "bg-black/[0.08] text-[#151515]",
-            navIdle: "text-[#55544f] hover:bg-black/[0.06] hover:text-[#151515]",
+            navActive: "bg-[#e0e0dc] text-[#151515]",
+            navIdle: "text-[#55544f] hover:bg-[#ebebe8] hover:text-[#151515]",
             handle:
               "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
             count: "bg-black/[0.06] text-[#3f3f3d]",
             dotRing: "ring-white",
             rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.07] hover:text-[#151515]",
-            subActive: "bg-black/[0.08] text-[#151515]",
-            row: "hover:bg-black/[0.06]",
-            rowOpen: "bg-black/[0.06]",
+            sub: "text-[#71706d] hover:bg-[#e8e8e5] hover:text-[#151515]",
+            subActive: "bg-[#e0e0dc] text-[#151515]",
+            row: "hover:bg-[#ebebe8]",
+            rowOpen: "bg-[#e4e4e1]",
             avatar: "bg-[#1d1d1d] text-white",
             title: "text-[#1b1b1a]",
             muted: "text-[#71706d]",
             menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
             menuDivider: "border-black/[0.07]",
             menuItem:
-              "text-[#1f1f1e] hover:bg-black/[0.06] focus-visible:bg-black/[0.06]",
+              "text-[#1f1f1e] hover:bg-[#ededea] focus-visible:bg-[#ededea]",
             menuIcon: "text-[#6b6a67] hover:text-[#151515]",
             upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:border-black/20 hover:bg-[#ecebe7]",
-            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
+              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:border-black/20 hover:bg-[#e6e6e2]",
+            badge: "bg-black text-white",
+            accent: "bg-black",
+            accentSolid:
+              "border-transparent bg-black text-white hover:bg-black/85",
+            avatarRing: "group-hover:ring-black/40",
+            hoverBorder: "hover:border-black/30",
             ring: "focus-visible:ring-black/20",
           },
     [isDark]
@@ -2926,7 +2964,7 @@ export default function DashboardSidebar({
                                 "h-full rounded-full",
                                 "transition-[width] duration-500 motion-reduce:transition-none",
                                 planFull
-                                  ? "bg-[#ff5ec4]"
+                                  ? t.accent
                                   : "bg-current opacity-60",
                               ].join(" ")}
                               style={{ width: `${planPct}%` }}
@@ -2955,7 +2993,7 @@ export default function DashboardSidebar({
                           "motion-reduce:transition-none",
                           focus,
                           planFull
-                            ? "border-transparent bg-[#ff5ec4] text-white hover:brightness-110"
+                            ? t.accentSolid
                             : t.upgrade,
                         ].join(" ")}
                       >
@@ -3098,14 +3136,19 @@ export default function DashboardSidebar({
                         src={account.avatarUrl}
                         alt="Profile"
                         draggable={false}
-                        className="h-8 w-8 shrink-0 select-none rounded-full object-cover ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60"
+                        className={[
+                          "h-8 w-8 shrink-0 select-none rounded-full object-cover",
+                          "ring-2 ring-transparent transition-shadow duration-200",
+                          t.avatarRing,
+                        ].join(" ")}
                         onError={() => setAvatarLoadFailed(true)}
                       />
                     ) : (
                       <span
                         className={[
                           "flex h-8 w-8 shrink-0",
-                          "ring-2 ring-transparent transition-shadow duration-200 group-hover:ring-[#ff5ec4]/60",
+                          "ring-2 ring-transparent transition-shadow duration-200",
+                          t.avatarRing,
                           "select-none",
                           "items-center justify-center",
                           "rounded-full",
