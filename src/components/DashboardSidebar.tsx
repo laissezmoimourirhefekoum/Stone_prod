@@ -38,9 +38,7 @@ import {
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar, {
-  useSidebarOffset,
-} from "../components/DashboardSidebar";
+import DashboardSidebar from "../components/DashboardSidebar";
 import { CalendarPicker } from "../components/CalendarPicker";
 import {
   useConnectedChannels,
@@ -295,6 +293,38 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   SIDEBAR OFFSET — autonome (pas d'export requis du composant)
+   Mesure la largeur de la sidebar rendue par DashboardSidebar
+   (first <aside>/<nav> fixé) et suit les resize. Fallback : 0.
+============================================================ */
+
+function useSidebarOffset(): string {
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const el =
+        document.querySelector("aside") ??
+        document.querySelector("nav") ??
+        document.querySelector("[data-sidebar]");
+      // On ne retient que la sidebar en position fixe (dashboard).
+      const fixed =
+        el && (el as HTMLElement).dataset.sidebar !== undefined
+          ? (el as HTMLElement)
+          : el && getComputedStyle(el).position === "fixed"
+          ? (el as HTMLElement)
+          : null;
+      setOffset(fixed ? (fixed as HTMLElement).offsetWidth : 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  return `${offset}px`;
 }
 
 /* ============================================================
