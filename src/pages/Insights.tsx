@@ -792,6 +792,9 @@ function RangePicker({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Borne haute de la période : aujourd'hui (les insights sont dans le passé).
+  const today = useMemo(() => startOfDay(new Date()), []);
+
   // Fermeture : Escape + clic extérieur (comme les dropdowns de NewPostModal).
   useEffect(() => {
     if (!open) return;
@@ -896,42 +899,17 @@ function RangePicker({
                 : "Pick the last day of the period (today max)."}
             </p>
             <CalendarPicker
+              // key par borne : réinitialise le mois affiché en changeant d'onglet
+              key={field}
               value={field === "from" ? start : end}
               onChange={pickDate}
               isDark={isDark}
+              // Insights = analytics du passé : pas de date future.
+              // (disablePast={false} permet de remonter dans l'historique.)
+              disablePast={false}
+              max={today}
+              min={field === "to" ? startOfDay(start) : undefined}
             />
-          </div>
-
-          {/* Presets rapides + validation, comme le menu de la modale */}
-          <div className={`border-t p-2 ${t.border}`}>
-            {RANGES.map((r) => {
-              const isSel = range === r.key;
-              return (
-                <button
-                  key={r.key}
-                  type="button"
-                  role="menuitem"
-                  aria-checked={isSel}
-                  onClick={() => {
-                    onRangeChange(r.key);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left transition-colors ${t.ring} ${
-                    isSel ? `${t.accentBg} ${t.text}` : t.hover
-                  }`}
-                >
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                    {isSel && <Check className={`h-4 w-4 ${t.text}`} strokeWidth={3} aria-hidden="true" />}
-                  </span>
-                  <span className={`text-[13px] font-semibold ${t.text}`}>{r.label}</span>
-                  {r.key === "custom" && (
-                    <span className={`ml-auto text-[12px] tabular-nums ${t.muted}`}>
-                      {fmtFull(start)} – {fmtFull(end)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
           </div>
 
           <div
