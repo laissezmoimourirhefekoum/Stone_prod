@@ -67,8 +67,6 @@ type IconComponent = ComponentType<{
 type Range = "7d" | "30d" | "mtd" | "custom";
 type Metric = "followers" | "posts";
 type Tab = "engagement" | "video" | "reach";
-/** Étape du panneau calendrier : 0 = choix de la plage, 1 = From, 2 = To. */
-type CalendarStep = "menu" | "from" | "to";
 
 type Point = { date: Date; posts: number; followers: number };
 
@@ -101,23 +99,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "engagement", label: "Engagement" },
   { key: "video", label: "Video" },
   { key: "reach", label: "Reach" },
-];
-
-const CALENDAR_MENU: {
-  id: Exclude<CalendarStep, "from" | "to"> | "from" | "to";
-  label: string;
-  description: string;
-}[] = [
-  {
-    id: "from",
-    label: "From date",
-    description: "Pick the first day of the period.",
-  },
-  {
-    id: "to",
-    label: "To date",
-    description: "Pick the last day of the period (today max).",
-  },
 ];
 
 /* ============================================================
@@ -200,13 +181,6 @@ const addDays = (d: Date, n: number) => {
 };
 const toInput = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** Fusionne la date choisie dans le calendrier avec l'heure conservée. */
-function keepTime(next: Date, previous: Date): Date {
-  const merged = new Date(startOfDay(next));
-  merged.setHours(previous.getHours(), previous.getMinutes(), 0, 0);
-  return merged;
-}
 
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 const fmtFull = (d: Date) =>
@@ -786,18 +760,18 @@ function ChannelMenu({
     </div>
   );
 }
-
 /* ============================================================
    RANGE PICKER — CalendarPicker de NewPostModal
-   Bouton « Custom » → menu (From / To) → calendrier, même ergonomie
-   que le panneau date/heure de la modale (Escape, clic extérieur, retour).
+   Un seul panneau calendrier pour les DEUX bornes de la période :
+   onglets From / To au-dessus du calendrier, la date cliquée
+   alimente l'onglet actif puis bascule automatiquement sur l'autre.
+   (Escape, clic extérieur et presets — même ergonomie que la modale.)
 ============================================================ */
 
 function RangePicker({
   range,
   start,
   end,
-  today,
   onStartChange,
   onEndChange,
   onRangeChange,
@@ -807,26 +781,25 @@ function RangePicker({
   range: Range;
   start: Date;
   end: Date;
-  today: Date;
   onStartChange: (d: Date) => void;
   onEndChange: (d: Date) => void;
   onRangeChange: (r: Range) => void;
   t: Tokens;
   isDark: boolean;
 }) {
-  const [step, setStep] = useState<CalendarStep>("menu");
+  // Champ en cours d'édition dans le panneau : "from" ou "to".
+  const [field, setField] = useState<"from" | "to">("from");
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const isOpen = step !== "menu";
 
   // Fermeture : Escape + clic extérieur (comme les dropdowns de NewPostModal).
   useEffect(() => {
-    if (!isOpen) return;
+    if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setStep("menu");
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setStep("menu");
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -834,30 +807,55 @@ function RangePicker({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [isOpen]);
-
-  const close = () => setStep("menu");
-
-  const openPicker = (next: CalendarStep) => {
-    // Ouvrir le panneau passe automatiquement en plage personnalisée.
-    if (range !== "custom") onRangeChange("custom");
-    setStep(next);
-  };
+  }, [open]);
 
   const label =
     range === "custom"
       ? `${fmt(start)} – ${fmt(end)}`
       : RANGES.find((r) => r.key === range)?.label ?? "";
 
-  const selectFrom = (d: Date) => {
-    onStartChange(d);
-    // Enchaîne directement sur le choix de la date de fin.
-    setStep("to");
+  // Choisit une date : met à jour la borne active, puis passe à l'autre.
+  // Après « To », on reste sur « To » (l'utilisateur peut réajuster) :
+  // le bouton « Done » referme le panneau quand la période lui convient.
+  const pickDate = (d: Date) => {
+    if (field === "from") {
+      onStartChange(d);
+      // Si la nouvelle borne de début dépasse la fin, on décale la fin.
+      if (startOfDay(d).getTime() > startOfDay(end).getTime()) onEndChange(d);
+      setField("to");
+    } else {
+      onEndChange(d);
+      if (startOfDay(d).getTime() < startOfDay(start).getTime()) {
+        // Fin avant début : on remonte le début.
+        onStartChange(d);
+        setField("from");
+      }
+    }
   };
 
-  const selectTo = (d: Date) => {
-    onEndChange(d);
-    close();
+  // Ouvrir le panneau passe automatiquement en plage personnalisée.
+  const openPicker = (nextField: "from" | "to") => {
+    if (range !== "custom") onRangeChange("custom");
+    setField(nextField);
+    setOpen(true);
+  };
+
+  const fieldTab = (id: "from" | "to") => {
+    const active = open && field === id;
+    const value = id === "from" ? start : end;
+    return (
+      <button
+        key={id}
+        type="button"
+        aria-pressed={active}
+        onClick={() => openPicker(id)}
+        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+          active ? t.chipOn : t.chipOff
+        }`}
+      >
+        {id === "from" ? "From" : "To"} · {fmt(value)}
+      </button>
+    );
   };
 
   return (
@@ -865,124 +863,99 @@ function RangePicker({
       <button
         type="button"
         aria-haspopup="menu"
-        aria-expanded={isOpen}
-        onClick={() => (isOpen ? setStep("menu") : setStep("from"))}
+        aria-expanded={open}
+        onClick={() => (open ? setOpen(false) : openPicker("from"))}
         className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${
-          isOpen ? t.accentBg : isDark ? "bg-[#141414]" : "bg-white"
+          open ? t.accentBg : isDark ? "bg-[#141414]" : "bg-white"
         } ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""} ${t.muted}`}
+          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
           aria-hidden="true"
         />
       </button>
 
-      {isOpen && (
+      {open && (
         <div
           className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${
             isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
           }`}
         >
-          {step === "from" || step === "to" ? (
-            <>
-              <div className="p-3">
-                <p className={`mb-2 text-[13px] font-semibold ${t.text}`}>
-                  {step === "from" ? "From date" : "To date"}
-                </p>
-                <CalendarPicker
-                  value={step === "from" ? start : end}
-                  onChange={step === "from" ? selectFrom : selectTo}
-                  isDark={isDark}
-                  // Pour « To », on empêche de dépasser aujourd'hui via min/max
-                  // gérés dans resolveRange ; CalendarPicker reste utilisé tel quel.
-                />
-              </div>
+          {/* Onglets From / To : la date choisie va dans l'onglet actif */}
+          <div className={`flex gap-1 border-b p-2 ${t.border}`}>
+            {fieldTab("from")}
+            {fieldTab("to")}
+          </div>
 
-              <div
-                className={`flex items-center justify-between border-t px-3 py-2.5 ${
-                  isDark ? "border-[#262626]" : "border-zinc-200"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setStep("menu")}
-                  className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                  More
-                </button>
-                <button
-                  type="button"
-                  onClick={close}
-                  className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
-                >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-                  Done
-                </button>
-              </div>
-            </>
-          ) : (
-            <div role="menu" className="p-2">
-              {RANGES.map((r) => {
-                const isSel = range === r.key;
-                return (
-                  <button
-                    key={r.key}
-                    type="button"
-                    role="menuitem"
-                    aria-checked={isSel}
-                    onClick={() => {
-                      onRangeChange(r.key);
-                      close();
-                    }}
-                    className={`flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left transition-colors ${t.ring} ${
-                      isSel ? `${t.accentBg} ${t.text}` : t.hover
-                    }`}
-                  >
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                      {isSel && <Check className={`h-4 w-4 ${t.text}`} strokeWidth={3} aria-hidden="true" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={`block text-[13.5px] font-bold ${isSel ? t.text : t.text}`}>
-                        {r.label}
-                      </span>
-                      {r.key === "custom" && (
-                        <span className={`mt-0.5 block text-[12px] ${t.muted}`}>
-                          {fmtFull(start)} – {fmtFull(end)}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+          <div className="p-3">
+            <p className={`mb-2 text-[12.5px] ${t.soft}`}>
+              {field === "from"
+                ? "Pick the first day of the period."
+                : "Pick the last day of the period (today max)."}
+            </p>
+            <CalendarPicker
+              value={field === "from" ? start : end}
+              onChange={pickDate}
+              isDark={isDark}
+            />
+          </div>
 
-              <div className={`my-1 border-t ${t.border}`} />
-
-              {CALENDAR_MENU.filter((c) => c.id === "from" || c.id === "to").map((c) => (
+          {/* Presets rapides + validation, comme le menu de la modale */}
+          <div className={`border-t p-2 ${t.border}`}>
+            {RANGES.map((r) => {
+              const isSel = range === r.key;
+              return (
                 <button
-                  key={c.id}
+                  key={r.key}
                   type="button"
                   role="menuitem"
-                  onClick={() => openPicker(c.id as CalendarStep)}
-                  className={`flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left transition-colors ${t.ring} ${t.hover}`}
+                  aria-checked={isSel}
+                  onClick={() => {
+                    onRangeChange(r.key);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left transition-colors ${t.ring} ${
+                    isSel ? `${t.accentBg} ${t.text}` : t.hover
+                  }`}
                 >
                   <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                    <CalendarClock className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />
+                    {isSel && <Check className={`h-4 w-4 ${t.text}`} strokeWidth={3} aria-hidden="true" />}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block text-[13.5px] font-bold ${t.text}`}>
-                      {c.label}
+                  <span className={`text-[13px] font-semibold ${t.text}`}>{r.label}</span>
+                  {r.key === "custom" && (
+                    <span className={`ml-auto text-[12px] tabular-nums ${t.muted}`}>
+                      {fmtFull(start)} – {fmtFull(end)}
                     </span>
-                    <span className={`mt-0.5 block text-[12px] leading-snug ${t.muted}`}>
-                      {c.description}
-                    </span>
-                  </span>
+                  )}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+
+          <div
+            className={`flex items-center justify-between border-t px-3 py-2.5 ${
+              isDark ? "border-[#262626]" : "border-zinc-200"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
+              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              {field === "from" ? "Next: To" : "Back: From"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -1093,8 +1066,6 @@ export default function Insights() {
     downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
-  const today = startOfDay(new Date());
-
   return (
     <main
       className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${t.page}`}
@@ -1162,7 +1133,6 @@ export default function Insights() {
                   range={range}
                   start={start}
                   end={end}
-                  today={today}
                   onStartChange={setCustomStart}
                   onEndChange={setCustomEnd}
                   onRangeChange={setRange}
