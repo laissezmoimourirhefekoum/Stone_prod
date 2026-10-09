@@ -1,2758 +1,1340 @@
-﻿// src/components/DashboardSidebar.tsx
-import React, {
-  memo,
-  useCallback,
+﻿// src/pages/Insights.tsx
+// Page Insights — hiérarchie progressive (1 focus principal, 1 colonne
+// d'highlights, impact contenu, posts), style Black & White aligné sur Channels.
+// Sélecteur de période « Custom » : CalendarPicker partagé From / To.
+// UI v2 : états hover systématiques (lignes, icônes, onglets, boutons),
+// curseurs explicites, transitions douces, bouton « Done » accentué,
+// légendes du graphique non cliquables neutres, lift sur les CTA.
+import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
+  type ComponentType,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
-
-import type { ReactNode } from "react";
-import { createPortal } from "react-dom";
-
-import { useTheme, type Theme } from "../hooks/useTheme";
+import {
+  Activity,
+  ArrowLeft,
+  BarChart3,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  Download,
+  Eye,
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
+  Play,
+  Plus,
+  Share2,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  FileText,
+} from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { useTheme } from "../hooks/useTheme";
+import DashboardSidebar, {
+  useSidebarOffset,
+} from "../components/DashboardSidebar";
+import { CalendarPicker } from "../components/CalendarPicker";
 import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
 import {
-  getCurrentUser,
-  signOut,
-  type UserProfile,
-} from "../services/supabase";
-import { useUser } from "../contexts/UserContext";
-import {
-  XIcon,
-  FacebookIcon,
   InstagramIcon,
-  LinkedInIcon,
+  FacebookIcon,
   TikTokIcon,
   YouTubeIcon,
   PinterestIcon,
   ThreadsIcon,
-} from "./IntegrationIcons";
-import ConnectChannelModal, {
-  type ConnectChannelModalProps,
-} from "./ConnectChannelModal";
+} from "../components/IntegrationIcons";
 
-/* Config + services des réseaux : la sidebar est autonome, elle gère
-   elle-même l'état des connexions (comme la page Channels). */
-import {
-  CHANNELS,
-  PLAN,
-  REAL_OAUTH,
-  type ChannelKey,
-  type ConnectionState,
-} from "../pages/channels";
-import {
-  getTikTokStatus,
-  startTikTokLogin,
-  disconnectTikTok,
-} from "../services/tiktok";
-import {
-  getPinterestStatus,
-  startPinterestLogin,
-  disconnectPinterest,
-  connectPinterestWithToken,
-} from "../services/pinterest";
-import {
-  getYouTubeStatus,
-  startYouTubeLogin,
-  disconnectYouTube,
-} from "../services/youtube";
-import {
-  CACHE_MAX_AGE_MS,
-  clearCache,
-  readCache,
-  writeCache,
-  type CacheProvider,
-  type Connection,
-} from "../services/channelsCache";
+/* ============================================================
+   TYPES
+============================================================ */
 
-/* ============================================================================
-   Types
-============================================================================ */
-
-type IconProps = {
+/** Composant d'icône de réseau (même signature que dans Channels.tsx). */
+type IconComponent = ComponentType<{
   className?: string;
+  size?: number;
+}>;
+
+type Range = "7d" | "30d" | "mtd" | "custom";
+type Metric = "followers" | "posts";
+type Tab = "engagement" | "video" | "reach";
+
+type Point = { date: Date; posts: number; followers: number };
+
+type Summary = {
+  followers: number;
+  posts: number;
+  reactions: number;
+  comments: number;
+  engRate: number;
+  videoViews: number;
+  shares: number;
+  reach: number;
+  watchMin: number;
+  avgWatchSec: number;
 };
 
-type IconComponent = (props: IconProps) => React.ReactElement;
+const RANGES: { key: Range; label: string }[] = [
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "mtd", label: "Month to date" },
+  { key: "custom", label: "Custom" },
+];
 
-type NavChild = {
-  label: string;
-  route: string;
-};
+const METRICS: { key: Metric; label: string }[] = [
+  { key: "followers", label: "Followers" },
+  { key: "posts", label: "Posts" },
+];
 
-type NavItem = {
-  label: string;
-  icon: IconComponent;
-  route?: string;
-  badge?: string;
-  children?: NavChild[];
-};
+const TABS: { key: Tab; label: string }[] = [
+  { key: "engagement", label: "Engagement" },
+  { key: "video", label: "Video" },
+  { key: "reach", label: "Reach" },
+];
 
-type NavSection = {
-  label: string;
-  items: NavItem[];
-};
+/* ============================================================
+   STYLE TOKENS — Black & White, aligné sur la page Channels
+============================================================ */
 
-type MenuItem = {
-  label: string;
-  icon: IconComponent;
-  badge?: string;
-  route?: string;
-  action?: "logout" | "toggleTheme";
-};
-
-type ThemeTokens = {
-  aside: string;
-  brand: string;
-  divider: string;
-  navActive: string;
-  navIdle: string;
-  handle: string;
-  count: string;
-  dotRing: string;
-  rail: string;
-  sub: string;
-  subActive: string;
-  row: string;
-  rowOpen: string;
-  avatar: string;
-  title: string;
+type Tokens = {
+  page: string;
+  text: string;
   muted: string;
-  menu: string;
-  menuDivider: string;
-  menuItem: string;
-  menuIcon: string;
-  upgrade: string;
-  badge: string;
+  soft: string;
+  card: string;
+  border: string;
+  inner: string;
+  chipOn: string;
+  chipOff: string;
+  accentBtn: string;
+  iconBox: string;
   ring: string;
+  hover: string;
+  badgeBg: string;
+  accentBg: string;
+  accentBorder: string;
+  /* --- v2 : hover & micro-interactions --- */
+  rowHover: string; // survol des lignes de listes (highlights, impact)
+  iconHoverOn: string; // inversion de la pastille icône au survol de la ligne
+  cardShadow: string; // ombre douce des cartes (surtout clair)
+  ctaLift: string; // lift commun des boutons d'action
 };
 
-type ToggleOrigin = {
-  x: number;
-  y: number;
-};
-
-type ToggleThemeFn = (origin?: ToggleOrigin) => void;
-
-/** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
-type StatusResponse = {
-  connected: boolean;
-  account:
-    | {
-        display_name?: string | null;
-        avatar_url?: string | null;
-        avatarUrl?: string | null;
+const tokens = (isDark: boolean): Tokens =>
+  isDark
+    ? {
+        page: "bg-[#0a0a0a] text-white",
+        text: "text-white",
+        muted: "text-zinc-500",
+        soft: "text-zinc-400",
+        card: "bg-[#141414] border-[#262626]",
+        border: "border-[#262626]",
+        inner: "bg-[#0f0f0f] border-[#262626]",
+        chipOn: "bg-white text-black",
+        chipOff: "text-zinc-400 hover:text-white hover:bg-white/[0.06]",
+        accentBtn: "bg-white text-black hover:bg-zinc-200",
+        iconBox: "bg-[#262626] text-white",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        hover: "hover:bg-white/[0.05]",
+        badgeBg: "bg-white text-black",
+        accentBg: "bg-white/10",
+        accentBorder: "border-white/15",
+        /* v2 */
+        rowHover: "hover:bg-white/[0.04]",
+        iconHoverOn:
+          "group-hover:bg-white group-hover:text-black group-hover:border-white",
+        cardShadow: "shadow-[0_1px_2px_rgba(0,0,0,0.4)]",
+        ctaLift:
+          "transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
       }
-    | null
-    | undefined;
+    : {
+        page: "bg-[#f7f7f5] text-black",
+        text: "text-black",
+        muted: "text-zinc-500",
+        soft: "text-zinc-600",
+        card: "bg-white border-zinc-200",
+        border: "border-zinc-200",
+        inner: "bg-zinc-50 border-zinc-200",
+        chipOn: "bg-zinc-950 text-white",
+        chipOff: "text-zinc-500 hover:text-black hover:bg-black/[0.05]",
+        accentBtn: "bg-zinc-950 text-white hover:bg-zinc-800",
+        iconBox: "bg-zinc-100 text-black",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+        hover: "hover:bg-black/[0.04]",
+        badgeBg: "bg-white text-black",
+        accentBg: "bg-zinc-200",
+        accentBorder: "border-black/10",
+        /* v2 */
+        rowHover: "hover:bg-black/[0.03]",
+        iconHoverOn:
+          "group-hover:bg-zinc-950 group-hover:text-white group-hover:border-zinc-950",
+        cardShadow: "shadow-[0_1px_3px_rgba(0,0,0,0.05)]",
+        ctaLift:
+          "transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
+      };
+
+/* ============================================================
+   DATES & FORMAT
+============================================================ */
+
+const DAY = 86_400_000;
+
+const startOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 };
-
-/* ============================================================================
-   Animation de la sidebar
-   L'animation est un événement de la sidebar (ouverture / fermeture), pas
-   une animation permanente de l'interface : aucun effet de scale au hover.
-
-   Ouverture (~420 ms) : le cadre s'élargit, puis les textes font un fade +
-   slide de 8 px (avec un léger décalage par ligne).
-   Fermeture : les textes disparaissent très vite, puis la largeur revient
-   à 68 px. Les icônes ne bougent jamais.
-============================================================================ */
-
-const SIDEBAR_WIDTH_MS = 420;
-const LABEL_DELAY_MS = 120;
-
-/* ============================================================================
-   Keyframes + global UI guards
-============================================================================ */
-
-const SIDEBAR_KEYFRAMES = `
-@keyframes sbMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes sbItemIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes sbTipIn {
-  from {
-    opacity: 0;
-    transform: translate(-4px, -50%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(0, -50%);
-  }
-}
-
-.sb-menu {
-  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-item {
-  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-tip {
-  animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-#app-sidebar button,
-#app-sidebar [role="menuitem"],
-#app-sidebar [role="button"],
-#app-sidebar svg,
-#app-sidebar img {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#app-sidebar button::selection,
-#app-sidebar button *::selection,
-#app-sidebar svg::selection,
-#app-sidebar svg *::selection {
-  background: transparent;
-  color: inherit;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sb-menu,
-  .sb-item,
-  .sb-tip {
-    animation: none;
-  }
-}
-`;
-
-/* ============================================================================
-   Raccourcis clavier
-   - Ctrl/⌘ + B : réduire / ouvrir la sidebar
-   - Ctrl + touche : chaque partie de la sidebar
-============================================================================ */
-
-const IS_MAC =
-  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
-
-/** Libellé du raccourci clavier de la sidebar selon la plateforme. */
-const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
-
-/**
- * lettre → route
- * (« d » pour Calendar : Ctrl+C est réservé à la copie.)
- */
-const SHORTCUT_ROUTES: Record<string, string> = {
-  h: "home",
-  d: "schedule",
-  t: "template",
-  s: "settings",
-  l: "channels",
-  u: "pricing",
-  f: "faq",
-  k: "create",
-  i: "integrations",
+const addDays = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
 };
+const toInput = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** Libellé affiché : "Ctrl S" ou "⌃S". */
-function shortcutLabel(key: string): string {
-  return IS_MAC ? `⌃${key.toUpperCase()}` : `Ctrl ${key.toUpperCase()}`;
+const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+const fmtFull = (d: Date) =>
+  d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+const nf = (n: number) => n.toLocaleString("en-US");
+const signed = (n: number) => (n === 0 ? "0" : `${n > 0 ? "+" : "−"}${nf(Math.abs(n))}`);
+const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
+
+type ResolvedRange = { start: Date; end: Date };
+
+function resolveRange(
+  range: Range,
+  customStart: Date,
+  customEnd: Date
+): ResolvedRange {
+  const today = startOfDay(new Date());
+  if (range === "7d") return { start: addDays(today, -6), end: today };
+  if (range === "30d") return { start: addDays(today, -29), end: today };
+  if (range === "mtd")
+    return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
+
+  let s = startOfDay(customStart);
+  let e = startOfDay(customEnd);
+  if (isNaN(s.getTime())) s = addDays(today, -29);
+  if (isNaN(e.getTime())) e = today;
+  if (s > e) [s, e] = [e, s];
+  if (e > today) e = today;
+  if (s > e) s = e;
+  if ((e.getTime() - s.getTime()) / DAY > 365) s = addDays(e, -365);
+  return { start: s, end: e };
 }
 
-/** Valeur ARIA : "Control+S". */
-function ariaShortcut(key: string): string {
-  return `Control+${key.toUpperCase()}`;
+/* ============================================================
+   DONNÉES (à remplacer par ton API)
+============================================================ */
+
+function useInsights(
+  start: Date,
+  end: Date
+): { current: Point[]; previous: Point[]; summary: Summary } {
+  const s = start.getTime();
+  const e = end.getTime();
+
+  return useMemo(() => {
+    const days = Math.round((e - s) / DAY) + 1;
+    const build = (from: Date, base: number): Point[] =>
+      Array.from({ length: days }, (_, i) => ({
+        date: addDays(from, i),
+        posts: 0,
+        followers: Math.round(base + Math.sin(i / 3) * 2 + (i % 5 === 0 ? 1 : 0)),
+      }));
+
+    const current = build(new Date(s), 108);
+    return {
+      current,
+      previous: build(addDays(new Date(s), -days), 105),
+      summary: {
+        followers: current[current.length - 1]?.followers ?? 0,
+        posts: 0,
+        reactions: 0,
+        comments: 0,
+        engRate: 0,
+        videoViews: 0,
+        shares: 0,
+        reach: 0,
+        watchMin: 0,
+        avgWatchSec: 0,
+      },
+    };
+  }, [s, e]);
 }
 
-/** Lettre associée à une route (undefined si aucune). */
-function shortcutKeyForRoute(route?: string): string | undefined {
-  if (!route) return undefined;
-  return Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route)?.[0];
-}
-
-/** Raccourci associé à une route (undefined si aucun). */
-function shortcutForRoute(route?: string): string | undefined {
-  const key = shortcutKeyForRoute(route);
-  return key ? shortcutLabel(key) : undefined;
-}
-
-/** Lettre pressée (event.key, avec repli sur event.code). */
-function shortcutKey(event: KeyboardEvent): string {
-  if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase();
-  return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-
-  return Boolean(
-    el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
-  );
-}
-
-/** Petite pastille « touche » affichée à côté des libellés. */
-function Kbd({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <kbd
-      className={[
-        "select-none rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
-        className,
-      ].join(" ")}
-    >
-      {children}
-    </kbd>
-  );
-}
-
-/* ============================================================================
-   Icons
-============================================================================ */
-
-function Svg({
-  className = "h-4 w-4",
-  children,
-}: IconProps & {
-  children: ReactNode;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={["select-none", className].join(" ")}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
-function HomeIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M4 12.5 12 5l8 7.5" />
-      <path d="M6 10.5V18h12v-7.5" />
-    </Svg>
-  );
-}
-
-function CalendarIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-      <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-    </Svg>
-  );
-}
-
-function TemplatesIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-      <path d="M8 10h8M8 14h8" />
-    </Svg>
-  );
-}
-
-function SettingsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </Svg>
-  );
-}
-
-function ChannelsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="7.5" cy="7.5" r="2.5" />
-      <circle cx="16.5" cy="7.5" r="2.5" />
-      <circle cx="7.5" cy="16.5" r="2.5" />
-      <circle cx="16.5" cy="16.5" r="2.5" />
-    </Svg>
-  );
-}
-
-function BillingIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
-    </Svg>
-  );
-}
-
-function HelpIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
-    </Svg>
-  );
-}
-
-function LightbulbIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M9 18h6M10 21h4" />
-      <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
-    </Svg>
-  );
-}
-
-function AppsIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
-      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
-      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
-      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-    </Svg>
-  );
-}
-
-function BetaIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
-      <path d="M8 15h8" />
-    </Svg>
-  );
-}
-
-function LogoutIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
-      <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
-    </Svg>
-  );
-}
-
-function BoltIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
-    </Svg>
-  );
-}
-
-/** Icône « panneau latéral » : le panneau gauche se remplit quand la sidebar est ouverte. */
-function SidebarToggleIcon({
-  className,
-  open,
-}: IconProps & {
-  open: boolean;
-}) {
-  return (
-    <Svg className={className}>
-      <rect
-        x="3.5"
-        y="4.5"
-        width="6"
-        height="15"
-        rx="2"
-        fill="currentColor"
-        stroke="none"
-        className={[
-          "transition-opacity duration-300",
-          "motion-reduce:transition-none",
-          open ? "opacity-30" : "opacity-0",
-        ].join(" ")}
-      />
-      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
-      <path d="M9.5 4.5v15" />
-    </Svg>
-  );
-}
-
-function ChevronDownIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m6 9 6 6 6-6" />
-    </Svg>
-  );
-}
-
-/* ============================================================================
-   Tooltip flottant (portal)
-   La nav a overflow hidden : un tooltip absolu serait rogné. On le rend donc
-   dans document.body, en position fixed, calée sur le bord droit de l'élément.
-============================================================================ */
-
-type TipProps = {
-  label: string;
-  /** Raccourci clavier affiché à droite du libellé (optionnel). */
-  shortcut?: string;
-  /** Tooltip actif uniquement quand la sidebar est réduite. */
-  enabled: boolean;
-  menuClass: string;
-  countClass: string;
-  children: ReactNode;
-};
-
-const TIP_DELAY_MS = 280;
-
-function Tip({
-  label,
-  shortcut,
-  enabled,
-  menuClass,
-  countClass,
-  children,
-}: TipProps) {
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<number | undefined>(undefined);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  const hide = useCallback(() => {
-    window.clearTimeout(timerRef.current);
-    setPos(null);
-  }, []);
-
-  const show = useCallback(() => {
-    if (!enabled) return;
-
-    window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (rect) {
-        setPos({ top: rect.top + rect.height / 2, left: rect.right + 12 });
-      }
-    }, TIP_DELAY_MS);
-  }, [enabled]);
-
+/** Canal demandé via #/insights?channel=<key>. Se ré-actualise à chaque changement de hash. */
+function useHashChannel(): string | null {
+  const [, force] = useState(0);
+  useHashRoute();
   useEffect(() => {
-    if (!enabled) hide();
-  }, [enabled, hide]);
+    const onHash = () => force((v) => v + 1);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const hash = window.location.hash;
+  const i = hash.indexOf("?");
+  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
+}
 
-  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows.map((r) => r.join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   COURBE LISSÉE (spline cubique monotone)
+============================================================ */
+
+function smoothPath(pts: [number, number][]): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M${pts[0][0]},${pts[0][1]}`;
+  const dx: number[] = [];
+  const m: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1][0] - pts[i][0]);
+    m.push((pts[i + 1][1] - pts[i][1]) / (dx[i] || 1));
+  }
+  const t: number[] = [m[0]];
+  for (let i = 1; i < n - 1; i++)
+    t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
+  t.push(m[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) {
+      t[i] = 0;
+      t[i + 1] = 0;
+      continue;
+    }
+    const a = t[i] / m[i];
+    const b = t[i + 1] / m[i];
+    const q = a * a + b * b;
+    if (q > 9) {
+      const k = 3 / Math.sqrt(q);
+      t[i] = k * a * m[i];
+      t[i + 1] = k * b * m[i];
+    }
+  }
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(
+      pts[i + 1][1] - t[i + 1] * h
+    ).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
+  }
+  return d;
+}
+
+/* ============================================================
+   CHART — interactions clavier + pointer conservées
+   v2 : curseur crosshair, tooltip légèrement retardé (anti-flicker)
+============================================================ */
+
+function Chart({
+  dates,
+  current,
+  previous,
+  compare,
+  isDark,
+  unit,
+}: {
+  dates: Date[];
+  current: number[];
+  previous: number[];
+  compare: boolean;
+  isDark: boolean;
+  unit: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const gradId = useId().replace(/:/g, "");
+  const W = 720;
+  const H = 260;
+  const pad = { l: 34, r: 12, t: 16, b: 26 };
+  const iw = W - pad.l - pad.r;
+  const ih = H - pad.t - pad.b;
+  const n = current.length;
+
+  const all = [...current, ...(compare ? previous : [])];
+  const lo = Math.min(...all);
+  let min = Math.floor(lo);
+  let max = Math.ceil(Math.max(...all));
+  if (max - min < 4) {
+    max = min + 4;
+  } else {
+    min -= 1;
+    max += 1;
+  }
+  if (min < 0 && lo >= 0) min = 0;
+
+  const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
+  const toPts = (vals: number[]): [number, number][] =>
+    vals.map((v, i) => [x(i), y(v)]);
+  const line = smoothPath(toPts(current));
+  const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
+
+  const ink = isDark ? "#ffffff" : "#171717";
+  const grid = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+  const axis = isDark ? "#6b6b73" : "#9a9aa3";
+
+  const ticks = Array.from(
+    new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4)))
+  );
+  const labelIdx = Array.from(
+    new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
+  );
+
+  const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
+
+  const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowRight") setHover((h) => (h === null ? 0 : Math.min(n - 1, h + 1)));
+    else if (e.key === "ArrowLeft") setHover((h) => (h === null ? n - 1 : Math.max(0, h - 1)));
+    else if (e.key === "Home") setHover(0);
+    else if (e.key === "End") setHover(n - 1);
+    else if (e.key === "Escape") setHover(null);
+    else return;
+    e.preventDefault();
+  };
 
   return (
     <div
-      ref={anchorRef}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-      onPointerDown={hide}
+      className={`relative rounded-2xl ${isDark ? "ring-white/30" : "ring-black/20"} focus-visible:outline-none focus-visible:ring-2`}
+      tabIndex={0}
+      role="group"
+      aria-label={`${unit} chart. Use the left and right arrow keys to inspect each day.`}
+      onKeyDown={onKey}
+      onBlur={() => setHover(null)}
     >
-      {children}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className={`h-auto w-full touch-pan-y ${hover !== null ? "cursor-crosshair" : "cursor-default"}`}
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={() => setHover(null)}
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.12 : 0.24} />
+            <stop offset="100%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity="0" />
+          </linearGradient>
+        </defs>
 
-      {pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <span
-            role="tooltip"
-            style={{ top: pos.top, left: pos.left }}
-            className={[
-              "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
-              "flex items-center gap-2",
-              "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-              "text-[11.5px] font-medium",
-              menuClass,
-            ].join(" ")}
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={grid} />
+            <text x={pad.l - 8} y={y(t) + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
+              {t}
+            </text>
+          </g>
+        ))}
+        {labelIdx.map((i) => (
+          <text
+            key={i}
+            x={x(i)}
+            y={H - 8}
+            fontSize="10"
+            fill={axis}
+            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
           >
-            {label}
-            {shortcut && <Kbd className={countClass}>{shortcut}</Kbd>}
-          </span>,
-          document.body
+            {fmt(dates[i])}
+          </text>
+        ))}
+
+        {compare && (
+          <path
+            d={smoothPath(toPts(previous))}
+            fill="none"
+            stroke={ink}
+            strokeOpacity="0.35"
+            strokeWidth="2"
+            strokeDasharray="5 5"
+            strokeLinecap="round"
+          />
         )}
+        <path d={area} fill={`url(#${gradId})`} />
+        <path d={line} fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {hover !== null && (
+          <g>
+            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
+            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#141414" : "#fff"} stroke={ink} strokeWidth="2.5" />
+          </g>
+        )}
+      </svg>
+
+      {hover !== null && (
+        <div
+          className={`pointer-events-none absolute top-1 min-w-[150px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.18)] transition-opacity duration-100 ${
+            isDark ? "bg-[#1a1a1a] text-white ring-1 ring-white/10" : "bg-white text-black ring-1 ring-black/5"
+          }`}
+          style={{
+            left: `${(x(hover) / W) * 100}%`,
+            transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
+          }}
+        >
+          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
+          <div className="flex justify-between gap-5">
+            <span>{unit}</span>
+            <b className="tabular-nums">{nf(current[hover])}</b>
+          </div>
+          {compare && (
+            <div className="flex justify-between gap-5 opacity-50">
+              <span>Previous</span>
+              <b className="tabular-nums">{nf(previous[hover])}</b>
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="sr-only" aria-live="polite">
+        {hover !== null ? `${fmtFull(dates[hover])}: ${current[hover]} ${unit.toLowerCase()}` : ""}
+      </p>
     </div>
   );
 }
 
-/* ============================================================================
-   Navigation data
-============================================================================ */
+/* ============================================================
+   PETITS COMPOSANTS
+============================================================ */
 
-const navSections: NavSection[] = [
-  {
-    label: "General",
-    items: [
-      { label: "Home", icon: HomeIcon, route: "home" },
-      { label: "Calendar", icon: CalendarIcon, route: "schedule" },
-      { label: "Templates", icon: TemplatesIcon, route: "template" },
-    ],
-  },
-];
-
-const defaultAccount = {
-  name: "Ronan",
-  initials: "RN",
-  email: "workspace@crew.io",
-  organization: "My Organization",
-  plan: "Free plan",
-  channels: 0,
-  avatarUrl: undefined as string | undefined,
-};
-
-const menuGroups: MenuItem[][] = [
-  [
-    { label: "Settings", icon: SettingsIcon, route: "settings" },
-    { label: "Channels", icon: ChannelsIcon, route: "channels" },
-    { label: "Plans and Billing", icon: BillingIcon, route: "pricing" },
-    { label: "Help & Support", icon: HelpIcon, route: "faq" },
-  ],
-  [
-    { label: "Create", icon: LightbulbIcon, badge: "New", route: "create" },
-    { label: "Integrations", icon: AppsIcon, route: "integrations" },
-    { label: "Beta Features", icon: BetaIcon },
-  ],
-  [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
-];
-
-/* ============================================================================
-   Navigation item
-============================================================================ */
-
-type NavItemViewProps = {
-  item: NavItem;
-  index: number;
-  currentRoute: string;
-  isCollapsed: boolean;
-  isOpen: boolean;
-  labelClass: string;
-  focus: string;
-  t: ThemeTokens;
-  onNavigate: (route: string) => void;
-  onToggleGroup: (label: string) => void;
-  onExpandAndOpen: (label: string) => void;
-};
-
-function NavItemViewImpl({
-  item,
-  index,
-  currentRoute,
-  isCollapsed,
-  isOpen,
-  labelClass,
-  focus,
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
   t,
-  onNavigate,
-  onToggleGroup,
-  onExpandAndOpen,
-}: NavItemViewProps) {
-  const Icon = item.icon;
-
-  const hasChildren = Boolean(item.children?.length);
-  const shortcut = shortcutForRoute(item.route);
-  const shortcutLetter = shortcutKeyForRoute(item.route);
-
-  /* Ouverture : le stagger part après le début de l'élargissement.
-     Fermeture : aucun délai, les textes disparaissent immédiatement. */
-  const labelStyle = {
-    transitionDelay: isCollapsed
-      ? "0ms"
-      : `${LABEL_DELAY_MS + index * 35}ms`,
-  };
-
-  const isActive =
-    (item.route !== undefined && item.route === currentRoute) ||
-    Boolean(item.children?.some((child) => child.route === currentRoute));
-
-  const onClick = () => {
-    if (!hasChildren) {
-      if (item.route) {
-        onNavigate(item.route);
-      }
-      return;
-    }
-
-    if (isCollapsed) {
-      onExpandAndOpen(item.label);
-      return;
-    }
-
-    onToggleGroup(item.label);
-  };
-
+  label,
+}: {
+  value: T;
+  options: { key: T; label: string }[];
+  onChange: (k: T) => void;
+  t: Tokens;
+  label: string;
+}) {
   return (
-    <Tip
-      label={item.label}
-      shortcut={shortcut}
-      enabled={isCollapsed}
-      menuClass={t.menu}
-      countClass={t.count}
-    >
-      <button
-        type="button"
-        aria-label={item.label}
-        aria-current={isActive ? "page" : undefined}
-        aria-expanded={hasChildren ? isOpen : undefined}
-        aria-keyshortcuts={
-          shortcutLetter ? ariaShortcut(shortcutLetter) : undefined
-        }
-        onClick={onClick}
-        className={[
-          "group relative flex h-9 w-full",
-          "select-none",
-          "items-center gap-2.5 overflow-hidden",
-          "rounded-lg px-3",
-          "text-[12.5px] font-medium",
-          "transition-[background-color,color,transform]",
-          "duration-200",
-          "active:scale-[0.97]",
-          "motion-reduce:transition-none",
-          "motion-reduce:active:scale-100",
-          focus,
-          isActive ? t.navActive : t.navIdle,
-        ].join(" ")}
-      >
-        {/* Repère d'état actif : lisible même quand le fond est très discret. */}
-        <span
-          aria-hidden="true"
-          className={[
-            "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2",
-            "rounded-r-full bg-current",
-            "transition-[opacity,transform] duration-200",
-            "motion-reduce:transition-none",
-            isActive ? "scale-y-100 opacity-70" : "scale-y-0 opacity-0",
-          ].join(" ")}
-        />
-
-        {/* Icône : statique, aucun effet au hover. */}
-        <span className="relative flex shrink-0 select-none">
-          <Icon className="h-[18px] w-[18px]" />
-
-          {item.badge && (
-            <span
-              aria-hidden="true"
-              className={[
-                "absolute -right-0.5 -top-0.5",
-                "h-2 w-2 rounded-full",
-                "select-none",
-                "bg-[#ff5ec4] ring-2",
-                t.dotRing,
-                isCollapsed
-                  ? "opacity-100 delay-150 duration-200"
-                  : "opacity-0 duration-100",
-              ].join(" ")}
-            />
-          )}
-        </span>
-
-        <span
-          className={["flex-1 select-none text-left", labelClass].join(" ")}
-          style={labelStyle}
-        >
-          {item.label}
-        </span>
-
-        {item.badge && (
-          <span
-            style={labelStyle}
-            className={[
-              "select-none",
-              "rounded-md px-1.5 py-0.5",
-              "text-[10.5px] font-medium",
-              t.count,
-              labelClass,
-            ].join(" ")}
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-xl p-1">
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.key)}
+            className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+              active ? t.chipOn : t.chipOff
+            }`}
           >
-            {item.badge}
-          </span>
-        )}
-
-        {hasChildren && (
-          <span
-            className={["flex shrink-0 select-none", labelClass].join(" ")}
-            style={labelStyle}
-          >
-            <ChevronDownIcon
-              className={[
-                "h-4 w-4",
-                "transition-transform duration-300",
-                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                "motion-reduce:transition-none",
-                isOpen ? "rotate-180" : "",
-              ].join(" ")}
-            />
-          </span>
-        )}
-      </button>
-
-      {hasChildren && (
-        <div
-          className={[
-            "grid",
-            "transition-[grid-template-rows]",
-            "duration-300",
-            "ease-[cubic-bezier(0.4,0,0.2,1)]",
-            "motion-reduce:transition-none",
-            isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          ].join(" ")}
-        >
-          <div className="overflow-hidden">
-            <div
-              className={[
-                "ml-[22px] mt-1 flex",
-                "flex-col gap-0.5",
-                "border-l pl-[13px]",
-                t.rail,
-              ].join(" ")}
-            >
-              {item.children!.map((child, childIndex) => {
-                const childActive = child.route === currentRoute;
-
-                return (
-                  <button
-                    key={child.route}
-                    type="button"
-                    tabIndex={isOpen ? 0 : -1}
-                    aria-current={childActive ? "page" : undefined}
-                    onClick={() => onNavigate(child.route)}
-                    style={{
-                      transitionDelay: isOpen
-                        ? `${80 + childIndex * 45}ms`
-                        : "0ms",
-                    }}
-                    className={[
-                      "flex h-8 w-full",
-                      "select-none",
-                      "items-center",
-                      "whitespace-nowrap",
-                      "rounded-lg px-2",
-                      "text-left text-[12.5px]",
-                      "font-medium",
-                      "transition-[background-color,color,opacity,transform]",
-                      "duration-300",
-                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
-                      "motion-reduce:transition-none",
-                      isOpen
-                        ? "translate-x-0 opacity-100"
-                        : "-translate-x-2 opacity-0",
-                      focus,
-                      childActive ? t.subActive : t.sub,
-                    ].join(" ")}
-                  >
-                    {child.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </Tip>
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-const NavItemView = memo(NavItemViewImpl);
-
-/* ============================================================================
-   Section Channels (réseaux connectés)
-============================================================================ */
-
-type NetworkKey =
-  | "x"
-  | "facebook"
-  | "instagram"
-  | "linkedin"
-  | "tiktok"
-  | "youtube"
-  | "pinterest"
-  | "threads";
-
-type SidebarChannelsProps = {
-  channels: ConnectedChannel[];
-  isCollapsed: boolean;
-  currentRoute: string;
-  labelClass: string;
-  focus: string;
-  t: ThemeTokens;
-  onNavigate: (route: string) => void;
-  onExpand: () => void;
-  onConnect: () => void;
-};
-
-const channelsMemory = { open: [] as string[] };
-
-const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
-  x: XIcon,
-  facebook: FacebookIcon,
-  instagram: InstagramIcon,
-  linkedin: LinkedInIcon,
-  tiktok: TikTokIcon,
-  youtube: YouTubeIcon,
-  pinterest: PinterestIcon,
-  threads: ThreadsIcon as IconComponent,
-};
-
-function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
-  const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
-    .toLowerCase()
-    .trim();
-
-  if (raw.includes("tiktok")) return "tiktok";
-  if (raw.includes("insta")) return "instagram";
-  if (raw.includes("youtube") || raw === "yt") return "youtube";
-  if (raw.includes("facebook") || raw === "fb") return "facebook";
-  if (raw.includes("linkedin")) return "linkedin";
-  if (raw.includes("pinterest")) return "pinterest";
-  if (raw.includes("threads")) return "threads";
-  if (raw === "x" || raw.includes("twitter")) return "x";
-  return null;
-}
-
-/** Canal ciblé par /#/insights?channel=<key> ou /#/community?channel=<key> (null si absent). */
-function getHashChannel(): string | null {
-  if (typeof window === "undefined") return null;
-
-  const hash = window.location.hash;
-  const queryIndex = hash.indexOf("?");
-  if (queryIndex === -1) return null;
-
-  return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
-}
-
-const PublishIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-    <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-  </Svg>
-);
-
-const CommunityIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
-    <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
-  </Svg>
-);
-
-const InsightsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
-  </Svg>
-);
-
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
-
-const CHANNEL_LINKS: {
-  label: string;
-  route: string;
-  icon: IconComponent;
-  badge?: string;
-  /** Le lien porte le canal : /#/<route>?channel=<key> */
-  perChannel?: boolean;
-}[] = [
-  { label: "Publish", route: "schedule", icon: PublishIcon },
-  {
-    label: "Community",
-    route: "community",
-    icon: CommunityIcon,
-    perChannel: true,
-  },
-  {
-    label: "Insights",
-    route: "insights",
-    icon: InsightsIcon,
-    badge: "New",
-    perChannel: true,
-  },
-];
-
-/** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
-const CHANNEL_ROUTES = new Set(["insights", "community"]);
-
-function ChannelAvatar({
-  channel,
-  NetworkIcon,
-  dotRing,
+function Switch({
+  checked,
+  onChange,
+  label,
+  t,
 }: {
-  channel: ConnectedChannel;
-  NetworkIcon?: IconComponent;
-  dotRing: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  t: Tokens;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`cursor-pointer flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.soft} ${t.hover} ${
+        checked ? t.text : ""
+      }`}
+    >
+      <span
+        className={`relative h-[18px] w-8 rounded-full transition-colors motion-reduce:transition-none ${
+          checked ? (t.chipOn.includes("bg-white") ? "bg-white" : "bg-zinc-950") : "bg-zinc-400/40"
+        }`}
+      >
+        <span
+          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full transition-all motion-reduce:transition-none ${
+            checked ? "left-[16px]" : "left-[2px]"
+          } ${checked ? (t.chipOn.includes("bg-white") ? "bg-black" : "bg-white") : "bg-white"}`}
+        />
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function Delta({ value, isDark }: { value: number; isDark: boolean }) {
+  const tone =
+    value > 0
+      ? isDark
+        ? "bg-emerald-500/10 text-emerald-400"
+        : "bg-emerald-50 text-emerald-700"
+      : value < 0
+      ? isDark
+        ? "bg-rose-500/10 text-rose-400"
+        : "bg-rose-50 text-rose-700"
+      : isDark
+      ? "bg-white/[0.06] text-zinc-400"
+      : "bg-zinc-100 text-zinc-500";
+  const Icon = value < 0 ? TrendingDown : TrendingUp;
+  return (
+    <span
+      title={value === 0 ? "No change" : value > 0 ? `Up ${signed(value)}` : `Down ${signed(value)}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums transition-transform duration-150 hover:scale-105 motion-reduce:transition-none ${tone}`}
+    >
+      {value !== 0 && <Icon className="h-3 w-3" aria-hidden="true" />}
+      {signed(value)}
+    </span>
+  );
+}
+
+/** Icônes des réseaux (mêmes composants que la page Channels). */
+const NETWORK_ICONS: Record<string, IconComponent> = {
+  instagram: InstagramIcon,
+  facebook: FacebookIcon,
+  threads: ThreadsIcon,
+  youtube: YouTubeIcon,
+  tiktok: TikTokIcon,
+  pinterest: PinterestIcon,
+};
+
+/** Clé du réseau du canal : `key` en priorité, sinon network/platform/provider. */
+function channelNetwork(c?: ConnectedChannel): string {
+  if (!c) return "";
+  const extra = c as ConnectedChannel & {
+    network?: string;
+    platform?: string;
+    provider?: string;
+  };
+  const raw = c.key ?? extra.network ?? extra.platform ?? extra.provider ?? "";
+  return String(raw).toLowerCase();
+}
+
+function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?: number }) {
+  const Icon = NETWORK_ICONS[channelNetwork(channel)];
+  if (!Icon) return null;
+  return (
+    <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black">
+      <span className="flex h-[19px] w-[19px] items-center justify-center">
+        <Icon className="h-[11px] w-[11px]" size={size} />
+      </span>
+    </span>
+  );
+}
+
+function Avatar({
+  channel,
+  size = 36,
+  showNetwork = true,
+}: {
+  channel?: ConnectedChannel;
+  size?: number;
+  showNetwork?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
-
-  const label = channel.handle || channel.name;
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  useEffect(() => setFailed(false), [channel?.avatarUrl]);
+  const label = (channel?.handle || channel?.name || "?").replace(/^@/, "");
+  const box = { width: size, height: size };
 
   return (
-    <span className="relative h-6 w-6 shrink-0">
-      {channel.avatarUrl && !failed ? (
+    <span className="relative inline-flex shrink-0" style={box}>
+      {channel?.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
           alt=""
-          draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full select-none rounded-full object-cover"
+          style={box}
+          className="rounded-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-neutral-700 text-[10px] font-semibold text-white">
-          {initial}
-        </span>
-      )}
-
-      {NetworkIcon && (
         <span
-          className={[
-            "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-[4px] bg-white text-black ring-2",
-            dotRing,
-          ].join(" ")}
+          style={box}
+          className="flex items-center justify-center rounded-full bg-zinc-200 text-[13px] font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-white"
         >
-          <NetworkIcon className="h-2 w-2" />
+          {label.charAt(0).toUpperCase() || "?"}
         </span>
       )}
+      {showNetwork && <NetworkIcon channel={channel} />}
     </span>
   );
 }
 
-/* ============================================================================
-   Popover au survol de l'avatar d'un canal (style TikTok)
-   Nom du compte en tête, puis liens rapides Publish / Community / Insights.
-   Rendu en portal (document.body) car la nav a overflow hidden : il est donc
-   visible même quand la sidebar est réduite.
-============================================================================ */
-
-const HOVER_CARD_SHOW_MS = 200;
-const HOVER_CARD_HIDE_MS = 120;
-
-function ChannelHoverCard({
-  channel,
-  label,
-  NetworkIcon,
-  currentRoute,
-  hashChannel,
-  firstChannelKey,
-  focus,
-  t,
-  onNavigate,
-  children,
-}: {
-  channel: ConnectedChannel;
-  label: string;
-  NetworkIcon?: IconComponent;
-  currentRoute: string;
-  hashChannel: string | null;
-  firstChannelKey?: string;
-  focus: string;
-  t: ThemeTokens;
-  onNavigate: (route: string) => void;
-  children: ReactNode;
-}) {
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  const showTimer = useRef<number | undefined>(undefined);
-  const hideTimer = useRef<number | undefined>(undefined);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  /* Annule une fermeture en cours (la souris revient sur le popover). */
-  const cancelHide = useCallback(() => {
-    window.clearTimeout(hideTimer.current);
-  }, []);
-
-  const show = useCallback(() => {
-    cancelHide();
-    window.clearTimeout(showTimer.current);
-    showTimer.current = window.setTimeout(() => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (rect) setPos({ top: rect.top - 4, left: rect.right + 10 });
-    }, HOVER_CARD_SHOW_MS);
-  }, [cancelHide]);
-
-  /* Petit délai avant fermeture : on peut glisser la souris de l'avatar
-     vers le popover sans qu'il disparaisse. */
-  const hide = useCallback(() => {
-    window.clearTimeout(showTimer.current);
-    hideTimer.current = window.setTimeout(() => setPos(null), HOVER_CARD_HIDE_MS);
-  }, []);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(showTimer.current);
-      window.clearTimeout(hideTimer.current);
-    },
-    []
-  );
-
-  return (
-    <span
-      ref={anchorRef}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      className="relative inline-flex shrink-0"
-    >
-      {children}
-
-      {pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            role="menu"
-            aria-label={label}
-            style={{ top: pos.top, left: pos.left }}
-            onMouseEnter={cancelHide}
-            onMouseLeave={hide}
-            className={[
-              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-2xl border p-2",
-              t.menu,
-            ].join(" ")}
-          >
-            {/* En-tête : avatar + nom du compte */}
-            <div className="flex items-center gap-2.5 px-1 pb-2 pt-1">
-              <ChannelAvatar
-                channel={channel}
-                NetworkIcon={NetworkIcon}
-                dotRing={t.dotRing}
-              />
-              <span
-                className={[
-                  "min-w-0 flex-1 truncate text-[12.5px] font-semibold",
-                  t.title,
-                ].join(" ")}
-              >
-                {label.replace(/^@/, "")}
-              </span>
-            </div>
-
-            <div className={["border-t pt-1", t.menuDivider].join(" ")} />
-
-            {/* Liens rapides : Publish / Community / Insights */}
-            <div className="flex flex-col gap-0.5">
-              {CHANNEL_LINKS.map((link) => {
-                const Icon = link.icon;
-
-                const target = link.perChannel
-                  ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
-                  : link.route;
-
-                // Un lien "par canal" n'est actif que pour le canal ouvert.
-                const active = link.perChannel
-                  ? link.route === currentRoute &&
-                    (hashChannel === null
-                      ? firstChannelKey === channel.key
-                      : hashChannel === channel.key)
-                  : link.route === currentRoute;
-
-                return (
-                  <button
-                    key={link.route}
-                    type="button"
-                    role="menuitem"
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => {
-                      hide();
-                      onNavigate(target);
-                    }}
-                    className={[
-                      "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                      "rounded-lg px-2 text-left text-[12.5px] font-medium",
-                      "transition-colors duration-150 motion-reduce:transition-none",
-                      focus,
-                      active ? t.subActive : t.sub,
-                    ].join(" ")}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">{link.label}</span>
-                    {link.badge && (
-                      <span
-                        className={[
-                          "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                          t.badge,
-                        ].join(" ")}
-                      >
-                        {link.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>,
-          document.body
-        )}
-    </span>
-  );
-}
-
-function SidebarChannelsImpl({
+function ChannelMenu({
   channels,
-  isCollapsed,
-  currentRoute,
-  labelClass,
-  focus,
+  current,
   t,
-  onNavigate,
-  onExpand,
-  onConnect,
-}: SidebarChannelsProps) {
-  const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
+  isDark,
+}: {
+  channels: ConnectedChannel[];
+  current?: ConnectedChannel;
+  t: Tokens;
+  isDark: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    channelsMemory.open = openKeys;
-  }, [openKeys]);
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
-  // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
-  const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
-
-  const toggleKey = (key: string) =>
-    setOpenKeys((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
-
-  const openKey = (key: string) =>
-    setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
-
-  const headerButton = [
-    "relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
-    "transition-colors duration-150 motion-reduce:transition-none",
-    t.menuIcon,
-    focus,
-    t.row,
-  ].join(" ");
+  const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
+  const canSwitch = channels.length > 1;
 
   return (
-    <div>
-      <div
-        aria-hidden={isCollapsed}
-        className={[
-          "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
-          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-          isCollapsed
-            ? "mb-0 h-0 opacity-0 delay-0"
-            : "mb-1.5 h-6 opacity-100 delay-[120ms]",
-        ].join(" ")}
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={!canSwitch}
+        onClick={() => setOpen((o) => !o)}
+        className={`group flex items-center gap-2.5 rounded-xl border py-1.5 pl-1.5 pr-3 transition-all duration-150 disabled:cursor-default ${t.ring} ${t.border} ${
+          isDark ? "bg-[#141414]" : "bg-white"
+        } ${canSwitch ? `${t.ctaLift} ${t.hover}` : ""}`}
       >
-        <span
-          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
+        <span className="transition-transform duration-200 motion-reduce:transform-none group-hover:scale-[1.06]">
+          <Avatar channel={current} />
+        </span>
+        <span className="min-w-0 text-left">
+          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${t.text}`}>{name(current)}</span>
+        </span>
+        {canSwitch && (
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : "group-hover:translate-y-0.5"} ${t.muted}`}
+            aria-hidden="true"
+          />
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${
+            isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
+          }`}
         >
-          Channels
-        </span>
-
-        <span className="flex items-center gap-0.5">
-          <button
-            type="button"
-            tabIndex={isCollapsed ? -1 : 0}
-            aria-label="Connect a channel"
-            aria-keyshortcuts="Control+N"
-            title={`Connect a channel (${shortcutLabel("n")})`}
-            onClick={onConnect}
-            className={headerButton}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        {channels.map((channel) => {
-          const id = getNetworkId(channel);
-          const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
-          const label = channel.handle || channel.name;
-          const groupKey = `channel:${channel.key}`;
-          const isOpen = openKeys.includes(groupKey) && !isCollapsed;
-
-          return (
-            <div key={channel.key}>
-              {/* Pas de tooltip sur la ligne : le popover de l'avatar affiche
-                  déjà le pseudo + les liens (évite le double hover). */}
+          {channels.map((c) => {
+            const active = c.key === current?.key;
+            return (
               <button
+                key={c.key}
                 type="button"
-                aria-expanded={isOpen}
-                aria-label={label.replace(/^@/, "")}
+                role="menuitemradio"
+                aria-checked={active}
                 onClick={() => {
-                  if (isCollapsed) {
-                    onExpand();
-                    openKey(groupKey);
-                  } else {
-                    toggleKey(groupKey);
-                  }
+                  setOpen(false);
+                  navigate(`insights?channel=${encodeURIComponent(c.key)}`);
                 }}
-                className={[
-                  "group flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
-                  "rounded-lg px-[9px] text-[12.5px] font-medium",
-                  "transition-[background-color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none",
-                  "motion-reduce:active:scale-100",
-                  focus,
-                  t.navIdle,
-                ].join(" ")}
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
               >
-                  {/* Avatar + popover au survol (Publish / Community / Insights) */}
-                  <ChannelHoverCard
-                    channel={channel}
-                    label={label}
-                    NetworkIcon={NetworkIcon}
-                    currentRoute={currentRoute}
-                    hashChannel={hashChannel}
-                    firstChannelKey={channels[0]?.key}
-                    focus={focus}
-                    t={t}
-                    onNavigate={onNavigate}
-                  >
-                    <ChannelAvatar
-                      channel={channel}
-                      NetworkIcon={NetworkIcon}
-                      dotRing={t.dotRing}
-                    />
-                  </ChannelHoverCard>
-                  <span
-                    className={[
-                      "min-w-0 flex-1 truncate text-left",
-                      labelClass,
-                    ].join(" ")}
-                  >
-                    {label.replace(/^@/, "")}
-                  </span>
-                  <span className={["flex shrink-0", labelClass].join(" ")}>
-                    <ChevronDownIcon
-                      className={[
-                        "h-3.5 w-3.5 opacity-50",
-                        "transition-[transform,opacity] duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                        "group-hover:opacity-100",
-                        "motion-reduce:transition-none",
-                        isOpen ? "rotate-0 opacity-100" : "-rotate-90",
-                      ].join(" ")}
-                    />
-                  </span>
-                </button>
-
-              <div
-                className={[
-                  "grid transition-[grid-template-rows] duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
-                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-                ].join(" ")}
-              >
-                <div className="overflow-hidden">
-                  <div
-                    className={[
-                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
-                      t.rail,
-                    ].join(" ")}
-                  >
-                    {CHANNEL_LINKS.map((link, i) => {
-                      const Icon = link.icon;
-
-                      const target = link.perChannel
-                        ? `${link.route}?channel=${encodeURIComponent(
-                            channel.key
-                          )}`
-                        : link.route;
-
-                      // Un lien "par canal" n'est actif que pour le canal ouvert.
-                      const active = link.perChannel
-                        ? link.route === currentRoute &&
-                          (hashChannel === null
-                            ? channels[0]?.key === channel.key
-                            : hashChannel === channel.key)
-                        : link.route === currentRoute;
-
-                      return (
-                        <button
-                          key={link.route}
-                          type="button"
-                          tabIndex={isOpen ? 0 : -1}
-                          aria-current={active ? "page" : undefined}
-                          onClick={() => onNavigate(target)}
-                          style={{
-                            transitionDelay: isOpen ? `${80 + i * 45}ms` : "0ms",
-                          }}
-                          className={[
-                            "flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
-                            "transition-[background-color,color,opacity,transform] duration-300",
-                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-                            isOpen
-                              ? "translate-x-0 opacity-100"
-                              : "-translate-x-2 opacity-0",
-                            focus,
-                            active ? t.subActive : t.sub,
-                          ].join(" ")}
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="flex-1">{link.label}</span>
-                          {link.badge && (
-                            <span
-                              className={[
-                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-                                t.badge,
-                              ].join(" ")}
-                            >
-                              {link.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {isCollapsed && (
-        <Tip
-          label="Connect a channel"
-          shortcut={shortcutLabel("n")}
-          enabled
-          menuClass={t.menu}
-          countClass={t.count}
-        >
+                <Avatar channel={c} size={28} />
+                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${t.text}`}>{name(c)}</span>
+                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
+              </button>
+            );
+          })}
+          <div className={`my-1 border-t ${t.border}`} />
           <button
             type="button"
-            aria-label="Connect a channel"
-            aria-keyshortcuts="Control+N"
-            onClick={onConnect}
-            className={[
-              "mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
-              "transition-[background-color,transform] duration-200 active:scale-[0.97]",
-              "motion-reduce:transition-none motion-reduce:active:scale-100",
-              focus,
-              t.navIdle,
-            ].join(" ")}
+            role="menuitem"
+            onClick={() => navigate("channels")}
+            className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
-            <PlusIcon className="h-[18px] w-[18px] shrink-0" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60 transition-opacity hover:opacity-100">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            Manage channels
           </button>
-        </Tip>
+        </div>
       )}
     </div>
   );
 }
+/* ============================================================
+   RANGE PICKER — CalendarPicker de NewPostModal
+   Un seul panneau calendrier pour les DEUX bornes de la période :
+   onglets From / To au-dessus du calendrier, la date cliquée
+   alimente l'onglet actif puis bascule automatiquement sur l'autre.
+   v2 : hover sur les onglets/trigger, « Done » accentué, curseurs.
+============================================================ */
 
-const SidebarChannels = memo(SidebarChannelsImpl);
+function RangePicker({
+  range,
+  start,
+  end,
+  onStartChange,
+  onEndChange,
+  onRangeChange,
+  t,
+  isDark,
+}: {
+  range: Range;
+  start: Date;
+  end: Date;
+  onStartChange: (d: Date) => void;
+  onEndChange: (d: Date) => void;
+  onRangeChange: (r: Range) => void;
+  t: Tokens;
+  isDark: boolean;
+}) {
+  // Champ en cours d'édition dans le panneau : "from" ou "to".
+  const [field, setField] = useState<"from" | "to">("from");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-/* ============================================================================
-   Sidebar memory
-============================================================================ */
+  // Borne haute de la période : aujourd'hui (les insights sont dans le passé).
+  const today = useMemo(() => startOfDay(new Date()), []);
 
-const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
-
-/* État partagé de la sidebar. La sidebar démarre toujours fermée au
-   montage (voir l'effet « Arrivée sur l'app »), donc pas de relecture
-   du localStorage à l'initialisation. */
-const sidebarMemory = {
-  collapsed: true,
-  openGroup: null as string | null,
-  entered: false,
-};
-
-function resetSidebarModuleState() {
-  userProfileCache.profile = null;
-  setSidebarCollapsed(true);
-  sidebarMemory.openGroup = null;
-  sidebarMemory.entered = false;
-  channelsMemory.open = [];
-}
-
-/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
-   plus sa marge gauche (16px) et un espace de respiration. */
-export const SIDEBAR_COLLAPSED_OFFSET = 104;
-export const SIDEBAR_EXPANDED_OFFSET = 232;
-
-const sidebarListeners = new Set<() => void>();
-
-function setSidebarCollapsed(value: boolean) {
-  if (sidebarMemory.collapsed === value) return;
-
-  sidebarMemory.collapsed = value;
-
-  try {
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(value));
-  } catch {
-    /* stockage indisponible : on garde juste l'état en mémoire */
-  }
-
-  sidebarListeners.forEach((listener) => listener());
-}
-
-function subscribeSidebar(listener: () => void) {
-  sidebarListeners.add(listener);
-  return () => {
-    sidebarListeners.delete(listener);
-  };
-}
-
-/** Marge gauche que les pages doivent appliquer pour ne pas toucher la sidebar. */
-export function useSidebarOffset(): number {
-  const collapsed = useSyncExternalStore(
-    subscribeSidebar,
-    () => sidebarMemory.collapsed,
-    () => true
-  );
-
-  return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
-}
-
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
-
-/* ============================================================================
-   Channel-connections helpers (self-contained modal)
-============================================================================ */
-
-type OAuthProvider = "tiktok" | "pinterest" | "youtube";
-
-const OAUTH_LABELS: Record<OAuthProvider, string> = {
-  tiktok: "TikTok",
-  pinterest: "Pinterest",
-  youtube: "YouTube",
-};
-
-const initialConnections: ConnectionState = {
-  instagram: { connected: false },
-  tiktok: { connected: false },
-  youtube: { connected: false },
-  facebook: { connected: false },
-  pinterest: { connected: false },
-  threads: { connected: false },
-};
-
-function formatOAuthError(provider: string, error: unknown): string {
-  const raw = error instanceof Error ? error.message : "";
-
-  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
-    return "Unable to reach the server (network or CORS error). Check that the backend is running and that VITE_API_URL is correct.";
-  }
-
-  return raw
-    ? `Unable to connect to ${provider}. ${raw}`
-    : `Unable to connect to ${provider}.`;
-}
-
-function mockHandleFor(key: ChannelKey): string {
-  const handles: Record<ChannelKey, string> = {
-    instagram: "@ronan.studio",
-    tiktok: "",
-    youtube: "",
-    facebook: "Ronan Studio Page",
-    pinterest: "",
-    threads: "@ronan.studio",
-  };
-
-  return handles[key];
-}
-
-function toConnection(status: StatusResponse): Connection {
-  if (!status.connected) return { connected: false };
-
-  const account = status.account;
-
-  return {
-    connected: true,
-    handle: account?.display_name ?? undefined,
-    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
-  };
-}
-
-function pluralizeChannels(count: number): string {
-  return `${count} channel${count === 1 ? "" : "s"}`;
-}
-
-/* ============================================================================
-   Sidebar
-============================================================================ */
-
-type DashboardSidebarProps = {
-  theme?: Theme;
-  onToggleTheme?: ToggleThemeFn;
-};
-
-export default function DashboardSidebar({
-  theme: themeProp,
-}: DashboardSidebarProps) {
-  const themeContext = useTheme();
-  const theme = themeProp ?? themeContext.theme;
-  const isDark = theme === "dark";
-
-  const currentRoute = useHashRoute();
-  const connectedChannels = useConnectedChannels();
-
-  const { user } = useUser();
-  const userId = user?.id ?? null;
-
-  const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
-  const [openGroup, setOpenGroup] = useState<string | null>(
-    sidebarMemory.openGroup
-  );
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [hasMounted, setHasMounted] = useState(sidebarMemory.entered);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(
-    userProfileCache.profile
-  );
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-
-  /* ── Channel connections (self-contained) ── */
-  const [connections, setConnections] = useState<ConnectionState>(() => {
-    if (!userId) return initialConnections;
-
-    const tiktok = readCache(userId, "tiktok");
-    const pinterest = readCache(userId, "pinterest");
-    const youtube = readCache(userId, "youtube");
-
-    return {
-      ...initialConnections,
-      ...(tiktok ? { tiktok: tiktok.connection } : {}),
-      ...(pinterest ? { pinterest: pinterest.connection } : {}),
-      ...(youtube ? { youtube: youtube.connection } : {}),
-    };
-  });
-  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
-  const [connectError, setConnectError] = useState<string | null>(null);
-
-  /** Verrou anti double-clic, un par fournisseur OAuth. */
-  const oauthBusy = useRef<Record<OAuthProvider, boolean>>({
-    tiktok: false,
-    pinterest: false,
-    youtube: false,
-  });
-  const placeholderTimer = useRef<number | undefined>(undefined);
-
-  const profileRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  /* --------------------------------------------------------------------------
-     Arrivée sur l'app : la sidebar démarre toujours fermée
-     (l'état persisté est réinitialisé par l'effet de persistance ci-dessous).
-  -------------------------------------------------------------------------- */
-
+  // Fermeture : Escape + clic extérieur (comme les dropdowns de NewPostModal).
   useEffect(() => {
-    setIsCollapsed(true);
-    setOpenGroup(null);
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Load profile
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadUserProfile = async () => {
-      try {
-        const userData = await getCurrentUser();
-
-        if (mounted && userData) {
-          userProfileCache.profile = userData;
-          setUserProfile(userData);
-          setAvatarLoadFailed(false);
-        }
-      } catch (error) {
-        console.error("Error loading user profile in sidebar:", error);
-      }
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-
-    loadUserProfile();
-
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
     return () => {
-      mounted = false;
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [open]);
 
-  /* --------------------------------------------------------------------------
-     Sync channel statuses (cache + backend), + parse OAuth return
-  -------------------------------------------------------------------------- */
+  const label =
+    range === "custom"
+      ? `${fmt(start)} – ${fmt(end)}`
+      : RANGES.find((r) => r.key === range)?.label ?? "";
 
-  useEffect(() => {
-    if (!userId) return;
+  // Choisit une date : met à jour la borne active, puis passe à l'autre.
+  const pickDate = (d: Date) => {
+    if (field === "from") {
+      onStartChange(d);
+      // Si la nouvelle borne de début dépasse la fin, on décale la fin.
+      if (startOfDay(d).getTime() > startOfDay(end).getTime()) onEndChange(d);
+      setField("to");
+    } else {
+      onEndChange(d);
+      if (startOfDay(d).getTime() < startOfDay(start).getTime()) {
+        // Fin avant début : on remonte le début.
+        onStartChange(d);
+        setField("from");
+      }
+    }
+  };
 
-    const hash = window.location.hash;
-    const queryIndex = hash.indexOf("?");
-    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
-    const params = new URLSearchParams(
-      queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
+  // Ouvrir le panneau passe automatiquement en plage personnalisée.
+  const openPicker = (nextField: "from" | "to") => {
+    if (range !== "custom") onRangeChange("custom");
+    setField(nextField);
+    setOpen(true);
+  };
+
+  const fieldTab = (id: "from" | "to") => {
+    const active = open && field === id;
+    const value = id === "from" ? start : end;
+    return (
+      <button
+        key={id}
+        type="button"
+        aria-pressed={active}
+        onClick={() => openPicker(id)}
+        className={`flex-1 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+          active ? t.chipOn : t.chipOff
+        }`}
+      >
+        {id === "from" ? "From" : "To"} · {fmt(value)}
+      </button>
     );
-
-    const errors: Record<CacheProvider, string | null> = {
-      tiktok: params.get("tiktok_error"),
-      pinterest: params.get("pinterest_error"),
-      youtube: params.get("youtube_error"),
-    };
-
-    const returned: Record<CacheProvider, boolean> = {
-      tiktok: params.has("tiktok") || Boolean(errors.tiktok),
-      pinterest: params.has("pinterest") || Boolean(errors.pinterest),
-      youtube: params.has("youtube") || Boolean(errors.youtube),
-    };
-
-    (Object.keys(errors) as CacheProvider[]).forEach((provider) => {
-      const message = errors[provider];
-
-      if (message) {
-        setConnectError(
-          `Unable to connect to ${OAUTH_LABELS[provider]}. ${message}`
-        );
-      }
-
-      if (returned[provider]) clearCache(userId, provider);
-    });
-
-    // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
-    // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
-    // et ne doivent pas être polluées par un replaceState.)
-    if (
-      (returned.tiktok || returned.pinterest || returned.youtube) &&
-      basePath.includes("channels")
-    ) {
-      [
-        "tiktok",
-        "tiktok_error",
-        "pinterest",
-        "pinterest_error",
-        "youtube",
-        "youtube_error",
-      ].forEach((k) => params.delete(k));
-      const query = params.toString();
-
-      window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}${basePath}${
-          query ? `?${query}` : ""
-        }`
-      );
-    }
-
-    let cancelled = false;
-
-    const sync = (
-      provider: CacheProvider,
-      justReturned: boolean,
-      fetchStatus: () => Promise<StatusResponse>
-    ) => {
-      const cached = justReturned ? null : readCache(userId, provider);
-
-      if (cached) {
-        setConnections((current) => ({
-          ...current,
-          [provider]: cached.connection,
-        }));
-
-        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
-      }
-
-      void (async () => {
-        try {
-          const status = await fetchStatus();
-          if (cancelled) return;
-
-          const connection = toConnection(status);
-
-          if (connection.connected) {
-            writeCache(userId, connection, provider);
-          } else {
-            clearCache(userId, provider);
-          }
-
-          setConnections((current) => ({
-            ...current,
-            [provider]: connection,
-          }));
-        } catch (error) {
-          console.warn(`[Stone] Could not load ${provider} status:`, error);
-        }
-      })();
-    };
-
-    sync("tiktok", returned.tiktok, getTikTokStatus);
-    sync("pinterest", returned.pinterest, getPinterestStatus);
-    sync("youtube", returned.youtube, getYouTubeStatus);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  /* --------------------------------------------------------------------------
-     Sidebar entrance
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (sidebarMemory.entered) {
-      return;
-    }
-
-    const id = requestAnimationFrame(() => {
-      sidebarMemory.entered = true;
-      setHasMounted(true);
-    });
-
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Persist sidebar state
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    setSidebarCollapsed(isCollapsed);
-    sidebarMemory.openGroup = openGroup;
-  }, [isCollapsed, openGroup]);
-
-  /* --------------------------------------------------------------------------
-     Cleanup des timers
-  -------------------------------------------------------------------------- */
-
-  useEffect(
-    () => () => window.clearTimeout(placeholderTimer.current),
-    []
-  );
-
-  /* --------------------------------------------------------------------------
-     Account menu : fermeture auto à chaque navigation
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [currentRoute]);
-
-  /* --------------------------------------------------------------------------
-     Account menu events (clic extérieur, Échap) + focus initial
-  -------------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (!profileRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-
-    // Place le focus sur le premier élément : la navigation clavier démarre ici.
-    const id = requestAnimationFrame(() => {
-      menuRef.current
-        ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
-        ?.focus({ preventScroll: true });
-    });
-
-    return () => {
-      cancelAnimationFrame(id);
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [menuOpen]);
-
-  /** Flèches haut/bas, Home, End dans le menu compte (pattern WAI-ARIA menu). */
-  const onMenuKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const items = Array.from(
-        event.currentTarget.querySelectorAll<HTMLElement>(
-          '[role="menuitem"]:not([disabled])'
-        )
-      );
-
-      if (items.length === 0) return;
-
-      const current = items.indexOf(document.activeElement as HTMLElement);
-      let next = -1;
-
-      if (event.key === "ArrowDown") next = (current + 1) % items.length;
-      else if (event.key === "ArrowUp")
-        next = (current - 1 + items.length) % items.length;
-      else if (event.key === "Home") next = 0;
-      else if (event.key === "End") next = items.length - 1;
-
-      if (next >= 0) {
-        event.preventDefault();
-        items[next].focus();
-      }
-    },
-    []
-  );
-
-  /* --------------------------------------------------------------------------
-     Theme tokens
-  -------------------------------------------------------------------------- */
-
-  const t = useMemo<ThemeTokens>(
-    () =>
-      isDark
-        ? {
-            aside:
-              "border-white/10 bg-[#050506] shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
-            brand: "text-white",
-            divider: "bg-white/10",
-            navActive: "bg-white/15 text-white",
-            navIdle: "text-white hover:bg-white/10",
-            handle:
-              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
-            count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#050506]",
-            rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-white/[0.06] hover:text-white",
-            subActive: "bg-white/[0.08] text-white",
-            row: "hover:bg-white/10",
-            rowOpen: "bg-white/10",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
-            title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
-            menuItem:
-              "text-[#ecece8] hover:bg-white/[0.06] focus-visible:bg-white/[0.06]",
-            menuIcon: "text-[#a9aeae]",
-            upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:bg-white/[0.08]",
-            badge: "bg-[#4a2f4a] text-[#f0bdf0]",
-            ring: "focus-visible:ring-white/30",
-          }
-        : {
-            aside:
-              "border-black/10 bg-white shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
-            brand: "text-[#151515]",
-            divider: "bg-black/[0.07]",
-            navActive: "bg-black/[0.06] text-[#151515]",
-            navIdle: "text-[#3f3f3d] hover:bg-black/[0.04]",
-            handle:
-              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
-            count: "bg-black/[0.05] text-[#3f3f3d]",
-            dotRing: "ring-white",
-            rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-black/[0.04] hover:text-[#151515]",
-            subActive: "bg-black/[0.06] text-[#151515]",
-            row: "hover:bg-black/[0.04]",
-            rowOpen: "bg-black/[0.04]",
-            avatar: "bg-[#1d1d1d] text-white",
-            title: "text-[#1b1b1a]",
-            muted: "text-[#71706d]",
-            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
-            menuDivider: "border-black/[0.07]",
-            menuItem:
-              "text-[#1f1f1e] hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
-            menuIcon: "text-[#6b6a67]",
-            upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:bg-[#efeeeb]",
-            badge: "bg-[#f3dcf3] text-[#7a2f7a]",
-            ring: "focus-visible:ring-black/20",
-          },
-    [isDark]
-  );
-
-  const focus = [
-    "focus-visible:outline-none",
-    "focus-visible:ring-2",
-    t.ring,
-  ].join(" ");
-
-  /* --------------------------------------------------------------------------
-     Label animation
-     Ouverture : fade + slide (8 px) après LABEL_DELAY_MS, le temps que le
-                 cadre commence à s'élargir.
-     Fermeture : fade très rapide, sans délai (les textes partent avant la
-                 réduction de largeur).
-  -------------------------------------------------------------------------- */
-
-  const labelClass = useMemo(
-    () =>
-      [
-        "select-none",
-        "whitespace-nowrap",
-        "transition-[opacity,transform]",
-        "ease-[cubic-bezier(0.4,0,0.2,1)]",
-        "motion-reduce:transition-none",
-        isCollapsed
-          ? "-translate-x-2 opacity-0 delay-0 duration-100"
-          : "translate-x-0 opacity-100 delay-[120ms] duration-300",
-      ].join(" "),
-    [isCollapsed]
-  );
-
-  /* --------------------------------------------------------------------------
-     Sidebar actions
-  -------------------------------------------------------------------------- */
-
-  const toggleCollapsed = useCallback(() => {
-    setMenuOpen(false);
-    setIsCollapsed((previous) => !previous);
-    setOpenGroup(null);
-  }, []);
-
-  /* Raccourci Cmd/Ctrl + B (ignoré pendant la saisie de texte). */
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== "b" ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-
-      if (isTypingTarget(event.target)) return;
-
-      event.preventDefault();
-      toggleCollapsed();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleCollapsed]);
-
-  const handleNavigate = useCallback((route: string) => {
-    navigate(route);
-  }, []);
-
-  const handleToggleGroup = useCallback((label: string) => {
-    setOpenGroup((current) => (current === label ? null : label));
-  }, []);
-
-  /**
-   * Ouvre toujours le modal « Connect a New Channel » (le même composant que
-   * sur /channels). La sidebar ne redirige pas vers /channels.
-   */
-  const openConnect = useCallback(() => {
-    setMenuOpen(false);
-    setConnectError(null);
-    setConnectOpen(true);
-  }, []);
-
-  const closeConnect = useCallback(() => setConnectOpen(false), []);
-
-  /* Raccourcis Ctrl + touche (ignorés pendant la saisie ou si le modal est ouvert).
-       Ctrl P       menu du compte
-       Ctrl N       modal « Connect a channel »
-       Ctrl H/D/T   Home / Calendar / Templates
-       Ctrl S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
-        return;
-      }
-
-      if (connectOpen || isTypingTarget(event.target)) return;
-
-      const key = shortcutKey(event);
-      if (!key) return;
-
-      // Menu du compte
-      if (key === "p") {
-        event.preventDefault();
-        setMenuOpen((value) => !value);
-        return;
-      }
-
-      // Modal de connexion d'un canal
-      if (key === "n") {
-        event.preventDefault();
-        openConnect();
-        return;
-      }
-
-      // Pages
-      const route = SHORTCUT_ROUTES[key];
-
-      if (route) {
-        event.preventDefault();
-        setMenuOpen(false);
-        navigate(route);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [connectOpen, openConnect]);
-
-  const handleExpandAndOpen = useCallback((label: string) => {
-    setIsCollapsed(false);
-    setOpenGroup(label);
-  }, []);
-
-  const handleExpand = useCallback(() => setIsCollapsed(false), []);
-
-  /* --------------------------------------------------------------------------
-     Channel connect handlers (self-contained)
-  -------------------------------------------------------------------------- */
-
-  const limitReached =
-    Object.values(connections).filter((c) => c.connected).length >=
-    PLAN.maxChannels;
-
-  /**
-   * Bascule générique d'un fournisseur OAuth :
-   *  - connecté  → déconnexion + purge du cache
-   *  - sinon     → saisie manuelle de token (si fournie) ou redirection OAuth
-   * `manual` renvoie null quand l'utilisateur annule.
-   */
-  const toggleOAuth = async (
-    provider: OAuthProvider,
-    api: {
-      login: () => Promise<unknown>;
-      disconnect: () => Promise<unknown>;
-      manual?: () => Promise<Connection | null>;
-    }
-  ) => {
-    if (oauthBusy.current[provider]) return;
-    oauthBusy.current[provider] = true;
-
-    setPendingKey(provider);
-    let redirecting = false;
-
-    try {
-      if (connections[provider].connected) {
-        await api.disconnect();
-        if (userId) clearCache(userId, provider);
-        setConnections((current) => ({
-          ...current,
-          [provider]: { connected: false },
-        }));
-      } else if (api.manual) {
-        const connection = await api.manual();
-        if (!connection) return;
-
-        if (userId) writeCache(userId, connection, provider);
-        setConnections((current) => ({ ...current, [provider]: connection }));
-      } else {
-        await api.login();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error(`[Stone] ${OAUTH_LABELS[provider]} OAuth error:`, error);
-      setConnectError(formatOAuthError(OAUTH_LABELS[provider], error));
-    } finally {
-      // En cas de redirection, on garde le verrou : la page va être quittée.
-      if (!redirecting) {
-        setPendingKey(null);
-        oauthBusy.current[provider] = false;
-      }
-    }
   };
-
-  const pinterestManualToken = async (): Promise<Connection | null> => {
-    const token = window.prompt(
-      "Pinterest access token (généré dans le portail développeur) :"
-    );
-
-    if (!token?.trim()) return null;
-
-    const account = await connectPinterestWithToken(token.trim());
-
-    return {
-      connected: true,
-      handle: account?.display_name ?? undefined,
-      avatarUrl: account?.avatar_url ?? undefined,
-    };
-  };
-
-  const handlePlaceholderToggle = (key: ChannelKey) => {
-    setPendingKey(key);
-
-    window.clearTimeout(placeholderTimer.current);
-    placeholderTimer.current = window.setTimeout(() => {
-      setConnections((current) => ({
-        ...current,
-        [key]: current[key].connected
-          ? { connected: false }
-          : { connected: true, handle: mockHandleFor(key) },
-      }));
-      setPendingKey(null);
-    }, 500);
-  };
-
-  const handleToggle = (key: ChannelKey) => {
-    setConnectError(null);
-
-    if (!connections[key].connected && limitReached) {
-      setConnectError(
-        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
-      );
-      return;
-    }
-
-    switch (key) {
-      case "tiktok":
-        void toggleOAuth("tiktok", {
-          login: startTikTokLogin,
-          disconnect: disconnectTikTok,
-        });
-        return;
-
-      case "pinterest":
-        void toggleOAuth("pinterest", {
-          login: startPinterestLogin,
-          disconnect: disconnectPinterest,
-          manual:
-            import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
-              ? pinterestManualToken
-              : undefined,
-        });
-        return;
-
-      case "youtube":
-        void toggleOAuth("youtube", {
-          login: startYouTubeLogin,
-          disconnect: disconnectYouTube,
-        });
-        return;
-
-      default:
-        handlePlaceholderToggle(key);
-    }
-  };
-
-  /* --------------------------------------------------------------------------
-     Logout
-  -------------------------------------------------------------------------- */
-
-  const handleLogout = useCallback(async () => {
-    if (loggingOut) {
-      return;
-    }
-
-    setMenuOpen(false);
-    setLoggingOut(true);
-
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
-    } finally {
-      resetSidebarModuleState();
-      window.location.replace("/");
-    }
-  }, [loggingOut]);
-
-  /* --------------------------------------------------------------------------
-     Account data
-  -------------------------------------------------------------------------- */
-
-  let itemIndex = 0;
-  let menuItemIndex = 0;
-
-  const account = userProfile
-    ? {
-        name:
-          `${userProfile.first_name || ""} ${
-            userProfile.last_name || ""
-          }`.trim() || "User",
-        initials:
-          `${(userProfile.first_name || "")[0] || ""}${
-            (userProfile.last_name || "")[0] || ""
-          }`.toUpperCase() || "U",
-        email: userProfile.email,
-        organization: "My Organization",
-        plan: "Free plan",
-        channels: connectedChannels.length,
-        avatarUrl: userProfile.avatar_url || undefined,
-      }
-    : { ...defaultAccount, channels: connectedChannels.length };
-
-  const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
-
-  /* --------------------------------------------------------------------------
-     Modal props
-  -------------------------------------------------------------------------- */
-
-  const channelConnectProps: Omit<
-    ConnectChannelModalProps,
-    "isDark" | "onClose"
-  > = {
-    channels: CHANNELS,
-    connections,
-    pendingKey,
-    limitReached,
-    planName: PLAN.name,
-    realOAuthKeys: REAL_OAUTH,
-    errorMessage: connectError,
-    onToggle: handleToggle,
-  };
-
-  /* ==========================================================================
-     Render
-  ========================================================================== */
 
   return (
-    <div
-      className={[
-        "fixed inset-y-8 left-4 z-20",
-        "transition-[opacity,transform]",
-        "duration-500",
-        "ease-[cubic-bezier(0.32,0.72,0,1)]",
-        "motion-reduce:transition-none",
-        hasMounted
-          ? "translate-x-0 opacity-100"
-          : "-translate-x-6 opacity-0",
-      ].join(" ")}
-    >
-      <style>{SIDEBAR_KEYFRAMES}</style>
-
-      {/*
-        Largeur : 420 ms.
-        - Ouverture : la largeur démarre tout de suite, les textes suivent.
-        - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
-        La classe de durée est écrite en dur (Tailwind ne génère pas de
-        classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
-      */}
-      <aside
-        id="app-sidebar"
-        data-width-ms={SIDEBAR_WIDTH_MS}
-        className={[
-          "relative flex h-full flex-col",
-          "overflow-visible rounded-[56px]",
-          "border px-3 py-7",
-          "transition-[width,box-shadow]",
-          "duration-[420ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-          t.aside,
-          isCollapsed ? "w-[68px] delay-[120ms]" : "w-[200px] delay-0",
-        ].join(" ")}
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => (open ? setOpen(false) : openPicker("from"))}
+        className={`group flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${
+          open ? t.accentBg : isDark ? "bg-[#141414]" : "bg-white"
+        } ${t.hover} ${t.text}`}
       >
-        {/* Logo */}
+        <CalendarClock className={`h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110 motion-reduce:transform-none ${t.muted}`} aria-hidden="true" />
+        <span className="whitespace-nowrap">{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : "group-hover:translate-y-0.5"} ${t.muted}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
         <div
-          className={[
-            "flex items-center gap-2",
-            "select-none",
-            "overflow-hidden px-1.5",
-            t.brand,
-          ].join(" ")}
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${
+            isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
+          }`}
         >
-          <img
-            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-            alt="Stone logo"
-            draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
-          />
+          {/* Onglets From / To : la date choisie va dans l'onglet actif */}
+          <div className={`flex gap-1 border-b p-2 ${t.border}`}>
+            {fieldTab("from")}
+            {fieldTab("to")}
+          </div>
 
-          <span
-            className={[
-              "select-none",
-              "text-[20px] font-semibold",
-              "leading-none tracking-tight",
-              labelClass,
-            ].join(" ")}
-          >
-            Stone
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <nav
-          className={[
-            "-mx-1 mt-5 flex min-h-0 flex-1",
-            "flex-col overflow-y-auto",
-            "overflow-x-hidden px-1",
-            "[scrollbar-width:none]",
-            "[&::-webkit-scrollbar]:hidden",
-          ].join(" ")}
-          aria-label="Main"
-        >
-          {navSections.map((section, sectionIndex) => (
-            <div
-              key={section.label}
-              className={sectionIndex === 0 ? "" : "mt-3"}
-            >
-              {sectionIndex > 0 && (
-                <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-              )}
-
-              <div
-                aria-hidden={isCollapsed}
-                className={[
-                  "select-none",
-                  "overflow-hidden",
-                  "whitespace-nowrap",
-                  "px-3 text-[12px]",
-                  "font-medium leading-4",
-                  "transition-[height,margin,opacity,transform]",
-                  "duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "motion-reduce:transition-none",
-                  t.muted,
-                  isCollapsed
-                    ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
-                    : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
-                ].join(" ")}
-              >
-                {section.label}
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                {section.items.map((item) => {
-                  const hasChildren = Boolean(item.children?.length);
-
-                  const isOpen =
-                    hasChildren && openGroup === item.label && !isCollapsed;
-
-                  return (
-                    <NavItemView
-                      key={item.label}
-                      index={itemIndex++}
-                      item={item}
-                      currentRoute={currentRoute}
-                      isCollapsed={isCollapsed}
-                      isOpen={isOpen}
-                      labelClass={labelClass}
-                      focus={focus}
-                      t={t}
-                      onNavigate={handleNavigate}
-                      onToggleGroup={handleToggleGroup}
-                      onExpandAndOpen={handleExpandAndOpen}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Channels */}
-          <div className="mt-3">
-            <div className={["mx-1 mb-3 h-px", t.divider].join(" ")} />
-            <SidebarChannels
-              channels={connectedChannels}
-              isCollapsed={isCollapsed}
-              currentRoute={currentRoute}
-              labelClass={labelClass}
-              focus={focus}
-              t={t}
-              onNavigate={handleNavigate}
-              onExpand={handleExpand}
-              onConnect={openConnect}
+          <div className="p-3">
+            <p className={`mb-2 text-[12.5px] ${t.soft}`}>
+              {field === "from"
+                ? "Pick the first day of the period."
+                : "Pick the last day of the period (today max)."}
+            </p>
+            <CalendarPicker
+              // key par borne : réinitialise le mois affiché en changeant d'onglet
+              key={field}
+              value={field === "from" ? start : end}
+              onChange={pickDate}
+              isDark={isDark}
+              // Insights = analytics du passé : pas de date future.
+              disablePast={false}
+              max={today}
+              min={field === "to" ? startOfDay(start) : undefined}
             />
           </div>
-        </nav>
 
-        {/* Account */}
-        <div
-          ref={profileRef}
-          className={["mt-3 border-t pt-3", t.rail].join(" ")}
-        >
-          {/*
-            Fermée : le toggle est au-dessus de la photo de profil (colonne).
-            Ouverte : le toggle est à droite, aligné avec le profil (ligne).
-          */}
           <div
-            className={[
-              "flex gap-1",
-              isCollapsed ? "flex-col" : "flex-row items-center gap-1.5",
-            ].join(" ")}
+            className={`flex items-center justify-between border-t px-3 py-2.5 ${
+              isDark ? "border-[#262626]" : "border-zinc-200"
+            }`}
           >
-            {/* Toggle sidebar */}
             <button
               type="button"
-              aria-expanded={!isCollapsed}
-              aria-controls="app-sidebar"
-              aria-keyshortcuts="Control+B Meta+B"
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={toggleCollapsed}
-              className={[
-                "group/toggle relative flex shrink-0 select-none",
-                "items-center justify-center rounded-xl",
-                "transition-[background-color,color,transform] duration-200",
-                "active:scale-[0.94]",
-                "motion-reduce:transition-none",
-                "motion-reduce:active:scale-100",
-                isCollapsed
-                  ? "order-first h-9 w-full"
-                  : "order-last h-9 w-9",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
+              onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
-              <SidebarToggleIcon className="h-[18px] w-[18px]" open={!isCollapsed} />
-
-              {/* Infobulle : libellé + raccourci */}
-              <span
-                role="tooltip"
-                className={[
-                  "pointer-events-none absolute z-50 flex items-center gap-2",
-                  "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-                  "text-[11.5px] font-medium",
-                  "opacity-0 transition-opacity duration-150 delay-0",
-                  "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
-                  "group-focus-visible/toggle:opacity-100",
-                  "motion-reduce:transition-none",
-                  isCollapsed
-                    ? "left-full top-1/2 ml-3 -translate-y-1/2"
-                    : "bottom-full right-0 mb-2",
-                  t.menu,
-                ].join(" ")}
-              >
-                {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                <Kbd className={t.count}>{TOGGLE_SHORTCUT_LABEL}</Kbd>
-              </span>
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-150 hover:-translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+              {field === "from" ? "Next: To" : "Back: From"}
             </button>
-
-            {/* Profil */}
-            <div className="relative min-w-0 flex-1">
-              {/* Account menu */}
-              {menuOpen && (
-                <div
-                  ref={menuRef}
-                  id="account-menu"
-                  role="menu"
-                  aria-label="Account menu"
-                  onKeyDown={onMenuKeyDown}
-                  className={[
-                    "sb-menu absolute",
-                    "bottom-full left-[6px]",
-                    "z-50 mb-2 w-[264px]",
-                    "origin-bottom-left",
-                    "overflow-hidden",
-                    "rounded-[16px]",
-                    "border",
-                    t.menu,
-                  ].join(" ")}
-                >
-                  {/* Account header */}
-                  <div
-                    className="sb-item px-3.5 pb-3 pt-3.5"
-                    style={{ animationDelay: "30ms" }}
-                  >
-                    <div
-                      className={["truncate text-[11px]", t.muted].join(" ")}
-                    >
-                      {account.email}
-                    </div>
-
-                    <div className="mt-2.5 truncate text-[14px] font-semibold">
-                      {account.name}
-                    </div>
-
-                    <div className={["mt-0.5 text-[11px]", t.muted].join(" ")}>
-                      {account.plan} · {pluralizeChannels(account.channels)}
-                    </div>
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        navigate("pricing");
-                      }}
-                      className={[
-                        "mt-3 flex w-full",
-                        "select-none",
-                        "items-center justify-center",
-                        "gap-2 rounded-[10px]",
-                        "border px-3 py-2",
-                        "text-[12px] font-semibold",
-                        "transition-[background-color,transform]",
-                        "duration-150",
-                        "active:scale-[0.98]",
-                        "motion-reduce:transition-none",
-                        focus,
-                        t.upgrade,
-                      ].join(" ")}
-                    >
-                      <BoltIcon className="h-4 w-4" />
-                      Upgrade Plan
-                    </button>
-                  </div>
-
-                  {/* Menu groups */}
-                  {menuGroups.map((group, groupIndex) => (
-                    <div
-                      key={group[0]?.label ?? groupIndex}
-                      role="none"
-                      className={["border-t px-1.5 py-1.5", t.menuDivider].join(
-                        " "
-                      )}
-                    >
-                      {group.map((item) => {
-                        const Icon = item.icon;
-                        const delay = 60 + menuItemIndex++ * 25;
-                        const isLogout = item.action === "logout";
-
-                        return (
-                          <button
-                            key={item.label}
-                            type="button"
-                            role="menuitem"
-                            disabled={isLogout && loggingOut}
-                            style={{ animationDelay: `${delay}ms` }}
-                            onClick={() => {
-                              if (isLogout) {
-                                void handleLogout();
-                                return;
-                              }
-
-                              setMenuOpen(false);
-
-                              if (item.route) {
-                                navigate(item.route);
-                              }
-                            }}
-                            className={[
-                              "sb-item flex",
-                              "w-full cursor-pointer",
-                              "select-none",
-                              "items-center gap-3",
-                              "rounded-[10px]",
-                              "px-2.5 py-2",
-                              "text-left text-[12.5px]",
-                              "font-medium",
-                              "transition-[background-color,transform] duration-150",
-                              "active:scale-[0.98]",
-                              "motion-reduce:transition-none",
-                              "disabled:cursor-wait disabled:opacity-60",
-                              focus,
-                              t.menuItem,
-                            ].join(" ")}
-                          >
-                            <Icon
-                              className={[
-                                "h-4 w-4 shrink-0",
-                                t.menuIcon,
-                              ].join(" ")}
-                            />
-
-                            <span className="flex-1 truncate">
-                              {isLogout && loggingOut
-                                ? "Logging out..."
-                                : item.label}
-                            </span>
-
-                            {item.badge && (
-                              <span
-                                className={[
-                                  "select-none",
-                                  "rounded-full",
-                                  "px-2 py-0.5",
-                                  "text-[10px]",
-                                  "font-semibold",
-                                  t.badge,
-                                ].join(" ")}
-                              >
-                                {item.badge}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Profile trigger */}
-              <button
-                ref={triggerRef}
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-controls={menuOpen ? "account-menu" : undefined}
-                aria-keyshortcuts="Control+P"
-                aria-label="Open account menu"
-                title={isCollapsed ? account.name : "Account menu"}
-                onClick={() => setMenuOpen((value) => !value)}
-                className={[
-                  "flex h-11 w-full",
-                  "select-none",
-                  "items-center gap-3",
-                  "overflow-hidden",
-                  "rounded-xl px-1.5",
-                  "transition-[background-color,transform]",
-                  "duration-200",
-                  "active:scale-[0.97]",
-                  "motion-reduce:transition-none",
-                  "motion-reduce:active:scale-100",
-                  focus,
-                  menuOpen ? t.rowOpen : t.row,
-                ].join(" ")}
-              >
-                {showAvatarImage ? (
-                  <img
-                    key={account.avatarUrl}
-                    src={account.avatarUrl}
-                    alt="Profile"
-                    draggable={false}
-                    className="h-8 w-8 shrink-0 select-none rounded-full object-cover"
-                    onError={() => setAvatarLoadFailed(true)}
-                  />
-                ) : (
-                  <span
-                    className={[
-                      "flex h-8 w-8 shrink-0",
-                      "select-none",
-                      "items-center justify-center",
-                      "rounded-full",
-                      "text-[10px] font-semibold",
-                      t.avatar,
-                    ].join(" ")}
-                  >
-                    {account.initials}
-                  </span>
-                )}
-
-                <span
-                  className={[
-                    "min-w-0 flex-1",
-                    "select-none",
-                    "truncate text-left",
-                    "text-[13px] font-medium",
-                    t.title,
-                    labelClass,
-                  ].join(" ")}
-                >
-                  {account.name}
-                </span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold ${t.ctaLift} ${t.ring} ${t.accentBtn}`}
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+              Done
+            </button>
           </div>
         </div>
-      </aside>
-
-      {/* ConnectChannelModal fait lui-même son createPortal(document.body). */}
-      {connectOpen && (
-        <ConnectChannelModal
-          {...channelConnectProps}
-          isDark={isDark}
-          onClose={closeConnect}
-        />
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   PAGE — hiérarchie progressive
+   1. Focus : tendance audience (grand chiffre + graphique)
+   2. Highlights : métriques clés en liste compacte
+   3. Impact du contenu
+   4. Posts
+   v2 : lignes hoverables (fond + pastille icône inversée),
+   cartes avec ombre douce, CTA avec lift, curseurs cohérents.
+============================================================ */
+
+export default function Insights() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const t = useMemo(() => tokens(isDark), [isDark]);
+  const sidebarOffset = useSidebarOffset();
+  const channels = useConnectedChannels();
+  const channelKey = useHashChannel();
+  const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
+
+  // Plage personnalisée pilotée par le CalendarPicker (plus d'inputs date).
+  const [range, setRange] = useState<Range>("30d");
+  const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
+  const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
+  const [compare, setCompare] = useState(true);
+  const [metric, setMetric] = useState<Metric>("followers");
+  const [tab, setTab] = useState<Tab>("engagement");
+
+  const { start, end } = useMemo(
+    () => resolveRange(range, customStart, customEnd),
+    [range, customStart, customEnd]
+  );
+  const { current, previous, summary } = useInsights(start, end);
+
+  const days = current.length;
+  const dates = current.map((p) => p.date);
+  const first = current[0];
+  const last = current[days - 1];
+  const delta = last.followers - first.followers;
+  const prevDelta = previous[days - 1].followers - previous[0].followers;
+  const totalPosts = current.reduce((a, p) => a + p.posts, 0);
+
+  const compared = `${fmtFull(previous[0].date)} – ${fmtFull(previous[days - 1].date)}`;
+  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "";
+
+  const series =
+    metric === "followers"
+      ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers" }
+      : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts" };
+
+  /* --- Highlights : une seule carte, liste compacte plutôt que 6 tuiles --- */
+  const highlights: { icon: ReactNode; label: string; value: string; delta?: number }[] = [
+    { icon: <Users className="h-4 w-4" />, label: "Followers", value: nf(summary.followers), delta },
+    { icon: <FileText className="h-4 w-4" />, label: "Posts", value: nf(summary.posts) },
+    { icon: <Eye className="h-4 w-4" />, label: "Reach", value: nf(summary.reach) },
+    { icon: <Heart className="h-4 w-4" />, label: "Reactions", value: nf(summary.reactions) },
+    { icon: <MessageCircle className="h-4 w-4" />, label: "Comments", value: nf(summary.comments) },
+    { icon: <Share2 className="h-4 w-4" />, label: "Shares", value: nf(summary.shares) },
+    { icon: <Play className="h-4 w-4" />, label: "Video views", value: nf(summary.videoViews) },
+  ];
+
+  const impact: Record<
+    Tab,
+    { title: string; icon: ReactNode; headline: string; value: number; rows: { label: string; value: string }[] }
+  > = {
+    engagement: {
+      title: "Engagement rate",
+      icon: <Heart className="h-4 w-4" />,
+      headline: `${summary.engRate}%`,
+      value: Math.min(100, Math.round(summary.engRate)),
+      rows: [
+        { label: "Reactions", value: nf(summary.reactions) },
+        { label: "Comments", value: nf(summary.comments) },
+        { label: "Shares", value: nf(summary.shares) },
+      ],
+    },
+    video: {
+      title: "Views compared to reach",
+      icon: <Play className="h-4 w-4" />,
+      headline: `${pct(summary.videoViews, summary.reach)}%`,
+      value: pct(summary.videoViews, summary.reach),
+      rows: [
+        { label: "Video views", value: nf(summary.videoViews) },
+        { label: "Watch time (min)", value: nf(summary.watchMin) },
+        { label: "Avg. watch time (sec)", value: nf(summary.avgWatchSec) },
+      ],
+    },
+    reach: {
+      title: "Reach compared to followers",
+      icon: <Eye className="h-4 w-4" />,
+      headline: `${pct(summary.reach, summary.followers)}%`,
+      value: pct(summary.reach, summary.followers),
+      rows: [
+        { label: "Reach", value: nf(summary.reach) },
+        { label: "Followers", value: nf(summary.followers) },
+        { label: "Video views", value: nf(summary.videoViews) },
+      ],
+    },
+  };
+  const group = impact[tab];
+
+  const exportCsv = () => {
+    const rows: (string | number)[][] = [["date", "followers", "posts", "previous_followers"]];
+    current.forEach((p, i) => rows.push([toInput(p.date), p.followers, p.posts, previous[i].followers]));
+    downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
+  };
+
+  return (
+    <main
+      className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${t.page}`}
+      style={{ paddingLeft: sidebarOffset }}
+    >
+      <DashboardSidebar theme={theme} />
+
+      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 py-[clamp(20px,4vh,36px)] sm:px-6 lg:px-8">
+        {/* HEADER — titre + période en un coup d'œil, actions à droite */}
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-[28px] font-semibold tracking-[-0.03em]">Insights</h1>
+            <p className={`mt-1 text-[13px] ${t.muted}`}>
+              {fmtFull(start)} – {fmtFull(end)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 print:hidden">
+            <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!channel}
+              className={`group flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 ${t.ring} ${t.accentBtn} ${t.ctaLift}`}
+            >
+              <Download className="h-4 w-4 transition-transform duration-150 group-hover:translate-y-0.5 motion-reduce:transform-none" aria-hidden="true" />
+              Export CSV
+            </button>
+          </div>
+        </header>
+
+        {!channel ? (
+          <section className={`flex flex-col items-center gap-3 rounded-[20px] border px-6 py-20 text-center ${t.card} ${t.cardShadow}`}>
+            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.iconBox}`}>
+              <BarChart3 className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
+            <p className={`max-w-[360px] text-[14px] ${t.soft}`}>
+              Followers, reach and engagement show up here once a social account is connected.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("channels")}
+              className={`mt-2 flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium ${t.ring} ${t.accentBtn} ${t.ctaLift}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Connect a channel
+            </button>
+          </section>
+        ) : (
+          <>
+            {/* TOOLBAR — période à gauche (Segmented + RangePicker calendrier),
+                comparaison à droite, une seule ligne */}
+            <div className={`flex flex-wrap items-center justify-between gap-3 rounded-[20px] border px-3 py-2.5 ${t.card} ${t.cardShadow}`}>
+              <div className="flex flex-wrap items-center gap-3">
+                <Segmented
+                  label="Date range"
+                  value={range === "custom" ? "custom" : range}
+                  options={RANGES}
+                  onChange={(r) => {
+                    setRange(r);
+                  }}
+                  t={t}
+                />
+                {/* Calendrier From / To : visible uniquement en plage « Custom » */}
+                {range === "custom" && (
+                  <RangePicker
+                    range={range}
+                    start={start}
+                    end={end}
+                    onStartChange={setCustomStart}
+                    onEndChange={setCustomEnd}
+                    onRangeChange={setRange}
+                    t={t}
+                    isDark={isDark}
+                  />
+                )}
+              </div>
+              <Switch checked={compare} onChange={setCompare} label="Compare with previous period" t={t} />
+            </div>
+
+            {/* NIVEAU 1 — FOCUS PRINCIPAL : audience */}
+            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card} ${t.cardShadow}`} aria-labelledby="focus-title">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className={`text-[12px] font-medium uppercase tracking-wide ${t.muted}`}>
+                    {metric === "followers" ? "Followers" : "Posts published"}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">
+                      {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
+                    </span>
+                    <span className="flex flex-col gap-1.5">
+                      {metric === "followers" && <Delta value={delta} isDark={isDark} />}
+                      {compare && metric === "followers" && (
+                        <span className={`text-[11px] ${t.muted}`}>prev. {signed(prevDelta)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <p className={`mt-2 text-[13px] ${t.soft}`}>
+                    {metric === "followers"
+                      ? delta === 0
+                        ? "Your audience was flat in this period."
+                        : delta > 0
+                        ? `You gained ${nf(delta)} followers in this period.`
+                        : `You lost ${nf(Math.abs(delta))} followers in this period.`
+                      : totalPosts === 0
+                      ? "No posts published in this period."
+                      : `${nf(totalPosts)} posts published in this period.`}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end gap-3">
+                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} t={t} />
+                  <div className={`flex items-center gap-4 text-[11px] ${t.muted}`} aria-hidden="true">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`h-0.5 w-4 rounded-full ${isDark ? "bg-white" : "bg-zinc-950"}`} />
+                      This period
+                    </span>
+                    {compare && (
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="h-0 w-4 border-t-2 border-dashed"
+                          style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)" }}
+                        />
+                        {compared}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <h2 id="focus-title" className="sr-only">Trend</h2>
+              <div className="mt-4">
+                <Chart
+                  dates={dates}
+                  current={series.cur}
+                  previous={series.prev}
+                  compare={compare}
+                  isDark={isDark}
+                  unit={series.unit}
+                />
+              </div>
+            </section>
+
+            {/* NIVEAU 2 + 3 — highlights compactes + impact du contenu, côte à côte */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
+              <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card} ${t.cardShadow}`} aria-labelledby="highlights-title">
+                <h2 id="highlights-title" className="text-[15px] font-semibold">
+                  Highlights
+                </h2>
+                <ul className="mt-1">
+                  {highlights.map((h) => (
+                    <li
+                      key={h.label}
+                      className={`group -mx-2 flex cursor-default items-center justify-between gap-3 rounded-xl border-b border-transparent px-2 py-3 transition-colors duration-150 last:border-b-0 motion-reduce:transition-none ${t.border.replace("border-", "hover:border-") === "" ? "" : ""} ${t.rowHover}`}
+                    >
+                      <span className={`flex items-center gap-3 text-[13px] ${t.soft}`}>
+                        <span
+                          className={`flex h-8 w-8 items-center justify-center rounded-xl border border-transparent transition-colors duration-150 motion-reduce:transition-none ${t.iconBox} ${t.iconHoverOn}`}
+                        >
+                          {h.icon}
+                        </span>
+                        <span className={`font-medium transition-colors duration-150 group-hover:${isDark ? "text-white" : "text-black"}`}>
+                          {h.label}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-[15px] font-semibold tabular-nums">{h.value}</span>
+                        {h.delta !== undefined && <Delta value={h.delta} isDark={isDark} />}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className={`flex flex-col rounded-[20px] border p-5 sm:p-6 ${t.card} ${t.cardShadow}`} aria-labelledby="impact-title">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="impact-title" className="text-[15px] font-semibold">
+                    Content impact
+                  </h2>
+                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} t={t} />
+                </div>
+
+                <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-4 ${t.inner}`}>
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.iconBox}`}>{group.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[12px] ${t.muted}`}>{group.title}</p>
+                    <p className="text-[24px] font-semibold leading-tight tabular-nums">{group.headline}</p>
+                  </div>
+                  <div
+                    className="relative h-11 w-11"
+                    role="img"
+                    aria-label={`${group.value} percent`}
+                  >
+                    <svg viewBox="0 0 36 36" className="h-11 w-11 -rotate-90">
+                      <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="4" className={isDark ? "stroke-white/10" : "stroke-black/10"} />
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r="15.5"
+                        fill="none"
+                        strokeWidth="4"
+                        stroke={isDark ? "#ffffff" : "#171717"}
+                        strokeDasharray={`${(group.value / 100) * 97.4} 97.4`}
+                        strokeLinecap="round"
+                        className="transition-[stroke-dasharray] duration-500 motion-reduce:transition-none"
+                      >
+                    </svg>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums ${t.text}`}>
+                      {group.value}
+                    </span>
+                  </div>
+                </div>
+
+                <dl className="mt-1 flex-1">
+                  {group.rows.map((r) => (
+                    <div
+                      key={r.label}
+                      className={`group -mx-2 flex items-center justify-between rounded-xl border-b border-transparent px-2 py-3 transition-colors duration-150 last:border-b-0 motion-reduce:transition-none ${t.rowHover}`}
+                    >
+                      <dt className={`text-[13px] ${t.soft}`}>{r.label}</dt>
+                      <dd className="text-[14px] font-semibold tabular-nums">{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            </div>
+
+            {/* NIVEAU 4 — performance par post */}
+            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card} ${t.cardShadow}`} aria-labelledby="perf-title">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="perf-title" className="text-[15px] font-semibold">
+                  Performance per post
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => navigate("posts")}
+                  className={`group flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft} group-hover:${t.text}`}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5 transition-transform duration-150 group-hover:scale-125 motion-reduce:transform-none" aria-hidden="true" />
+                  View all posts
+                </button>
+              </div>
+
+              <div className={`mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-12 text-center transition-colors duration-200 hover:border-solid ${t.border} ${t.rowHover}`}>
+                <Activity className={`h-6 w-6 ${t.muted}`} aria-hidden="true" />
+                <p className="text-[14px] font-medium">No posts in this period</p>
+                <p className={`max-w-[360px] text-[13px] ${t.soft}`}>
+                  Choose a longer range to see how your earlier posts performed.
+                </p>
+                {days < 30 && (
+                  <button
+                    type="button"
+                    onClick={() => setRange("30d")}
+                    className={`mt-2 cursor-pointer rounded-xl border px-4 py-2 text-[12px] font-semibold ${t.ctaLift} ${t.ring} ${t.border} ${t.hover}`}
+                  >
+                    Show last 30 days
+                  </button>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    </main>
   );
 }
