@@ -1,6 +1,8 @@
 // src/pages/Insights.tsx
-// Page Insights — refonte UX : hiérarchie progressive (1 focus principal,
-// 1 colonne d'highlights, impact contenu), style Black & White aligné sur Channels.
+// Page Insights — hiérarchie progressive (1 focus principal, 1 colonne
+// d'highlights, impact contenu, posts), style Black & White aligné sur Channels.
+// Sélecteur de période « Custom » : utilise le même CalendarPicker que
+// NewPostModal (panneau déroulant From / To), en remplacement des inputs date.
 // Les données sont fournies par `useInsights` : branche-le sur ton backend.
 import {
   useEffect,
@@ -15,7 +17,11 @@ import {
 } from "react";
 import {
   Activity,
+  ArrowLeft,
   BarChart3,
+  CalendarClock,
+  Check,
+  ChevronDown,
   Download,
   Eye,
   Heart,
@@ -28,14 +34,13 @@ import {
   TrendingUp,
   Users,
   FileText,
-  Check,
-  ChevronDown,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
+import { CalendarPicker } from "../components/CalendarPicker";
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -62,6 +67,8 @@ type IconComponent = ComponentType<{
 type Range = "7d" | "30d" | "mtd" | "custom";
 type Metric = "followers" | "posts";
 type Tab = "engagement" | "video" | "reach";
+/** Étape du panneau calendrier : 0 = choix de la plage, 1 = From, 2 = To. */
+type CalendarStep = "menu" | "from" | "to";
 
 type Point = { date: Date; posts: number; followers: number };
 
@@ -96,6 +103,23 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "reach", label: "Reach" },
 ];
 
+const CALENDAR_MENU: {
+  id: Exclude<CalendarStep, "from" | "to"> | "from" | "to";
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "from",
+    label: "From date",
+    description: "Pick the first day of the period.",
+  },
+  {
+    id: "to",
+    label: "To date",
+    description: "Pick the last day of the period (today max).",
+  },
+];
+
 /* ============================================================
    STYLE TOKENS — Black & White, aligné sur la page Channels
 ============================================================ */
@@ -115,6 +139,8 @@ type Tokens = {
   ring: string;
   hover: string;
   badgeBg: string;
+  accentBg: string;
+  accentBorder: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
@@ -134,6 +160,8 @@ const tokens = (isDark: boolean): Tokens =>
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
         hover: "hover:bg-white/[0.05]",
         badgeBg: "bg-white text-black",
+        accentBg: "bg-white/10",
+        accentBorder: "border-white/15",
       }
     : {
         page: "bg-[#f7f7f5] text-black",
@@ -150,6 +178,8 @@ const tokens = (isDark: boolean): Tokens =>
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
         hover: "hover:bg-black/[0.04]",
         badgeBg: "bg-white text-black",
+        accentBg: "bg-zinc-200",
+        accentBorder: "border-black/10",
       };
 
 /* ============================================================
@@ -170,10 +200,13 @@ const addDays = (d: Date, n: number) => {
 };
 const toInput = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const fromInput = (v: string) => {
-  const [y, m, d] = v.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-};
+
+/** Fusionne la date choisie dans le calendrier avec l'heure conservée. */
+function keepTime(next: Date, previous: Date): Date {
+  const merged = new Date(startOfDay(next));
+  merged.setHours(previous.getHours(), previous.getMinutes(), 0, 0);
+  return merged;
+}
 
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 const fmtFull = (d: Date) =>
@@ -182,15 +215,23 @@ const nf = (n: number) => n.toLocaleString("en-US");
 const signed = (n: number) => (n === 0 ? "0" : `${n > 0 ? "+" : "−"}${nf(Math.abs(n))}`);
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
 
-function resolveRange(range: Range, customStart: string, customEnd: string) {
+type ResolvedRange = { start: Date; end: Date };
+
+function resolveRange(
+  range: Range,
+  customStart: Date,
+  customEnd: Date
+): ResolvedRange {
   const today = startOfDay(new Date());
   if (range === "7d") return { start: addDays(today, -6), end: today };
   if (range === "30d") return { start: addDays(today, -29), end: today };
-  if (range === "mtd") return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
+  if (range === "mtd")
+    return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
 
-  let s = fromInput(customStart);
-  let e = fromInput(customEnd);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return { start: addDays(today, -29), end: today };
+  let s = startOfDay(customStart);
+  let e = startOfDay(customEnd);
+  if (isNaN(s.getTime())) s = addDays(today, -29);
+  if (isNaN(e.getTime())) e = today;
   if (s > e) [s, e] = [e, s];
   if (e > today) e = today;
   if (s > e) s = e;
@@ -277,7 +318,8 @@ function smoothPath(pts: [number, number][]): string {
     m.push((pts[i + 1][1] - pts[i][1]) / (dx[i] || 1));
   }
   const t: number[] = [m[0]];
-  for (let i = 1; i < n - 1; i++) t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
+  for (let i = 1; i < n - 1; i++)
+    t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
   t.push(m[n - 2]);
   for (let i = 0; i < n - 1; i++) {
     if (m[i] === 0) {
@@ -298,8 +340,7 @@ function smoothPath(pts: [number, number][]): string {
   for (let i = 0; i < n - 1; i++) {
     const h = dx[i] / 3;
     d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(
-      pts[i + 1][1] -
-      t[i + 1] * h
+      pts[i + 1][1] - t[i + 1] * h
     ).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
   }
   return d;
@@ -347,7 +388,8 @@ function Chart({
 
   const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
-  const toPts = (vals: number[]): [number, number][] => vals.map((v, i) => [x(i), y(v)]);
+  const toPts = (vals: number[]): [number, number][] =>
+    vals.map((v, i) => [x(i), y(v)]);
   const line = smoothPath(toPts(current));
   const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
@@ -355,8 +397,12 @@ function Chart({
   const grid = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
   const axis = isDark ? "#6b6b73" : "#9a9aa3";
 
-  const ticks = Array.from(new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4))));
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
+  const ticks = Array.from(
+    new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4)))
+  );
+  const labelIdx = Array.from(
+    new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
+  );
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -741,35 +787,205 @@ function ChannelMenu({
   );
 }
 
-function DateField({
-  label,
-  value,
-  min,
-  max,
-  onChange,
+/* ============================================================
+   RANGE PICKER — CalendarPicker de NewPostModal
+   Bouton « Custom » → menu (From / To) → calendrier, même ergonomie
+   que le panneau date/heure de la modale (Escape, clic extérieur, retour).
+============================================================ */
+
+function RangePicker({
+  range,
+  start,
+  end,
+  today,
+  onStartChange,
+  onEndChange,
+  onRangeChange,
   t,
   isDark,
 }: {
-  label: string;
-  value: string;
-  min?: string;
-  max: string;
-  onChange: (v: string) => void;
+  range: Range;
+  start: Date;
+  end: Date;
+  today: Date;
+  onStartChange: (d: Date) => void;
+  onEndChange: (d: Date) => void;
+  onRangeChange: (r: Range) => void;
   t: Tokens;
   isDark: boolean;
 }) {
+  const [step, setStep] = useState<CalendarStep>("menu");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const isOpen = step !== "menu";
+
+  // Fermeture : Escape + clic extérieur (comme les dropdowns de NewPostModal).
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setStep("menu");
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setStep("menu");
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen]);
+
+  const close = () => setStep("menu");
+
+  const openPicker = (next: CalendarStep) => {
+    // Ouvrir le panneau passe automatiquement en plage personnalisée.
+    if (range !== "custom") onRangeChange("custom");
+    setStep(next);
+  };
+
+  const label =
+    range === "custom"
+      ? `${fmt(start)} – ${fmt(end)}`
+      : RANGES.find((r) => r.key === range)?.label ?? "";
+
+  const selectFrom = (d: Date) => {
+    onStartChange(d);
+    // Enchaîne directement sur le choix de la date de fin.
+    setStep("to");
+  };
+
+  const selectTo = (d: Date) => {
+    onEndChange(d);
+    close();
+  };
+
   return (
-    <label className={`flex items-center gap-2 text-[12px] ${t.muted}`}>
-      {label}
-      <input
-        type="date"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => e.target.value && onChange(e.target.value)}
-        className={`rounded-xl border px-3 py-1.5 text-[12px] ${t.ring} ${t.inner} ${t.text} ${isDark ? "[color-scheme:dark]" : ""}`}
-      />
-    </label>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? setStep("menu") : setStep("from"))}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${
+          isOpen ? t.accentBg : isDark ? "bg-[#141414]" : "bg-white"
+        } ${t.hover} ${t.text}`}
+      >
+        <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
+        <span className="whitespace-nowrap">{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""} ${t.muted}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${
+            isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
+          }`}
+        >
+          {step === "from" || step === "to" ? (
+            <>
+              <div className="p-3">
+                <p className={`mb-2 text-[13px] font-semibold ${t.text}`}>
+                  {step === "from" ? "From date" : "To date"}
+                </p>
+                <CalendarPicker
+                  value={step === "from" ? start : end}
+                  onChange={step === "from" ? selectFrom : selectTo}
+                  isDark={isDark}
+                  // Pour « To », on empêche de dépasser aujourd'hui via min/max
+                  // gérés dans resolveRange ; CalendarPicker reste utilisé tel quel.
+                />
+              </div>
+
+              <div
+                className={`flex items-center justify-between border-t px-3 py-2.5 ${
+                  isDark ? "border-[#262626]" : "border-zinc-200"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setStep("menu")}
+                  className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                  More
+                </button>
+                <button
+                  type="button"
+                  onClick={close}
+                  className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <div role="menu" className="p-2">
+              {RANGES.map((r) => {
+                const isSel = range === r.key;
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    role="menuitem"
+                    aria-checked={isSel}
+                    onClick={() => {
+                      onRangeChange(r.key);
+                      close();
+                    }}
+                    className={`flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left transition-colors ${t.ring} ${
+                      isSel ? `${t.accentBg} ${t.text}` : t.hover
+                    }`}
+                  >
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                      {isSel && <Check className={`h-4 w-4 ${t.text}`} strokeWidth={3} aria-hidden="true" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-[13.5px] font-bold ${isSel ? t.text : t.text}`}>
+                        {r.label}
+                      </span>
+                      {r.key === "custom" && (
+                        <span className={`mt-0.5 block text-[12px] ${t.muted}`}>
+                          {fmtFull(start)} – {fmtFull(end)}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <div className={`my-1 border-t ${t.border}`} />
+
+              {CALENDAR_MENU.filter((c) => c.id === "from" || c.id === "to").map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => openPicker(c.id as CalendarStep)}
+                  className={`flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left transition-colors ${t.ring} ${t.hover}`}
+                >
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                    <CalendarClock className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[13.5px] font-bold ${t.text}`}>
+                      {c.label}
+                    </span>
+                    <span className={`mt-0.5 block text-[12px] leading-snug ${t.muted}`}>
+                      {c.description}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -790,10 +1006,10 @@ export default function Insights() {
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
 
-  const todayInput = toInput(new Date());
+  // Plage personnalisée pilotée par le CalendarPicker (plus d'inputs date).
   const [range, setRange] = useState<Range>("30d");
-  const [customStart, setCustomStart] = useState(() => toInput(addDays(new Date(), -29)));
-  const [customEnd, setCustomEnd] = useState(todayInput);
+  const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
+  const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [compare, setCompare] = useState(true);
   const [metric, setMetric] = useState<Metric>("followers");
   const [tab, setTab] = useState<Tab>("engagement");
@@ -877,6 +1093,8 @@ export default function Insights() {
     downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
+  const today = startOfDay(new Date());
+
   return (
     <main
       className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${t.page}`}
@@ -927,31 +1145,30 @@ export default function Insights() {
           </section>
         ) : (
           <>
-            {/* TOOLBAR — période à gauche, comparaison à droite, une seule ligne */}
+            {/* TOOLBAR — période à gauche (Segmented + RangePicker calendrier),
+                comparaison à droite, une seule ligne */}
             <div className={`flex flex-wrap items-center justify-between gap-3 rounded-[20px] border px-3 py-2.5 ${t.card}`}>
               <div className="flex flex-wrap items-center gap-3">
-                <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} t={t} />
-                {range === "custom" && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <DateField
-                      label="From"
-                      value={toInput(start)}
-                      max={toInput(end)}
-                      onChange={setCustomStart}
-                      t={t}
-                      isDark={isDark}
-                    />
-                    <DateField
-                      label="To"
-                      value={toInput(end)}
-                      min={toInput(start)}
-                      max={todayInput}
-                      onChange={setCustomEnd}
-                      t={t}
-                      isDark={isDark}
-                    />
-                  </div>
-                )}
+                <Segmented
+                  label="Date range"
+                  value={range === "custom" ? "custom" : range}
+                  options={RANGES}
+                  onChange={(r) => {
+                    setRange(r);
+                  }}
+                  t={t}
+                />
+                <RangePicker
+                  range={range}
+                  start={start}
+                  end={end}
+                  today={today}
+                  onStartChange={setCustomStart}
+                  onEndChange={setCustomEnd}
+                  onRangeChange={setRange}
+                  t={t}
+                  isDark={isDark}
+                />
               </div>
               <Switch checked={compare} onChange={setCompare} label="Compare with previous period" t={t} />
             </div>
