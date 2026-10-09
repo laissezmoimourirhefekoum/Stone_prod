@@ -1225,7 +1225,7 @@ export default function Insights() {
                   {highlights.map((h) => (
                     <li
                       key={h.label}
-                      className={`group -mx-2 flex cursor-default items-center justify-between gap-3 rounded-xl border-b border-transparent px-2 py-3 transition-colors duration-150 last:border-b-0 motion-reduce:transition-none ${t.border.replace("border-", "hover:border-") === "" ? "" : ""} ${t.rowHover}`}
+                      className={`group -mx-2 flex cursor-default items-center justify-between gap-3 rounded-xl border-b border-transparent px-2 py-3 transition-colors duration-150 last:border-b-0 motion-reduce:transition-none ${t.rowHover}`}
                     >
                       <span className={`flex items-center gap-3 text-[13px] ${t.soft}`}>
                         <span
@@ -1233,7 +1233,7 @@ export default function Insights() {
                         >
                           {h.icon}
                         </span>
-                        <span className={`font-medium transition-colors duration-150 group-hover:${isDark ? "text-white" : "text-black"}`}>
+                        <span className={`font-medium transition-colors duration-150 ${isDark ? "group-hover:text-white" : "group-hover:text-black"}`}>
                           {h.label}
                         </span>
                       </span>
@@ -1277,7 +1277,7 @@ export default function Insights() {
                         strokeDasharray={`${(group.value / 100) * 97.4} 97.4`}
                         strokeLinecap="round"
                         className="transition-[stroke-dasharray] duration-500 motion-reduce:transition-none"
-                      >
+                      />
                     </svg>
                     <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums ${t.text}`}>
                       {group.value}
@@ -1308,7 +1308,7 @@ export default function Insights() {
                 <button
                   type="button"
                   onClick={() => navigate("posts")}
-                  className={`group flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft} group-hover:${t.text}`}
+                  className={`group flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft} hover:text-current`}
                 >
                   <MoreHorizontal className="h-3.5 w-3.5 transition-transform duration-150 group-hover:scale-125 motion-reduce:transform-none" aria-hidden="true" />
                   View all posts
