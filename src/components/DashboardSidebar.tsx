@@ -357,7 +357,7 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
   return (
     <kbd
       className={[
-        "select-none rounded-full px-2 py-0.5 font-sans text-[10px] font-semibold",
+        "select-none rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
         className,
       ].join(" ")}
     >
@@ -551,7 +551,7 @@ function SidebarToggleIcon({
           open ? "opacity-30" : "opacity-0",
         ].join(" ")}
       />
-      <rect x="3.5" y="4.5" width="17" height="15" rx="4" />
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
       <path d="M9.5 4.5v15" />
     </Svg>
   );
@@ -639,7 +639,7 @@ function Tip({
             className={[
               "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
               "flex items-center gap-2",
-              "whitespace-nowrap rounded-full border px-3 py-1.5",
+              "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
               "text-[11.5px] font-medium",
               menuClass,
             ].join(" ")}
@@ -779,7 +779,7 @@ function NavItemViewImpl({
           "group relative flex h-9 w-full",
           "select-none",
           "items-center gap-2.5 overflow-hidden",
-          "rounded-full px-3",
+          "rounded-xl px-3",
           "text-[12.5px] font-medium",
           "transition-[background-color,color,transform]",
           "duration-200",
@@ -795,7 +795,7 @@ function NavItemViewImpl({
           <span
             aria-hidden="true"
             className={[
-              "absolute left-1.5 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
+              "absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
               t.accent,
             ].join(" ")}
           />
@@ -843,7 +843,7 @@ function NavItemViewImpl({
             style={labelStyle}
             className={[
               "select-none",
-              "rounded-full px-1.5 py-0.5",
+              "rounded-md px-1.5 py-0.5",
               "text-[10.5px] font-medium",
               t.count,
               labelClass,
@@ -909,7 +909,7 @@ function NavItemViewImpl({
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
-                      "rounded-full px-3",
+                      "rounded-lg px-2",
                       "text-left text-[12.5px]",
                       "font-medium",
                       "transition-[background-color,color,opacity,transform]",
@@ -1116,7 +1116,7 @@ function ChannelAvatar({
         <span
           className={[
             "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-full bg-white text-black ring-2",
+            "rounded-[4px] bg-white text-black ring-2",
             dotRing,
           ].join(" ")}
         >
@@ -1318,12 +1318,12 @@ function ChannelHoverCard({
             onKeyDown={onPopKeyDown}
             onClick={(event) => event.stopPropagation()}
             className={[
-              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-[26px] border p-2",
+              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-2xl border p-2",
               t.menu,
             ].join(" ")}
           >
             {/* En-tête : avatar + nom du compte */}
-            <div className="flex items-center gap-2.5 px-2 pb-2 pt-1">
+            <div className="flex items-center gap-2.5 px-1 pb-2 pt-1">
               <ChannelAvatar
                 channel={channel}
                 NetworkIcon={NetworkIcon}
@@ -1371,7 +1371,7 @@ function ChannelHoverCard({
                     }}
                     className={[
                       "group flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                      "rounded-full px-3 text-left text-[12.5px] font-medium",
+                      "rounded-lg px-2 text-left text-[12.5px] font-medium",
                       "transition-colors duration-150 motion-reduce:transition-none",
                       focus,
                       active ? t.subActive : t.sub,
@@ -1436,7 +1436,7 @@ function SidebarChannelsImpl({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   const headerButton = [
-    "group relative z-10 flex h-6 w-6 items-center justify-center rounded-full",
+    "group relative z-10 flex h-6 w-6 items-center justify-center rounded-md",
     "transition-colors duration-150 motion-reduce:transition-none",
     t.menuIcon,
     focus,
@@ -1483,7 +1483,7 @@ function SidebarChannelsImpl({
           type="button"
           onClick={onConnect}
           className={[
-            "mt-0.5 flex w-full flex-col items-start gap-1 rounded-3xl border border-dashed p-3 text-left",
+            "mt-0.5 flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
             t.hoverBorder,
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
@@ -1547,7 +1547,7 @@ function SidebarChannelsImpl({
                   }}
                   className={[
                     "group relative flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
-                    "rounded-full px-[9px] text-[12.5px] font-medium",
+                    "rounded-xl px-[9px] text-[12.5px] font-medium",
                     "transition-[background-color,color,transform] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none",
                     "motion-reduce:active:scale-100",
@@ -1570,7 +1570,7 @@ function SidebarChannelsImpl({
                     channel={channel}
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
-                    ringClass={t.avatarRing}
+                ringClass={t.avatarRing}
                   />
 
                   <span
@@ -1607,7 +1607,7 @@ function SidebarChannelsImpl({
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[17px] mt-1 flex flex-col gap-0.5 border-l pl-2",
+                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
                       t.rail,
                     ].join(" ")}
                   >
@@ -1641,8 +1641,8 @@ function SidebarChannelsImpl({
                             transitionDelay: subLinkDelay(isOpen, i),
                           }}
                           className={[
-                            "group flex h-8 w-full select-none items-center gap-1.5 whitespace-nowrap",
-                            "rounded-full px-2 text-left text-[12.5px] font-medium",
+                            "group flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
+                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
@@ -1660,13 +1660,11 @@ function SidebarChannelsImpl({
                                 : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
                             ].join(" ")}
                           />
-                          <span className="min-w-0 flex-1 truncate">
-                            {link.label}
-                          </span>
+                          <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "shrink-0 rounded-full px-1.5 py-px text-[9.5px] font-semibold leading-4",
+                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1698,7 +1696,7 @@ function SidebarChannelsImpl({
             aria-keyshortcuts={ariaShortcut("n")}
             onClick={onConnect}
             className={[
-              "group mt-1 flex h-9 w-full select-none items-center gap-3 rounded-full px-3",
+              "group mt-1 flex h-9 w-full select-none items-center gap-3 rounded-xl px-3",
               "transition-[background-color,color,transform] duration-200 active:scale-[0.97]",
               "motion-reduce:transition-none motion-reduce:active:scale-100",
               focus,
@@ -1749,10 +1747,10 @@ function resetSidebarModuleState() {
   channelsMemory.open = [];
 }
 
-/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (176px),
-   plus sa marge gauche (16px) et un espace de respiration (16px). */
+/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
+   plus sa marge gauche (16px) et un espace de respiration. */
 export const SIDEBAR_COLLAPSED_OFFSET = 104;
-export const SIDEBAR_EXPANDED_OFFSET = 208;
+export const SIDEBAR_EXPANDED_OFFSET = 232;
 
 const sidebarListeners = new Set<() => void>();
 
@@ -2657,7 +2655,7 @@ export default function DashboardSidebar({
           aria-controls="app-sidebar"
           onClick={() => setMobileOpen(true)}
           className={[
-            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border",
+            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-xl border",
             "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
             focus,
             t.aside,
@@ -2701,8 +2699,6 @@ export default function DashboardSidebar({
           - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
           La classe de durée est écrite en dur (Tailwind ne génère pas de
           classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
-
-          Ouverte : 176 px (desktop) / 220 px (tiroir mobile). Réduite : 68 px.
         */}
         <aside
           id="app-sidebar"
@@ -2714,7 +2710,7 @@ export default function DashboardSidebar({
           }
           className={[
             "relative flex h-full flex-col",
-            "overflow-visible rounded-[36px]",
+            "overflow-visible rounded-[28px]",
             "border px-3 py-6",
             "transition-[width,box-shadow]",
             "duration-[420ms]",
@@ -2724,8 +2720,8 @@ export default function DashboardSidebar({
             compact
               ? "w-[68px] delay-[120ms]"
               : isMobile
-                ? "w-[220px] max-w-[calc(100vw-24px)] delay-0"
-                : "w-[176px] delay-0",
+                ? "w-[248px] max-w-[calc(100vw-24px)] delay-0"
+                : "w-[200px] delay-0",
           ].join(" ")}
         >
           {/* Logo */}
@@ -2877,7 +2873,7 @@ export default function DashboardSidebar({
                 onClick={toggleCollapsed}
                 className={[
                   "group/toggle relative flex shrink-0 select-none",
-                  "items-center justify-center rounded-full",
+                  "items-center justify-center rounded-xl",
                   "transition-[background-color,color,transform] duration-200",
                   "active:scale-[0.94]",
                   "motion-reduce:transition-none",
@@ -2899,7 +2895,7 @@ export default function DashboardSidebar({
                     role="tooltip"
                     className={[
                       "pointer-events-none absolute z-50 flex items-center gap-2",
-                      "whitespace-nowrap rounded-full border px-3 py-1.5",
+                      "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
                       "text-[11.5px] font-medium",
                       "opacity-0 transition-opacity duration-150 delay-0",
                       "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
@@ -2933,14 +2929,14 @@ export default function DashboardSidebar({
                       "z-50 mb-2 w-[264px] max-w-[calc(100vw-48px)]",
                       "origin-bottom-left",
                       "overflow-hidden",
-                      "rounded-[26px]",
+                      "rounded-[16px]",
                       "border",
                       t.menu,
                     ].join(" ")}
                   >
                     {/* Account header */}
                     <div
-                      className="sb-item px-4 pb-3 pt-4"
+                      className="sb-item px-3.5 pb-3 pt-3.5"
                       style={{ animationDelay: "30ms" }}
                     >
                       <div
@@ -3009,7 +3005,7 @@ export default function DashboardSidebar({
                           "group mt-3 flex w-full",
                           "select-none",
                           "items-center justify-center",
-                          "gap-2 rounded-full",
+                          "gap-2 rounded-[10px]",
                           "border px-3 py-2",
                           "text-[12px] font-semibold",
                           "transition-[background-color,border-color,transform,filter]",
@@ -3032,7 +3028,7 @@ export default function DashboardSidebar({
                       <div
                         key={group[0]?.label ?? groupIndex}
                         role="none"
-                        className={["border-t px-2 py-1.5", t.menuDivider].join(
+                        className={["border-t px-1.5 py-1.5", t.menuDivider].join(
                           " "
                         )}
                       >
@@ -3073,8 +3069,8 @@ export default function DashboardSidebar({
                                 "w-full",
                                 "select-none",
                                 "items-center gap-3",
-                                "rounded-full",
-                                "px-3 py-2",
+                                "rounded-[10px]",
+                                "px-2.5 py-2",
                                 "text-left text-[12.5px]",
                                 "font-medium",
                                 "transition-[background-color,transform] duration-150",
@@ -3145,7 +3141,7 @@ export default function DashboardSidebar({
                       "select-none",
                       "items-center gap-3",
                       "overflow-hidden",
-                      "rounded-full px-1.5",
+                      "rounded-xl px-1.5",
                       "transition-[background-color,transform]",
                       "duration-200",
                       "active:scale-[0.97]",
