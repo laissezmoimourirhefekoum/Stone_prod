@@ -368,7 +368,7 @@ function HeroChart({
   const ticks = Array.from(
     new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4)))
   );
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))));
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
