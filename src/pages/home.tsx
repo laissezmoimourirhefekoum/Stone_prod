@@ -438,6 +438,74 @@ function getNetworkId(
 
 /* ============================================================
 
+   CHANNEL AVATAR
+
+============================================================ */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  overlap,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  overlap: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name || "Channel";
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const networkId = getNetworkId(channel);
+  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+
+  return (
+    <div
+      className="relative h-9 w-9 shrink-0"
+      style={{ marginLeft: overlap ? -8 : 0 }}
+      title={label}
+    >
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={["h-full w-full rounded-full object-cover ring-2", panelRingClass(isDark)].join(" ")}
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full",
+            "text-[11px] font-semibold ring-2",
+            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
+            panelRingClass(isDark),
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
+            "justify-center rounded-full bg-white text-black ring-1",
+            panelRingClass(isDark),
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+
    BLOG
 
 ============================================================ */
