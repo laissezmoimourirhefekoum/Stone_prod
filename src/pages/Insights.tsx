@@ -1,9 +1,9 @@
 // src/pages/Insights.tsx
-// Page Insights — hiérarchie progressive (1 focus principal, 1 colonne
-// d'highlights, impact contenu, posts), style Black & White aligné sur Channels.
-// Sélecteur de période « Custom » : utilise le même CalendarPicker que
-// NewPostModal (panneau déroulant From / To), en remplacement des inputs date.
-// Les données sont fournies par `useInsights` : branche-le sur ton backend.
+// Page Insights — REFACTORING UI (redesign libre)
+// Direction artistique : "Editorial monochrome" — grandes numerals,
+// sections numérotées, filets fins, cartes sans ombre, micro-sparklines.
+// Contrats conservés : useInsights, useConnectedChannels, CalendarPicker,
+// useHashRoute / navigate, useTheme, DashboardSidebar. Drop-in replacement.
 import {
   useEffect,
   useId,
@@ -17,7 +17,7 @@ import {
 } from "react";
 import {
   Activity,
-  ArrowLeft,
+  ArrowUpRight,
   BarChart3,
   CalendarClock,
   Check,
@@ -37,14 +37,9 @@ import {
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar, {
-  useSidebarOffset,
-} from "../components/DashboardSidebar";
+import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSidebar";
 import { CalendarPicker } from "../components/CalendarPicker";
-import {
-  useConnectedChannels,
-  type ConnectedChannel,
-} from "../hooks/useConnectedChannels";
+import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
 import {
   InstagramIcon,
   FacebookIcon,
@@ -58,11 +53,7 @@ import {
    TYPES
 ============================================================ */
 
-/** Composant d'icône de réseau (même signature que dans Channels.tsx). */
-type IconComponent = ComponentType<{
-  className?: string;
-  size?: number;
-}>;
+type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type Metric = "followers" | "posts";
@@ -84,9 +75,9 @@ type Summary = {
 };
 
 const RANGES: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
-  { key: "mtd", label: "Month to date" },
+  { key: "7d", label: "7d" },
+  { key: "30d", label: "30d" },
+  { key: "mtd", label: "MTD" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -102,7 +93,7 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 /* ============================================================
-   STYLE TOKENS — Black & White, aligné sur la page Channels
+   TOKENS — Editorial monochrome (cartes plates, filets fins)
 ============================================================ */
 
 type Tokens = {
@@ -110,18 +101,20 @@ type Tokens = {
   text: string;
   muted: string;
   soft: string;
+  faint: string;
   card: string;
   border: string;
+  rule: string;
   inner: string;
   chipOn: string;
   chipOff: string;
   accentBtn: string;
+  ghostBtn: string;
   iconBox: string;
   ring: string;
   hover: string;
-  badgeBg: string;
-  accentBg: string;
-  accentBorder: string;
+  ink: string;
+  numFont: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
@@ -131,36 +124,40 @@ const tokens = (isDark: boolean): Tokens =>
         text: "text-white",
         muted: "text-zinc-500",
         soft: "text-zinc-400",
-        card: "bg-[#141414] border-[#262626]",
-        border: "border-[#262626]",
-        inner: "bg-[#0f0f0f] border-[#262626]",
+        faint: "text-zinc-600",
+        card: "bg-[#0e0e0e] border-[#232323]",
+        border: "border-[#232323]",
+        rule: "border-[#1c1c1c]",
+        inner: "bg-[#111111] border-[#232323]",
         chipOn: "bg-white text-black",
         chipOff: "text-zinc-400 hover:text-white hover:bg-white/[0.06]",
         accentBtn: "bg-white text-black hover:bg-zinc-200",
-        iconBox: "bg-[#262626] text-white",
+        ghostBtn: "border border-[#2c2c2c] text-white hover:border-white/50 hover:bg-white/[0.04]",
+        iconBox: "bg-[#1a1a1a] text-zinc-300 border border-[#262626]",
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
         hover: "hover:bg-white/[0.05]",
-        badgeBg: "bg-white text-black",
-        accentBg: "bg-white/10",
-        accentBorder: "border-white/15",
+        ink: "#ffffff",
+        numFont: "font-light tabular-nums tracking-[-0.04em]",
       }
     : {
-        page: "bg-[#f7f7f5] text-black",
+        page: "bg-[#fbfbf9] text-black",
         text: "text-black",
         muted: "text-zinc-500",
         soft: "text-zinc-600",
+        faint: "text-zinc-400",
         card: "bg-white border-zinc-200",
         border: "border-zinc-200",
-        inner: "bg-zinc-50 border-zinc-200",
+        rule: "border-zinc-100",
+        inner: "bg-[#fafaf8] border-zinc-200",
         chipOn: "bg-zinc-950 text-white",
         chipOff: "text-zinc-500 hover:text-black hover:bg-black/[0.05]",
         accentBtn: "bg-zinc-950 text-white hover:bg-zinc-800",
-        iconBox: "bg-zinc-100 text-black",
+        ghostBtn: "border border-zinc-300 text-black hover:border-black/60 hover:bg-black/[0.03]",
+        iconBox: "bg-[#f4f4f1] text-zinc-700 border border-zinc-200",
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
         hover: "hover:bg-black/[0.04]",
-        badgeBg: "bg-white text-black",
-        accentBg: "bg-zinc-200",
-        accentBorder: "border-black/10",
+        ink: "#171717",
+        numFont: "font-light tabular-nums tracking-[-0.04em]",
       };
 
 /* ============================================================
@@ -189,18 +186,11 @@ const nf = (n: number) => n.toLocaleString("en-US");
 const signed = (n: number) => (n === 0 ? "0" : `${n > 0 ? "+" : "−"}${nf(Math.abs(n))}`);
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
 
-type ResolvedRange = { start: Date; end: Date };
-
-function resolveRange(
-  range: Range,
-  customStart: Date,
-  customEnd: Date
-): ResolvedRange {
+function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
   if (range === "7d") return { start: addDays(today, -6), end: today };
   if (range === "30d") return { start: addDays(today, -29), end: today };
-  if (range === "mtd")
-    return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
+  if (range === "mtd") return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
 
   let s = startOfDay(customStart);
   let e = startOfDay(customEnd);
@@ -253,7 +243,7 @@ function useInsights(
   }, [s, e]);
 }
 
-/** Canal demandé via #/insights?channel=<key>. Se ré-actualise à chaque changement de hash. */
+/** Canal demandé via #/insights?channel=<key>. */
 function useHashChannel(): string | null {
   const [, force] = useState(0);
   useHashRoute();
@@ -321,16 +311,18 @@ function smoothPath(pts: [number, number][]): string {
 }
 
 /* ============================================================
-   CHART — interactions clavier + pointer conservées
+   HERO CHART — area (followers) ou barres (posts),
+   interactions clavier + pointer conservées
 ============================================================ */
 
-function Chart({
+function HeroChart({
   dates,
   current,
   previous,
   compare,
   isDark,
   unit,
+  mode,
 }: {
   dates: Date[];
   current: number[];
@@ -338,12 +330,13 @@ function Chart({
   compare: boolean;
   isDark: boolean;
   unit: string;
+  mode: "area" | "bars";
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const gradId = useId().replace(/:/g, "");
-  const W = 720;
-  const H = 260;
-  const pad = { l: 34, r: 12, t: 16, b: 26 };
+  const W = 920;
+  const H = 300;
+  const pad = { l: 40, r: 16, t: 24, b: 30 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = current.length;
@@ -352,9 +345,9 @@ function Chart({
   const lo = Math.min(...all);
   let min = Math.floor(lo);
   let max = Math.ceil(Math.max(...all));
-  if (max - min < 4) {
-    max = min + 4;
-  } else {
+  if (mode === "bars") min = 0;
+  if (max - min < 4) max = min + 4;
+  else if (mode === "area") {
     min -= 1;
     max += 1;
   }
@@ -362,8 +355,9 @@ function Chart({
 
   const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
-  const toPts = (vals: number[]): [number, number][] =>
-    vals.map((v, i) => [x(i), y(v)]);
+  const bw = Math.max(2, Math.min(28, (iw / Math.max(n, 1)) * 0.55));
+
+  const toPts = (vals: number[]): [number, number][] => vals.map((v, i) => [x(i), y(v)]);
   const line = smoothPath(toPts(current));
   const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
@@ -374,9 +368,7 @@ function Chart({
   const ticks = Array.from(
     new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4)))
   );
-  const labelIdx = Array.from(
-    new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
-  );
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))));
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -397,7 +389,7 @@ function Chart({
 
   return (
     <div
-      className={`relative rounded-2xl ${isDark ? "ring-white/30" : "ring-black/20"} focus-visible:outline-none focus-visible:ring-2`}
+      className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:focus-visible:ring-white/30"
       tabIndex={0}
       role="group"
       aria-label={`${unit} chart. Use the left and right arrow keys to inspect each day.`}
@@ -414,7 +406,7 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.12 : 0.24} />
+            <stop offset="0%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity={isDark ? 0.12 : 0.22} />
             <stop offset="100%" stopColor={isDark ? "#ffffff" : "#737373"} stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -422,7 +414,7 @@ function Chart({
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={grid} />
-            <text x={pad.l - 8} y={y(t) + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
+            <text x={pad.l - 10} y={y(t) + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
               {t}
             </text>
           </g>
@@ -445,19 +437,55 @@ function Chart({
             d={smoothPath(toPts(previous))}
             fill="none"
             stroke={ink}
-            strokeOpacity="0.35"
+            strokeOpacity="0.3"
             strokeWidth="2"
             strokeDasharray="5 5"
             strokeLinecap="round"
           />
         )}
-        <path d={area} fill={`url(#${gradId})`} />
-        <path d={line} fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {mode === "area" ? (
+          <>
+            <path d={area} fill={`url(#${gradId})`} />
+            <path d={line} fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          </>
+        ) : (
+          current.map((v, i) => (
+            <rect
+              key={i}
+              x={x(i) - bw / 2}
+              y={y(v)}
+              width={bw}
+              height={Math.max(1, pad.t + ih - y(v))}
+              rx={Math.min(4, bw / 2)}
+              fill={ink}
+              opacity={hover === null || hover === i ? 1 : 0.35}
+              className="transition-opacity"
+            />
+          ))
+        )}
 
         {hover !== null && (
           <g>
-            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
-            <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#141414" : "#fff"} stroke={ink} strokeWidth="2.5" />
+            <line
+              x1={x(hover)}
+              x2={x(hover)}
+              y1={pad.t}
+              y2={pad.t + ih}
+              stroke={axis}
+              strokeOpacity="0.6"
+              strokeDasharray="3 3"
+            />
+            {mode === "area" && (
+              <circle
+                cx={x(hover)}
+                cy={y(current[hover])}
+                r="5"
+                fill={isDark ? "#0e0e0e" : "#fff"}
+                stroke={ink}
+                strokeWidth="2.5"
+              />
+            )}
           </g>
         )}
       </svg>
@@ -494,6 +522,32 @@ function Chart({
 }
 
 /* ============================================================
+   MICRO SPARKLINE (stat strip)
+============================================================ */
+
+function Sparkline({ values, isDark }: { values: number[]; isDark: boolean }) {
+  const W = 96;
+  const H = 28;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const x = (i: number) => (values.length === 1 ? W / 2 : (i / (values.length - 1)) * W);
+  const y = (v: number) => H - 3 - ((v - min) / (max - min || 1)) * (H - 6);
+  const pts: [number, number][] = values.map((v, i) => [x(i), y(v)]);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-7 w-24" aria-hidden="true">
+      <path
+        d={smoothPath(pts)}
+        fill="none"
+        stroke={isDark ? "#ffffff" : "#171717"}
+        strokeWidth="1.5"
+        strokeOpacity="0.85"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/* ============================================================
    PETITS COMPOSANTS
 ============================================================ */
 
@@ -511,7 +565,7 @@ function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-xl p-1">
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-full border p-1">
       {options.map((o) => {
         const active = value === o.key;
         return (
@@ -520,7 +574,7 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+            className={`whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors motion-reduce:transition-none ${t.ring} ${
               active ? t.chipOn : t.chipOff
             }`}
           >
@@ -532,34 +586,20 @@ function Segmented<T extends string>({
   );
 }
 
-function Switch({
-  checked,
-  onChange,
-  label,
-  t,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  t: Tokens;
-}) {
+function Switch({ checked, onChange, label, t }: { checked: boolean; onChange: (v: boolean) => void; label: string; t: Tokens }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.soft} ${t.hover}`}
+      className={`flex items-center gap-2.5 rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors ${t.ring} ${t.soft} ${t.hover}`}
     >
-      <span
-        className={`relative h-[18px] w-8 rounded-full transition-colors motion-reduce:transition-none ${
-          checked ? (t.chipOn.includes("bg-white") ? "bg-white" : "bg-zinc-950") : "bg-zinc-400/40"
-        }`}
-      >
+      <span className={`relative h-[16px] w-7 rounded-full transition-colors motion-reduce:transition-none ${checked ? t.chipOn.split(" ")[0] : "bg-zinc-400/40"}`}>
         <span
-          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full transition-all motion-reduce:transition-none ${
-            checked ? "left-[16px]" : "left-[2px]"
-          } ${checked ? (t.chipOn.includes("bg-white") ? "bg-black" : "bg-white") : "bg-white"}`}
+          className={`absolute top-[2px] h-[12px] w-[12px] rounded-full transition-all motion-reduce:transition-none ${
+            checked ? "left-[14px]" : "left-[2px]"
+          } ${checked ? (t.chipOn.includes("text-black") ? "bg-black" : "bg-white") : "bg-white"}`}
         />
       </span>
       {label}
@@ -589,7 +629,16 @@ function Delta({ value, isDark }: { value: number; isDark: boolean }) {
   );
 }
 
-/** Icônes des réseaux (mêmes composants que la page Channels). */
+/** En-tête de section numérotée : « 01 — Audience ». */
+function SectionLabel({ num, title, t }: { num: string; title: string; t: Tokens }) {
+  return (
+    <div className={`flex items-baseline gap-3 border-b pb-3 ${t.rule}`}>
+      <span className={`text-[11px] font-semibold tabular-nums ${t.faint}`}>{num}</span>
+      <h2 className="text-[14px] font-semibold uppercase tracking-[0.14em]">{title}</h2>
+    </div>
+  );
+}
+
 const NETWORK_ICONS: Record<string, IconComponent> = {
   instagram: InstagramIcon,
   facebook: FacebookIcon,
@@ -599,14 +648,9 @@ const NETWORK_ICONS: Record<string, IconComponent> = {
   pinterest: PinterestIcon,
 };
 
-/** Clé du réseau du canal : `key` en priorité, sinon network/platform/provider. */
 function channelNetwork(c?: ConnectedChannel): string {
   if (!c) return "";
-  const extra = c as ConnectedChannel & {
-    network?: string;
-    platform?: string;
-    provider?: string;
-  };
+  const extra = c as ConnectedChannel & { network?: string; platform?: string; provider?: string };
   const raw = c.key ?? extra.network ?? extra.platform ?? extra.provider ?? "";
   return String(raw).toLowerCase();
 }
@@ -623,15 +667,7 @@ function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?
   );
 }
 
-function Avatar({
-  channel,
-  size = 36,
-  showNetwork = true,
-}: {
-  channel?: ConnectedChannel;
-  size?: number;
-  showNetwork?: boolean;
-}) {
+function Avatar({ channel, size = 36, showNetwork = true }: { channel?: ConnectedChannel; size?: number; showNetwork?: boolean }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [channel?.avatarUrl]);
   const label = (channel?.handle || channel?.name || "?").replace(/^@/, "");
@@ -640,14 +676,7 @@ function Avatar({
   return (
     <span className="relative inline-flex shrink-0" style={box}>
       {channel?.avatarUrl && !failed ? (
-        <img
-          src={channel.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          style={box}
-          className="rounded-full object-cover"
-        />
+        <img src={channel.avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} style={box} className="rounded-full object-cover" />
       ) : (
         <span
           style={box}
@@ -661,17 +690,7 @@ function Avatar({
   );
 }
 
-function ChannelMenu({
-  channels,
-  current,
-  t,
-  isDark,
-}: {
-  channels: ConnectedChannel[];
-  current?: ConnectedChannel;
-  t: Tokens;
-  isDark: boolean;
-}) {
+function ChannelMenu({ channels, current, t, isDark }: { channels: ConnectedChannel[]; current?: ConnectedChannel; t: Tokens; isDark: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -700,19 +719,14 @@ function ChannelMenu({
         aria-expanded={open}
         disabled={!canSwitch}
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-2.5 rounded-xl border py-1.5 pl-1.5 pr-3 transition-colors disabled:cursor-default ${t.ring} ${t.border} ${
-          isDark ? "bg-[#141414]" : "bg-white"
+        className={`flex items-center gap-2.5 rounded-full border py-1.5 pl-1.5 pr-3 transition-colors disabled:cursor-default ${t.ring} ${t.border} ${
+          isDark ? "bg-[#0e0e0e]" : "bg-white"
         } ${canSwitch ? t.hover : ""}`}
       >
-        <Avatar channel={current} />
-        <span className="min-w-0 text-left">
-          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${t.text}`}>{name(current)}</span>
-        </span>
+        <Avatar channel={current} size={28} />
+        <span className={`min-w-0 text-left text-[12.5px] font-medium ${t.text}`}>{name(current)}</span>
         {canSwitch && (
-          <ChevronDown
-            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
-            aria-hidden="true"
-          />
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`} aria-hidden="true" />
         )}
       </button>
 
@@ -760,12 +774,10 @@ function ChannelMenu({
     </div>
   );
 }
+
 /* ============================================================
-   RANGE PICKER — CalendarPicker de NewPostModal
-   Un seul panneau calendrier pour les DEUX bornes de la période :
-   onglets From / To au-dessus du calendrier, la date cliquée
-   alimente l'onglet actif puis bascule automatiquement sur l'autre.
-   (Escape, clic extérieur et presets — même ergonomie que la modale.)
+   RANGE PICKER — CalendarPicker (onglets From / To, inchangé
+   fonctionnellement ; habillage aligné au nouveau style)
 ============================================================ */
 
 function RangePicker({
@@ -787,15 +799,12 @@ function RangePicker({
   t: Tokens;
   isDark: boolean;
 }) {
-  // Champ en cours d'édition dans le panneau : "from" ou "to".
   const [field, setField] = useState<"from" | "to">("from");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Borne haute de la période : aujourd'hui (les insights sont dans le passé).
   const today = useMemo(() => startOfDay(new Date()), []);
 
-  // Fermeture : Escape + clic extérieur (comme les dropdowns de NewPostModal).
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
@@ -812,31 +821,22 @@ function RangePicker({
     };
   }, [open]);
 
-  const label =
-    range === "custom"
-      ? `${fmt(start)} – ${fmt(end)}`
-      : RANGES.find((r) => r.key === range)?.label ?? "";
+  const label = range === "custom" ? `${fmt(start)} – ${fmt(end)}` : RANGES.find((r) => r.key === range)?.label ?? "";
 
-  // Choisit une date : met à jour la borne active, puis passe à l'autre.
-  // Après « To », on reste sur « To » (l'utilisateur peut réajuster) :
-  // le bouton « Done » referme le panneau quand la période lui convient.
   const pickDate = (d: Date) => {
     if (field === "from") {
       onStartChange(d);
-      // Si la nouvelle borne de début dépasse la fin, on décale la fin.
       if (startOfDay(d).getTime() > startOfDay(end).getTime()) onEndChange(d);
       setField("to");
     } else {
       onEndChange(d);
       if (startOfDay(d).getTime() < startOfDay(start).getTime()) {
-        // Fin avant début : on remonte le début.
         onStartChange(d);
         setField("from");
       }
     }
   };
 
-  // Ouvrir le panneau passe automatiquement en plage personnalisée.
   const openPicker = (nextField: "from" | "to") => {
     if (range !== "custom") onRangeChange("custom");
     setField(nextField);
@@ -868,16 +868,13 @@ function RangePicker({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${
-          open ? t.accentBg : isDark ? "bg-[#141414]" : "bg-white"
+        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${
+          open ? t.inner : isDark ? "bg-[#0e0e0e]" : "bg-white"
         } ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
-        <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
-          aria-hidden="true"
-        />
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`} aria-hidden="true" />
       </button>
 
       {open && (
@@ -886,43 +883,30 @@ function RangePicker({
             isDark ? "border-[#262626] bg-[#161616]" : "border-zinc-200 bg-white"
           }`}
         >
-          {/* Onglets From / To : la date choisie va dans l'onglet actif */}
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
             {fieldTab("from")}
             {fieldTab("to")}
           </div>
-
           <div className="p-3">
             <p className={`mb-2 text-[12.5px] ${t.soft}`}>
-              {field === "from"
-                ? "Pick the first day of the period."
-                : "Pick the last day of the period (today max)."}
+              {field === "from" ? "Pick the first day of the period." : "Pick the last day of the period (today max)."}
             </p>
             <CalendarPicker
-              // key par borne : réinitialise le mois affiché en changeant d'onglet
               key={field}
               value={field === "from" ? start : end}
               onChange={pickDate}
               isDark={isDark}
-              // Insights = analytics du passé : pas de date future.
-              // (disablePast={false} permet de remonter dans l'historique.)
               disablePast={false}
               max={today}
               min={field === "to" ? startOfDay(start) : undefined}
             />
           </div>
-
-          <div
-            className={`flex items-center justify-between border-t px-3 py-2.5 ${
-              isDark ? "border-[#262626]" : "border-zinc-200"
-            }`}
-          >
+          <div className={`flex items-center justify-between border-t px-3 py-2.5 ${isDark ? "border-[#262626]" : "border-zinc-200"}`}>
             <button
               type="button"
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
               className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
               {field === "from" ? "Next: To" : "Back: From"}
             </button>
             <button
@@ -941,11 +925,12 @@ function RangePicker({
 }
 
 /* ============================================================
-   PAGE — hiérarchie progressive
-   1. Focus : tendance audience (grand chiffre + graphique)
-   2. Highlights : métriques clés en liste compacte
-   3. Impact du contenu
-   4. Posts
+   PAGE — « Editorial monochrome »
+   00 En-tête éditorial (titre XXL, filet, actions)
+   01 Audience — stat strip + hero chart
+   02 Impact du contenu — jauge + barres horizontales
+   03 Tous les indicateurs — grille compacte
+   04 Posts — état vide table
 ============================================================ */
 
 export default function Insights() {
@@ -957,7 +942,6 @@ export default function Insights() {
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
 
-  // Plage personnalisée pilotée par le CalendarPicker (plus d'inputs date).
   const [range, setRange] = useState<Range>("30d");
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
@@ -965,10 +949,7 @@ export default function Insights() {
   const [metric, setMetric] = useState<Metric>("followers");
   const [tab, setTab] = useState<Tab>("engagement");
 
-  const { start, end } = useMemo(
-    () => resolveRange(range, customStart, customEnd),
-    [range, customStart, customEnd]
-  );
+  const { start, end } = useMemo(() => resolveRange(range, customStart, customEnd), [range, customStart, customEnd]);
   const { current, previous, summary } = useInsights(start, end);
 
   const days = current.length;
@@ -980,68 +961,73 @@ export default function Insights() {
   const totalPosts = current.reduce((a, p) => a + p.posts, 0);
 
   const compared = `${fmtFull(previous[0].date)} – ${fmtFull(previous[days - 1].date)}`;
-  const name = channel ? (channel.handle || channel.name).replace(/^@/, "") : "";
 
   const series =
     metric === "followers"
-      ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers" }
-      : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts" };
+      ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers", mode: "area" as const }
+      : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts", mode: "bars" as const };
 
-  /* --- Highlights : une seule carte, liste compacte plutôt que 6 tuiles --- */
-  const highlights: { icon: ReactNode; label: string; value: string; delta?: number }[] = [
-    { icon: <Users className="h-4 w-4" />, label: "Followers", value: nf(summary.followers), delta },
-    { icon: <FileText className="h-4 w-4" />, label: "Posts", value: nf(summary.posts) },
-    { icon: <Eye className="h-4 w-4" />, label: "Reach", value: nf(summary.reach) },
-    { icon: <Heart className="h-4 w-4" />, label: "Reactions", value: nf(summary.reactions) },
-    { icon: <MessageCircle className="h-4 w-4" />, label: "Comments", value: nf(summary.comments) },
-    { icon: <Share2 className="h-4 w-4" />, label: "Shares", value: nf(summary.shares) },
-    { icon: <Play className="h-4 w-4" />, label: "Video views", value: nf(summary.videoViews) },
+  /* Stat strip : 4 KPI avec sparkline. */
+  const stats: { label: string; value: string; delta?: number; spark: number[]; icon: ReactNode }[] = [
+    { label: "Followers", value: nf(summary.followers), delta, spark: current.map((p) => p.followers), icon: <Users className="h-3.5 w-3.5" /> },
+    { label: "Reach", value: nf(summary.reach), spark: current.map((p) => p.followers), icon: <Eye className="h-3.5 w-3.5" /> },
+    { label: "Engagement", value: `${summary.engRate}%`, spark: current.map((p) => p.followers), icon: <Heart className="h-3.5 w-3.5" /> },
+    { label: "Video views", value: nf(summary.videoViews), spark: current.map((p) => p.followers), icon: <Play className="h-3.5 w-3.5" /> },
   ];
 
   const impact: Record<
     Tab,
-    { title: string; icon: ReactNode; headline: string; value: number; rows: { label: string; value: string }[] }
+    { title: string; headline: string; value: number; rows: { label: string; value: string; bar: number }[] }
   > = {
     engagement: {
       title: "Engagement rate",
-      icon: <Heart className="h-4 w-4" />,
       headline: `${summary.engRate}%`,
       value: Math.min(100, Math.round(summary.engRate)),
       rows: [
-        { label: "Reactions", value: nf(summary.reactions) },
-        { label: "Comments", value: nf(summary.comments) },
-        { label: "Shares", value: nf(summary.shares) },
+        { label: "Reactions", value: nf(summary.reactions), bar: pct(summary.reactions, Math.max(1, summary.reactions)) },
+        { label: "Comments", value: nf(summary.comments), bar: pct(summary.comments, Math.max(1, summary.reactions)) },
+        { label: "Shares", value: nf(summary.shares), bar: pct(summary.shares, Math.max(1, summary.reactions)) },
       ],
     },
     video: {
       title: "Views compared to reach",
-      icon: <Play className="h-4 w-4" />,
       headline: `${pct(summary.videoViews, summary.reach)}%`,
       value: pct(summary.videoViews, summary.reach),
       rows: [
-        { label: "Video views", value: nf(summary.videoViews) },
-        { label: "Watch time (min)", value: nf(summary.watchMin) },
-        { label: "Avg. watch time (sec)", value: nf(summary.avgWatchSec) },
+        { label: "Video views", value: nf(summary.videoViews), bar: pct(summary.videoViews, Math.max(1, summary.reach)) },
+        { label: "Watch time (min)", value: nf(summary.watchMin), bar: pct(summary.watchMin, Math.max(1, summary.videoViews)) },
+        { label: "Avg. watch time (sec)", value: nf(summary.avgWatchSec), bar: pct(summary.avgWatchSec, 60) },
       ],
     },
     reach: {
       title: "Reach compared to followers",
-      icon: <Eye className="h-4 w-4" />,
       headline: `${pct(summary.reach, summary.followers)}%`,
       value: pct(summary.reach, summary.followers),
       rows: [
-        { label: "Reach", value: nf(summary.reach) },
-        { label: "Followers", value: nf(summary.followers) },
-        { label: "Video views", value: nf(summary.videoViews) },
+        { label: "Reach", value: nf(summary.reach), bar: pct(summary.reach, Math.max(1, summary.followers)) },
+        { label: "Followers", value: nf(summary.followers), bar: 100 },
+        { label: "Video views", value: nf(summary.videoViews), bar: pct(summary.videoViews, Math.max(1, summary.reach)) },
       ],
     },
   };
   const group = impact[tab];
 
+  /* Grille « Tous les indicateurs » — chiffres seuls, style index éditorial. */
+  const allMetrics: { label: string; value: string; icon: ReactNode }[] = [
+    { label: "Posts", value: nf(summary.posts), icon: <FileText className="h-3.5 w-3.5" /> },
+    { label: "Reactions", value: nf(summary.reactions), icon: <Heart className="h-3.5 w-3.5" /> },
+    { label: "Comments", value: nf(summary.comments), icon: <MessageCircle className="h-3.5 w-3.5" /> },
+    { label: "Shares", value: nf(summary.shares), icon: <Share2 className="h-3.5 w-3.5" /> },
+    { label: "Reach", value: nf(summary.reach), icon: <Eye className="h-3.5 w-3.5" /> },
+    { label: "Video views", value: nf(summary.videoViews), icon: <Play className="h-3.5 w-3.5" /> },
+    { label: "Watch time (min)", value: nf(summary.watchMin), icon: <Play className="h-3.5 w-3.5" /> },
+    { label: "Avg. watch (sec)", value: nf(summary.avgWatchSec), icon: <Play className="h-3.5 w-3.5" /> },
+  ];
+
   const exportCsv = () => {
     const rows: (string | number)[][] = [["date", "followers", "posts", "previous_followers"]];
     current.forEach((p, i) => rows.push([toInput(p.date), p.followers, p.posts, previous[i].followers]));
-    downloadCsv(`insights-${name || "channel"}-${toInput(start)}-${toInput(end)}.csv`, rows);
+    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
   return (
@@ -1051,13 +1037,19 @@ export default function Insights() {
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 py-[clamp(20px,4vh,36px)] sm:px-6 lg:px-8">
-        {/* HEADER — titre + période en un coup d'œil, actions à droite */}
-        <header className="flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto flex w-full max-w-[1160px] flex-col gap-8 px-4 py-[clamp(24px,5vh,48px)] sm:px-6 lg:px-8">
+        {/* 00 — EN-TÊTE ÉDITORIAL */}
+        <header className="flex flex-wrap items-end justify-between gap-6 border-b pb-6">
           <div className="min-w-0">
-            <h1 className="text-[28px] font-semibold tracking-[-0.03em]">Insights</h1>
-            <p className={`mt-1 text-[13px] ${t.muted}`}>
-              {fmtFull(start)} – {fmtFull(end)}
+            <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${t.muted}`}>
+              Analytics
+            </p>
+            <h1 className="mt-2 text-[52px] font-light leading-[1] tracking-[-0.04em] sm:text-[64px]">
+              Insights
+            </h1>
+            <p className={`mt-3 flex items-center gap-2 text-[13px] ${t.soft}`}>
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+              {fmtFull(start)} — {fmtFull(end)}
             </p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
@@ -1066,27 +1058,27 @@ export default function Insights() {
               type="button"
               onClick={exportCsv}
               disabled={!channel}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-all duration-150 hover:-translate-y-px active:scale-[0.98] disabled:opacity-40 disabled:hover:translate-y-0 ${t.ring} ${t.accentBtn}`}
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-medium transition-all duration-150 hover:-translate-y-px active:scale-[0.98] disabled:opacity-40 disabled:hover:translate-y-0 ${t.ring} ${t.ghostBtn}`}
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export CSV
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              Export
             </button>
           </div>
         </header>
 
         {!channel ? (
-          <section className={`flex flex-col items-center gap-3 rounded-[20px] border px-6 py-20 text-center ${t.card}`}>
+          <section className={`flex flex-col items-center gap-3 rounded-[24px] border px-6 py-24 text-center ${t.card}`}>
             <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.iconBox}`}>
               <BarChart3 className="h-5 w-5" aria-hidden="true" />
             </span>
-            <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
+            <h2 className="text-[18px] font-semibold">Connect a channel to see insights</h2>
             <p className={`max-w-[360px] text-[14px] ${t.soft}`}>
               Followers, reach and engagement show up here once a social account is connected.
             </p>
             <button
               type="button"
               onClick={() => navigate("channels")}
-              className={`mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium ${t.ring} ${t.accentBtn}`}
+              className={`mt-2 flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium ${t.ring} ${t.accentBtn}`}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Connect a channel
@@ -1094,20 +1086,10 @@ export default function Insights() {
           </section>
         ) : (
           <>
-            {/* TOOLBAR — période à gauche (Segmented + RangePicker calendrier),
-                comparaison à droite, une seule ligne */}
-            <div className={`flex flex-wrap items-center justify-between gap-3 rounded-[20px] border px-3 py-2.5 ${t.card}`}>
-              <div className="flex flex-wrap items-center gap-3">
-                <Segmented
-                  label="Date range"
-                  value={range === "custom" ? "custom" : range}
-                  options={RANGES}
-                  onChange={(r) => {
-                    setRange(r);
-                  }}
-                  t={t}
-                />
-                {/* Calendrier From / To : visible uniquement en plage « Custom » */}
+            {/* TOOLBAR — période à gauche, comparaison à droite */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} t={t} />
                 {range === "custom" && (
                   <RangePicker
                     range={range}
@@ -1121,167 +1103,189 @@ export default function Insights() {
                   />
                 )}
               </div>
-              <Switch checked={compare} onChange={setCompare} label="Compare with previous period" t={t} />
+              <Switch checked={compare} onChange={setCompare} label="Compare" t={t} />
             </div>
 
-            {/* NIVEAU 1 — FOCUS PRINCIPAL : audience */}
-            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="focus-title">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className={`text-[12px] font-medium uppercase tracking-wide ${t.muted}`}>
-                    {metric === "followers" ? "Followers" : "Posts published"}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-3">
-                    <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">
-                      {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
-                    </span>
-                    <span className="flex flex-col gap-1.5">
-                      {metric === "followers" && <Delta value={delta} isDark={isDark} />}
-                      {compare && metric === "followers" && (
-                        <span className={`text-[11px] ${t.muted}`}>prev. {signed(prevDelta)}</span>
-                      )}
-                    </span>
-                  </div>
-                  <p className={`mt-2 text-[13px] ${t.soft}`}>
-                    {metric === "followers"
-                      ? delta === 0
-                        ? "Your audience was flat in this period."
-                        : delta > 0
-                        ? `You gained ${nf(delta)} followers in this period.`
-                        : `You lost ${nf(Math.abs(delta))} followers in this period.`
-                      : totalPosts === 0
-                      ? "No posts published in this period."
-                      : `${nf(totalPosts)} posts published in this period.`}
-                  </p>
-                </div>
+            {/* 01 — AUDIENCE : stat strip + hero chart */}
+            <section aria-labelledby="audience-title">
+              <SectionLabel num="01" title="Audience" t={t} />
 
-                <div className="flex flex-col items-end gap-3">
-                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} t={t} />
-                  <div className={`flex items-center gap-4 text-[11px] ${t.muted}`} aria-hidden="true">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`h-0.5 w-4 rounded-full ${isDark ? "bg-white" : "bg-zinc-950"}`} />
-                      This period
-                    </span>
-                    {compare && (
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className="h-0 w-4 border-t-2 border-dashed"
-                          style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)" }}
-                        />
-                        {compared}
-                      </span>
-                    )}
+              <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {stats.map((s) => (
+                  <div key={s.label} className={`rounded-[20px] border p-4 ${t.card}`}>
+                    <p className={`flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}>
+                      {s.icon}
+                      {s.label}
+                    </p>
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <span className={`text-[26px] leading-none ${t.numFont}`}>{s.value}</span>
+                      {s.delta !== undefined && <Delta value={s.delta} isDark={isDark} />}
+                    </div>
+                    <div className="mt-3 opacity-80">
+                      <Sparkline values={s.spark} isDark={isDark} />
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
 
-              <h2 id="focus-title" className="sr-only">Trend</h2>
-              <div className="mt-4">
-                <Chart
-                  dates={dates}
-                  current={series.cur}
-                  previous={series.prev}
-                  compare={compare}
-                  isDark={isDark}
-                  unit={series.unit}
-                />
+              <div className={`mt-3 rounded-[24px] border p-5 sm:p-6 ${t.card}`} id="audience-title">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className={`text-[10.5px] font-semibold uppercase tracking-[0.16em] ${t.muted}`}>
+                      {metric === "followers" ? "Followers over time" : "Posts published"}
+                    </p>
+                    <div className="mt-1.5 flex items-baseline gap-3">
+                      <span className={`text-[40px] leading-none ${t.numFont}`}>
+                        {metric === "followers" ? nf(last.followers) : nf(totalPosts)}
+                      </span>
+                      {metric === "followers" && <Delta value={delta} isDark={isDark} />}
+                    </div>
+                    <p className={`mt-2 text-[13px] ${t.soft}`}>
+                      {metric === "followers"
+                        ? delta === 0
+                          ? "Your audience was flat in this period."
+                          : delta > 0
+                          ? `You gained ${nf(delta)} followers in this period.`
+                          : `You lost ${nf(Math.abs(delta))} followers in this period.`
+                        : totalPosts === 0
+                        ? "No posts published in this period."
+                        : `${nf(totalPosts)} posts published in this period.`}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-3">
+                    <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} t={t} />
+                    <div className={`flex items-center gap-4 text-[11px] ${t.muted}`} aria-hidden="true">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`h-0.5 w-4 rounded-full ${isDark ? "bg-white" : "bg-zinc-950"}`} />
+                        This period
+                      </span>
+                      {compare && (
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-0 w-4 border-t-2 border-dashed"
+                            style={{ borderColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.45)" }}
+                          />
+                          {compared}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <HeroChart
+                    dates={dates}
+                    current={series.cur}
+                    previous={series.prev}
+                    compare={compare}
+                    isDark={isDark}
+                    unit={series.unit}
+                    mode={series.mode}
+                  />
+                </div>
               </div>
             </section>
 
-            {/* NIVEAU 2 + 3 — highlights compactes + impact du contenu, côte à côte */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
-              <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="highlights-title">
-                <h2 id="highlights-title" className="text-[15px] font-semibold">
-                  Highlights
-                </h2>
-                <ul className="mt-1">
-                  {highlights.map((h) => (
-                    <li
-                      key={h.label}
-                      className={`flex items-center justify-between gap-3 border-b py-3 last:border-b-0 ${t.border}`}
-                    >
-                      <span className={`flex items-center gap-3 text-[13px] ${t.soft}`}>
-                        <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${t.iconBox}`}>{h.icon}</span>
-                        {h.label}
-                      </span>
-                      <span className="flex items-center gap-2">
-                        <span className="text-[15px] font-semibold tabular-nums">{h.value}</span>
-                        {h.delta !== undefined && <Delta value={h.delta} isDark={isDark} />}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className={`flex flex-col rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="impact-title">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 id="impact-title" className="text-[15px] font-semibold">
+            {/* 02 — IMPACT DU CONTENU */}
+            <section aria-labelledby="impact-title">
+              <div className={`flex flex-wrap items-baseline justify-between gap-3 border-b pb-3 ${t.rule}`}>
+                <div className="flex items-baseline gap-3">
+                  <span className={`text-[11px] font-semibold tabular-nums ${t.faint}`}>02</span>
+                  <h2 id="impact-title" className="text-[14px] font-semibold uppercase tracking-[0.14em]">
                     Content impact
                   </h2>
-                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} t={t} />
                 </div>
+                <Segmented label="Category" value={tab} options={TABS} onChange={setTab} t={t} />
+              </div>
 
-                <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-4 ${t.inner}`}>
-                  <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${t.iconBox}`}>{group.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[12px] ${t.muted}`}>{group.title}</p>
-                    <p className="text-[24px] font-semibold leading-tight tabular-nums">{group.headline}</p>
-                  </div>
-                  <div
-                    className="relative h-11 w-11"
-                    role="img"
-                    aria-label={`${group.value} percent`}
-                  >
-                    <svg viewBox="0 0 36 36" className="h-11 w-11 -rotate-90">
-                      <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="4" className={isDark ? "stroke-white/10" : "stroke-black/10"} />
+              <div className={`mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_1fr]`}>
+                {/* Jauge XXL */}
+                <div className={`flex items-center gap-6 rounded-[24px] border p-6 ${t.card}`}>
+                  <div className="relative h-[120px] w-[120px]" role="img" aria-label={`${group.value} percent`}>
+                    <svg viewBox="0 0 36 36" className="h-[120px] w-[120px] -rotate-90">
+                      <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="2.5" className={isDark ? "stroke-white/10" : "stroke-black/10"} />
                       <circle
                         cx="18"
                         cy="18"
                         r="15.5"
                         fill="none"
-                        strokeWidth="4"
+                        strokeWidth="2.5"
                         stroke={isDark ? "#ffffff" : "#171717"}
                         strokeDasharray={`${(group.value / 100) * 97.4} 97.4`}
                         strokeLinecap="round"
                       />
                     </svg>
-                    <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums ${t.text}`}>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[30px] ${t.numFont}`}>
                       {group.value}
+                      <span className="text-[14px]">%</span>
                     </span>
+                  </div>
+                  <div>
+                    <p className={`text-[10.5px] font-semibold uppercase tracking-[0.16em] ${t.muted}`}>{group.title}</p>
+                    <p className={`mt-1 text-[34px] leading-none ${t.numFont}`}>{group.headline}</p>
                   </div>
                 </div>
 
-                <dl className="mt-1 flex-1">
-                  {group.rows.map((r) => (
-                    <div
-                      key={r.label}
-                      className={`flex items-center justify-between border-b py-3 last:border-b-0 ${t.border}`}
-                    >
-                      <dt className={`text-[13px] ${t.soft}`}>{r.label}</dt>
-                      <dd className="text-[14px] font-semibold tabular-nums">{r.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            </div>
+                {/* Barres horizontales */}
+                <div className={`rounded-[24px] border p-6 ${t.card}`}>
+                  <dl className="flex h-full flex-col justify-center gap-5">
+                    {group.rows.map((r) => (
+                      <div key={r.label}>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                          <dt className={`text-[12.5px] font-medium ${t.soft}`}>{r.label}</dt>
+                          <dd className="text-[15px] font-semibold tabular-nums">{r.value}</dd>
+                        </div>
+                        <div className={`h-[6px] overflow-hidden rounded-full ${isDark ? "bg-white/[0.07]" : "bg-black/[0.06]"}`}>
+                          <div
+                            className={`h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${
+                              isDark ? "bg-white" : "bg-zinc-950"
+                            }`}
+                            style={{ width: `${Math.max(2, r.bar)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+            </section>
 
-            {/* NIVEAU 4 — performance par post */}
-            <section className={`rounded-[20px] border p-5 sm:p-6 ${t.card}`} aria-labelledby="perf-title">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="perf-title" className="text-[15px] font-semibold">
-                  Performance per post
-                </h2>
+            {/* 03 — TOUS LES INDICATEURS : grille chiffres nus */}
+            <section aria-labelledby="all-title">
+              <SectionLabel num="03" title="All metrics" t={t} />
+              <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[24px] border sm:grid-cols-4" style={{ backgroundColor: isDark ? "#232323" : "#e9e9e6" }}>
+                {allMetrics.map((m) => (
+                  <div key={m.label} className={`p-5 ${isDark ? "bg-[#0e0e0e]" : "bg-white"}`}>
+                    <p className={`flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}>
+                      {m.icon}
+                      {m.label}
+                    </p>
+                    <p className={`mt-2 text-[24px] leading-none ${t.numFont}`}>{m.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 04 — POSTS */}
+            <section aria-labelledby="posts-title">
+              <div className={`flex flex-wrap items-baseline justify-between gap-3 border-b pb-3 ${t.rule}`}>
+                <div className="flex items-baseline gap-3">
+                  <span className={`text-[11px] font-semibold tabular-nums ${t.faint}`}>04</span>
+                  <h2 id="posts-title" className="text-[14px] font-semibold uppercase tracking-[0.14em]">
+                    Performance per post
+                  </h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => navigate("posts")}
-                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+                  className={`flex items-center gap-1.5 text-[12px] font-semibold transition-colors ${t.ring} ${t.soft} hover:underline`}
                 >
-                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                   View all posts
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
 
-              <div className={`mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed px-6 py-12 text-center ${t.border}`}>
+              <div className={`mt-4 flex flex-col items-center gap-2 rounded-[24px] border border-dashed px-6 py-16 text-center ${t.border}`}>
                 <Activity className={`h-6 w-6 ${t.muted}`} aria-hidden="true" />
                 <p className="text-[14px] font-medium">No posts in this period</p>
                 <p className={`max-w-[360px] text-[13px] ${t.soft}`}>
@@ -1291,7 +1295,7 @@ export default function Insights() {
                   <button
                     type="button"
                     onClick={() => setRange("30d")}
-                    className={`mt-2 rounded-xl border px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.border} ${t.hover}`}
+                    className={`mt-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.border} ${t.hover}`}
                   >
                     Show last 30 days
                   </button>
@@ -1300,6 +1304,11 @@ export default function Insights() {
             </section>
           </>
         )}
+
+        <footer className={`flex items-center justify-between border-t pt-4 text-[11px] ${t.rule} ${t.faint}`}>
+          <span>Insights · {channel ? (channel.handle || channel.name).replace(/^@/, "") : "—"}</span>
+          <span className="tabular-nums">{fmtFull(end)}</span>
+        </footer>
       </div>
     </main>
   );
