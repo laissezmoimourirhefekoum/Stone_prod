@@ -1,15 +1,22 @@
 // src/pages/Insights.tsx
-// Page Insights — redesign aligné sur la maquette :
-//  • Header : avatar + handle, icônes (réglages, recherche, export)
-//  • Bannière « A Path to Growth with Weekly Takeaways » + bouton Create Post
-//    + cartes de tips empilées à droite
-//  • « All Insights » : filtre de période (7d / 30d / MTD / Custom + Tags)
-//  • « Summary » : grille de boîtes métriques (nombre + label),
-//    comparaison « cette période vs période précédente »
-//  • « Metrics » : graphique Followers/Posts avec toggle This / Comparison / Both
-//  • « Performance per Post » : cartes de posts avec métriques
-// Style : dark par défaut, accent vert (emerald). Contrats conservés :
-// useInsights, useConnectedChannels, CalendarPicker, useHashRoute, useTheme.
+// Page Insights — reproduction fidèle de la maquette :
+//  • Top bar : avatar + handle + roue crantée à gauche ; recherche, cloche
+//    verte, bouton « Export » à droite.
+//  • Bannière dégradé bleu-nuit : « A Path to Growth with Weekly Takeaways »
+//    + sous-titre + bouton vert « Create Post », cartes empilées blanches à
+//    texte violet à droite (Repost Your Popular Post, Use Your Drafts,
+//    Evergreen Ideas, Duplicate Post).
+//  • « All Insights » : onglets texte soulignés (30 Days sélectionné, soulign
+//    vert) + « Custom » avec icône sparkle + dropdown « Tags ».
+//  • « Summary » : 10 boîtes (5 colonnes × 2 lignes), label + icône AU-DESSUS
+//    du chiffre, ligne de comparaison de périodes.
+//  • « Metrics » : onglets This Period / Previous Period, toggle This Period /
+//    Comparison / Both, bandeau bleu, graphique lignes (Posts violet clair /
+//    Followers bleu clair, double axe Y).
+//  • « Performance per Post » : carte avec miniature à gauche, « #1 Media
+//    only » + date, métriques en colonnes (valeur au-dessus du label).
+// Contrats conservés : useInsights, useConnectedChannels, CalendarPicker,
+// useHashRoute, useTheme, DashboardSidebar.
 import {
   useEffect,
   useId,
@@ -23,7 +30,6 @@ import {
 } from "react";
 import {
   Activity,
-  BarChart3,
   Bell,
   CalendarClock,
   Check,
@@ -31,20 +37,22 @@ import {
   Clock,
   Download,
   Eye,
-  FileText,
   Heart,
   Image as ImageIcon,
   Lightbulb,
   MessageCircle,
-  PenLine,
   Play,
   Plus,
   Search,
   Settings,
   Share2,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   Users,
+  FileText,
+  Repeat2,
+  PenLine,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
@@ -67,8 +75,6 @@ import {
 type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
-type Metric = "followers" | "posts";
-type Tab = "engagement" | "video" | "reach";
 type ChartView = "this" | "comparison" | "both";
 
 type Point = { date: Date; posts: number; followers: number };
@@ -91,6 +97,7 @@ type PostRow = {
   label: string;
   date: Date;
   media: "image" | "video" | "text";
+  thumbnailUrl?: string;
   reactions: number;
   comments: number;
   engRate: number;
@@ -104,17 +111,6 @@ const RANGES: { key: Range; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
-const METRICS: { key: Metric; label: string }[] = [
-  { key: "followers", label: "Followers" },
-  { key: "posts", label: "Posts" },
-];
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "engagement", label: "Engagement" },
-  { key: "video", label: "Video" },
-  { key: "reach", label: "Reach" },
-];
-
 const CHART_VIEWS: { key: ChartView; label: string }[] = [
   { key: "this", label: "This Period" },
   { key: "comparison", label: "Comparison" },
@@ -122,7 +118,10 @@ const CHART_VIEWS: { key: ChartView; label: string }[] = [
 ];
 
 /* ============================================================
-   TOKENS — dashboard dark avec accent vert (comme la maquette)
+   STYLE — palette de la maquette
+   fond #0b0b10 · cartes #16161d · bordures #26262f
+   vert (CTA / sélection) : emerald-500
+   violet (tips) : violet-400 · bleu (bandeau) : sky/indigo
 ============================================================ */
 
 type Tokens = {
@@ -133,37 +132,30 @@ type Tokens = {
   card: string;
   inner: string;
   border: string;
-  chipOn: string;
-  chipOff: string;
   greenBtn: string;
-  ghostBtn: string;
+  outlineBtn: string;
   iconBox: string;
   ring: string;
   hover: string;
-  accentText: string;
-  blueBanner: string;
+  accent: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#101012] text-white",
+        page: "bg-[#0b0b10] text-white",
         text: "text-white",
         muted: "text-zinc-500",
         soft: "text-zinc-400",
-        card: "bg-[#171719] border-[#26262a]",
-        inner: "bg-[#1d1d21] border-[#2c2c31]",
-        border: "border-[#26262a]",
-        chipOn: "bg-emerald-500 text-black",
-        chipOff: "text-zinc-400 hover:text-white hover:bg-white/[0.06]",
+        card: "bg-[#16161d] border-[#26262f]",
+        inner: "bg-[#1c1c25] border-[#2c2c37]",
+        border: "border-[#26262f]",
         greenBtn: "bg-emerald-500 text-black hover:bg-emerald-400",
-        ghostBtn: "border border-[#2c2c31] text-white hover:border-white/40 hover:bg-white/[0.04]",
-        iconBox: "bg-[#222226] text-zinc-300",
+        outlineBtn: "border border-[#2c2c37] text-white hover:border-white/40 hover:bg-white/[0.04]",
+        iconBox: "bg-[#222230] text-zinc-300",
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50",
         hover: "hover:bg-white/[0.05]",
-        accentText: "text-emerald-400",
-        blueBanner:
-          "bg-gradient-to-r from-sky-500/15 to-indigo-500/15 border border-sky-400/25 text-sky-200",
+        accent: "text-emerald-400",
       }
     : {
         page: "bg-[#f6f6f7] text-black",
@@ -173,15 +165,12 @@ const tokens = (isDark: boolean): Tokens =>
         card: "bg-white border-zinc-200",
         inner: "bg-zinc-50 border-zinc-200",
         border: "border-zinc-200",
-        chipOn: "bg-emerald-600 text-white",
-        chipOff: "text-zinc-500 hover:text-black hover:bg-black/[0.05]",
         greenBtn: "bg-emerald-600 text-white hover:bg-emerald-500",
-        ghostBtn: "border border-zinc-300 text-black hover:border-black/50 hover:bg-black/[0.03]",
+        outlineBtn: "border border-zinc-300 text-black hover:border-black/50 hover:bg-black/[0.03]",
         iconBox: "bg-zinc-100 text-zinc-700",
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
         hover: "hover:bg-black/[0.04]",
-        accentText: "text-emerald-600",
-        blueBanner: "bg-sky-50 border border-sky-200 text-sky-800",
+        accent: "text-emerald-600",
       };
 
 /* ============================================================
@@ -208,7 +197,6 @@ const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 const nf = (n: number) => n.toLocaleString("en-US");
 const signed = (n: number) => (n === 0 ? "0" : `${n > 0 ? "+" : "−"}${nf(Math.abs(n))}`);
-const pct = (a: number, b: number) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
 
 function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
@@ -263,7 +251,8 @@ function useInsights(
         watchMin: 0,
         avgWatchSec: 0,
       },
-      // À remplir depuis ton API : posts publiés dans la période.
+      // À remplir depuis ton API : posts publiés dans la période,
+      // avec thumbnailUrl pour la miniature de la carte.
       posts: [] as PostRow[],
     };
   }, [s, e]);
@@ -337,62 +326,64 @@ function smoothPath(pts: [number, number][]): string {
 }
 
 /* ============================================================
-   CHART — interactions clavier + pointer conservées.
-   view : this | comparison | both (toggle comme la maquette).
+   CHART — 2 séries (Posts violet clair, Followers bleu clair),
+   double axe Y, toggle This / Comparison / Both.
+   Interactions clavier + pointer conservées.
 ============================================================ */
 
 function Chart({
   dates,
-  current,
-  previous,
+  posts,
+  followers,
+  prevPosts,
+  prevFollowers,
   view,
   isDark,
-  unit,
 }: {
   dates: Date[];
-  current: number[];
-  previous: number[];
+  posts: number[];
+  followers: number[];
+  prevPosts: number[];
+  prevFollowers: number[];
   view: ChartView;
   isDark: boolean;
-  unit: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const gradId = useId().replace(/:/g, "");
   const W = 720;
   const H = 260;
-  const pad = { l: 34, r: 12, t: 16, b: 26 };
+  const pad = { l: 36, r: 36, t: 16, b: 26 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
-  const n = current.length;
+  const n = dates.length;
 
-  const showCur = view === "this" || view === "both";
+  const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const all = [...(showCur ? current : []), ...(showPrev ? previous : [])];
-  const lo = all.length ? Math.min(...all) : 0;
-  let min = Math.floor(lo);
-  let max = Math.ceil(all.length ? Math.max(...all) : 4);
-  if (max - min < 4) max = min + 4;
-  else {
-    min -= 1;
-    max += 1;
-  }
-  if (min < 0 && lo >= 0) min = 0;
+  const POSTS_COLOR = isDark ? "#c4b5fd" : "#8b5cf6"; // violet clair
+  const FOLLOWERS_COLOR = isDark ? "#93c5fd" : "#3b82f6"; // bleu clair
+  const axis = isDark ? "#6b6b73" : "#9a9aa3";
+  const grid = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+
+  const allPosts = [...(showThis ? posts : []), ...(showPrev ? prevPosts : [])];
+  const allFollowers = [...(showThis ? followers : []), ...(showPrev ? prevFollowers : [])];
+  const maxPosts = Math.max(4, ...allPosts);
+  const maxFollowers = Math.max(4, ...allFollowers);
 
   const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const y = (v: number) => pad.t + ih - ((v - min) / (max - min || 1)) * ih;
-  const toPts = (vals: number[]): [number, number][] => vals.map((v, i) => [x(i), y(v)]);
-  const line = smoothPath(toPts(current));
-  const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
+  const yL = (v: number) => pad.t + ih - (v / maxPosts) * ih; // axe gauche : Posts
+  const yR = (v: number) => pad.t + ih - (v / maxFollowers) * ih; // axe droit : Followers
 
-  const ink = isDark ? "#34d399" : "#059669"; // accent vert
-  const prevInk = isDark ? "#a5b4fc" : "#6366f1"; // violet/indigo comme la maquette
-  const grid = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-  const axis = isDark ? "#6b6b73" : "#9a9aa3";
+  const path = (vals: number[], y: (v: number) => number) =>
+    smoothPath(vals.map((v, i) => [x(i), y(v)] as [number, number]));
 
-  const ticks = Array.from(
-    new Set(Array.from({ length: 5 }, (_, i) => Math.round(min + ((max - min) * i) / 4)))
-  );
+  const thisPostsPath = path(posts, yL);
+  const thisFollowersPath = path(followers, yR);
+  const prevPostsPath = path(prevPosts, yL);
+  const prevFollowersPath = path(prevFollowers, yR);
+  const area = `${thisPostsPath} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
+
+  const ticks = [0, 1, 2, 3, 4];
   const labelIdx = Array.from(
     new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
   );
@@ -416,10 +407,10 @@ function Chart({
 
   return (
     <div
-      className={`relative rounded-2xl ${isDark ? "ring-emerald-400/40" : "ring-emerald-600/30"} focus-visible:outline-none focus-visible:ring-2`}
+      className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
       tabIndex={0}
       role="group"
-      aria-label={`${unit} chart. Use the left and right arrow keys to inspect each day.`}
+      aria-label="Metrics chart. Use the left and right arrow keys to inspect each day."
       onKeyDown={onKey}
       onBlur={() => setHover(null)}
     >
@@ -433,19 +424,27 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={ink} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={ink} stopOpacity="0" />
+            <stop offset="0%" stopColor={POSTS_COLOR} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={POSTS_COLOR} stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={grid} />
-            <text x={pad.l - 8} y={y(t) + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
-              {t}
-            </text>
-          </g>
-        ))}
+        {ticks.map((t) => {
+          const y = pad.t + ih - (t / 4) * ih;
+          return (
+            <g key={t}>
+              <line x1={pad.l} x2={W - pad.r} y1={y} y2={y} stroke={grid} />
+              {/* axe gauche (Posts) */}
+              <text x={pad.l - 8} y={y + 3.5} fontSize="10" fill={axis} textAnchor="end" className="tabular-nums">
+                {Math.round((t / 4) * maxPosts)}
+              </text>
+              {/* axe droit (Followers) */}
+              <text x={W - pad.r + 8} y={y + 3.5} fontSize="10" fill={axis} textAnchor="start" className="tabular-nums">
+                {Math.round((t / 4) * maxFollowers)}
+              </text>
+            </g>
+          );
+        })}
         {labelIdx.map((i) => (
           <text
             key={i}
@@ -459,37 +458,56 @@ function Chart({
           </text>
         ))}
 
+        {/* Période précédente : pointillés */}
         {showPrev && (
-          <path
-            d={smoothPath(toPts(previous))}
-            fill="none"
-            stroke={prevInk}
-            strokeWidth="2"
-            strokeDasharray="5 5"
-            strokeLinecap="round"
-          />
+          <>
+            <path d={prevPostsPath} fill="none" stroke={POSTS_COLOR} strokeOpacity="0.45" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" />
+            <path d={prevFollowersPath} fill="none" stroke={FOLLOWERS_COLOR} strokeOpacity="0.45" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" />
+          </>
         )}
-        {showCur && (
+
+        {/* Période courante : traits pleins + aire Posts */}
+        {showThis && (
           <>
             <path d={area} fill={`url(#${gradId})`} />
-            <path d={line} fill="none" stroke={ink} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={thisPostsPath} fill="none" stroke={POSTS_COLOR} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={thisFollowersPath} fill="none" stroke={FOLLOWERS_COLOR} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
           </>
         )}
 
         {hover !== null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
-            {showCur && (
-              <circle cx={x(hover)} cy={y(current[hover])} r="5" fill={isDark ? "#171719" : "#fff"} stroke={ink} strokeWidth="2.5" />
+            {showThis && (
+              <>
+                <circle cx={x(hover)} cy={yL(posts[hover])} r="4.5" fill={isDark ? "#16161d" : "#fff"} stroke={POSTS_COLOR} strokeWidth="2.5" />
+                <circle cx={x(hover)} cy={yR(followers[hover])} r="4.5" fill={isDark ? "#16161d" : "#fff"} stroke={FOLLOWERS_COLOR} strokeWidth="2.5" />
+              </>
             )}
           </g>
         )}
       </svg>
 
+      {/* Légende : Posts (violet) / Followers (bleu) */}
+      <div className={`mt-1 flex items-center gap-4 text-[11px] ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-4 rounded-full" style={{ background: POSTS_COLOR }} />
+          Posts
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-4 rounded-full" style={{ background: FOLLOWERS_COLOR }} />
+          Followers
+        </span>
+        {showPrev && <span className="flex items-center gap-1.5 opacity-60">
+          <span className="h-0 w-4 border-t-2 border-dashed border-current" />
+          Previous period
+        </span>}
+      </div>
+
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-1 min-w-[150px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.25)] ${
-            isDark ? "bg-[#222226] text-white ring-1 ring-white/10" : "bg-white text-black ring-1 ring-black/10"
+          className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+            isDark ? "bg-[#222230] text-white ring-1 ring-white/10" : "bg-white text-black ring-1 ring-black/10"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -497,23 +515,31 @@ function Chart({
           }}
         >
           <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
-          {showCur && (
-            <div className="flex justify-between gap-5">
-              <span>{unit}</span>
-              <b className="tabular-nums">{nf(current[hover])}</b>
-            </div>
+          {showThis && (
+            <>
+              <div className="flex justify-between gap-5">
+                <span>Posts</span>
+                <b className="tabular-nums">{nf(posts[hover])}</b>
+              </div>
+              <div className="flex justify-between gap-5">
+                <span>Followers</span>
+                <b className="tabular-nums">{nf(followers[hover])}</b>
+              </div>
+            </>
           )}
           {showPrev && (
-            <div className="flex justify-between gap-5 opacity-60">
+            <div className="mt-1 flex justify-between gap-5 opacity-60">
               <span>Previous</span>
-              <b className="tabular-nums">{nf(previous[hover])}</b>
+              <b className="tabular-nums">
+                {nf(prevPosts[hover])} · {nf(prevFollowers[hover])}
+              </b>
             </div>
           )}
         </div>
       )}
 
       <p className="sr-only" aria-live="polite">
-        {hover !== null ? `${fmtFull(dates[hover])}: ${current[hover]} ${unit.toLowerCase()}` : ""}
+        {hover !== null ? `${fmtFull(dates[hover])}: ${posts[hover]} posts, ${followers[hover]} followers` : ""}
       </p>
     </div>
   );
@@ -523,7 +549,51 @@ function Chart({
    PETITS COMPOSANTS
 ============================================================ */
 
-function Segmented<T extends string>({
+/** Onglets texte soulignés (All Insights) — le sélectionné : vert. */
+function UnderlineTabs({
+  value,
+  options,
+  onChange,
+  t,
+  label,
+}: {
+  value: Range;
+  options: { key: Range; label: string }[];
+  onChange: (k: Range) => void;
+  t: Tokens;
+  label: string;
+}) {
+  return (
+    <div role="tablist" aria-label={label} className="flex flex-wrap items-center gap-5">
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.key)}
+            className={`relative whitespace-nowrap pb-2 pt-1 text-[13px] transition-colors ${t.ring} ${
+              active ? "font-semibold text-white" : t.soft
+            }`}
+          >
+            {o.label}
+            {o.key === "custom" && (
+              <Sparkles className="ml-1 inline h-3 w-3 text-violet-400" aria-hidden="true" />
+            )}
+            {active && (
+              <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-emerald-500" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Segmented pill (toggles du graphique). */
+function PillTabs<T extends string>({
   value,
   options,
   onChange,
@@ -537,7 +607,7 @@ function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-xl p-1">
+    <div role="group" aria-label={label} className="inline-flex gap-0.5 rounded-xl border p-1">
       {options.map((o) => {
         const active = value === o.key;
         return (
@@ -547,7 +617,7 @@ function Segmented<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.key)}
             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
-              active ? t.chipOn : t.chipOff
+              active ? "bg-emerald-500 text-black" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
             }`}
           >
             {o.label}
@@ -580,27 +650,30 @@ function Delta({ value, isDark }: { value: number; isDark: boolean }) {
   );
 }
 
-/** Boîte métrique du Summary : grand chiffre + label (comme la maquette). */
+/** Boîte du Summary : label + icône AU-DESSUS du chiffre. */
 function MetricBox({
   label,
   value,
+  icon,
   delta,
   isDark,
   t,
 }: {
   label: string;
   value: string;
+  icon: ReactNode;
   delta?: number;
   isDark: boolean;
   t: Tokens;
 }) {
   return (
-    <div className={`flex flex-col gap-2 rounded-xl border p-4 ${t.inner}`}>
-      <span className={`text-[24px] font-semibold leading-none tabular-nums ${t.text}`}>
-        {value}
-      </span>
-      <span className={`flex items-center gap-2 text-[12px] ${t.muted}`}>
+    <div className={`flex flex-col gap-1.5 rounded-xl border p-4 ${t.inner}`}>
+      <span className={`flex items-center gap-1.5 text-[11.5px] ${t.muted}`}>
+        {icon}
         {label}
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="text-[22px] font-semibold leading-none tabular-nums">{value}</span>
         {delta !== undefined && delta !== 0 && <Delta value={delta} isDark={isDark} />}
       </span>
     </div>
@@ -631,7 +704,7 @@ function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?
   const Icon = NETWORK_ICONS[channelNetwork(channel)];
   if (!Icon) return null;
   return (
-    <span className={`absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full ${"bg-[#171719]"}`}>
+    <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-[#0b0b10]">
       <span className="flex h-[19px] w-[19px] items-center justify-center">
         <Icon className="h-[11px] w-[11px]" size={size} />
       </span>
@@ -641,7 +714,7 @@ function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?
 
 function Avatar({
   channel,
-  size = 36,
+  size = 34,
   showNetwork = true,
 }: {
   channel?: ConnectedChannel;
@@ -710,33 +783,34 @@ function ChannelMenu({
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={!canSwitch}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-colors disabled:cursor-default ${t.ring} ${
-          canSwitch ? t.hover : ""
-        }`}
-      >
-        <Avatar channel={current} />
-        <span className="min-w-0 text-left">
-          <span className={`block max-w-[140px] truncate text-[13px] font-semibold ${t.text}`}>{name(current)}</span>
-        </span>
-        {canSwitch && (
-          <ChevronDown
-            className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
-            aria-hidden="true"
-          />
-        )}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          disabled={!canSwitch}
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-2.5 rounded-full py-1 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
+        >
+          <Avatar channel={current} />
+          <span className={`max-w-[140px] truncate text-[14px] font-semibold ${t.text}`}>{name(current)}</span>
+          {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
+        </button>
+        <button
+          type="button"
+          aria-label="Settings"
+          onClick={() => navigate("settings")}
+          className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+        >
+          <Settings className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
 
       {open && (
         <div
           role="menu"
-          className={`absolute left-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${
-            isDark ? "border-[#2c2c31] bg-[#1d1d21]" : "border-zinc-200 bg-white"
+          className={`absolute left-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${
+            isDark ? "border-[#2c2c37] bg-[#1c1c25]" : "border-zinc-200 bg-white"
           }`}
         >
           {channels.map((c) => {
@@ -755,7 +829,7 @@ function ChannelMenu({
               >
                 <Avatar channel={c} size={28} showNetwork={false} />
                 <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${t.text}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${t.accentText}`} aria-hidden="true" />}
+                {active && <Check className={`h-4 w-4 ${t.accent}`} aria-hidden="true" />}
               </button>
             );
           })}
@@ -857,7 +931,7 @@ function RangePicker({
         aria-pressed={active}
         onClick={() => openPicker(id)}
         className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
-          active ? t.chipOn : t.chipOff
+          active ? "bg-emerald-500 text-black" : "text-zinc-400 hover:text-white hover:bg-white/[0.06]"
         }`}
       >
         {id === "from" ? "From" : "To"} · {fmt(value)}
@@ -886,8 +960,8 @@ function RangePicker({
 
       {open && (
         <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${
-            isDark ? "border-[#2c2c31] bg-[#1d1d21]" : "border-zinc-200 bg-white"
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${
+            isDark ? "border-[#2c2c37] bg-[#1c1c25]" : "border-zinc-200 bg-white"
           }`}
         >
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
@@ -916,14 +990,14 @@ function RangePicker({
             <button
               type="button"
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               {field === "from" ? "Next: To" : "Back: From"}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.accentText}`}
+              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.accent}`}
             >
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
               Done
@@ -936,13 +1010,7 @@ function RangePicker({
 }
 
 /* ============================================================
-   PAGE — structure de la maquette :
-   1. Header : avatar + handle, icônes settings / search / export
-   2. Bannière « A Path to Growth » + bouton Create Post + tips
-   3. « All Insights » : filtres période + Tags
-   4. « Summary » : boîtes métriques + comparaison de périodes
-   5. « Metrics » : sous-onglets + graphique (This / Comparison / Both)
-   6. « Performance per Post » : cartes de posts
+   PAGE — structure exacte de la maquette
 ============================================================ */
 
 export default function Insights() {
@@ -958,8 +1026,6 @@ export default function Insights() {
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [chartView, setChartView] = useState<ChartView>("this");
-  const [metric, setMetric] = useState<Metric>("followers");
-  const [tab, setTab] = useState<Tab>("engagement");
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
@@ -972,42 +1038,45 @@ export default function Insights() {
   const first = current[0];
   const last = current[days - 1];
   const delta = last.followers - first.followers;
-  const totalPosts = summary.posts;
 
   const prevStart = previous[0].date;
   const prevEnd = previous[days - 1].date;
-  const handle = channel ? (channel.handle || channel.name).replace(/^@/, "") : "";
 
-  const series =
-    metric === "followers"
-      ? { cur: current.map((p) => p.followers), prev: previous.map((p) => p.followers), unit: "Followers" }
-      : { cur: current.map((p) => p.posts), prev: previous.map((p) => p.posts), unit: "Posts" };
-
-  /* Summary — boîtes comme la maquette (Total Followers, Posts, …). */
-  const summaryBoxes: { label: string; value: string; delta?: number }[] = [
-    { label: "Total Followers", value: nf(summary.followers), delta },
-    { label: "Posts", value: nf(summary.posts) },
-    { label: "Reactions", value: nf(summary.reactions) },
-    { label: "Comments", value: nf(summary.comments) },
-    { label: "Engagement Rate", value: `${summary.engRate}%` },
-    { label: "Video Views", value: nf(summary.videoViews) },
-    { label: "Shares", value: nf(summary.shares) },
-    { label: "Reach", value: nf(summary.reach) },
-    { label: "Watch Time", value: `${nf(summary.watchMin)} min` },
-    { label: "Avg. Watch Time", value: `${nf(summary.avgWatchSec)} sec` },
+  /* Summary — 10 boîtes comme la maquette. */
+  const summaryBoxes: { label: string; value: string; icon: ReactNode; delta?: number }[] = [
+    { label: "Total Followers", value: nf(summary.followers), icon: <Users className="h-3.5 w-3.5" />, delta },
+    { label: "Posts", value: nf(summary.posts), icon: <FileText className="h-3.5 w-3.5" /> },
+    { label: "Reactions", value: nf(summary.reactions), icon: <Heart className="h-3.5 w-3.5" /> },
+    { label: "Comments", value: nf(summary.comments), icon: <MessageCircle className="h-3.5 w-3.5" /> },
+    { label: "Engagement Rate", value: `${summary.engRate}%`, icon: <Activity className="h-3.5 w-3.5" /> },
+    { label: "Video Views", value: nf(summary.videoViews), icon: <Play className="h-3.5 w-3.5" /> },
+    { label: "Shares", value: nf(summary.shares), icon: <Share2 className="h-3.5 w-3.5" /> },
+    { label: "Reach", value: nf(summary.reach), icon: <Eye className="h-3.5 w-3.5" /> },
+    { label: "Watch Time", value: `${nf(summary.watchMin)} min`, icon: <Clock className="h-3.5 w-3.5" /> },
+    { label: "Avg. Watch Time", value: `${nf(summary.avgWatchSec)} sec`, icon: <Clock className="h-3.5 w-3.5" /> },
   ];
 
-  /* Tips de la bannière (statiques — à personnaliser via ton API). */
+  /* Tips — cartes blanches à texte violet de la bannière. */
   const tips: { icon: ReactNode; title: string; text: string }[] = [
     {
-      icon: <Activity className="h-4 w-4" />,
+      icon: <Repeat2 className="h-3.5 w-3.5" />,
       title: "Repost Your Popular Post",
-      text: "Bring back your best-performing post to reach new followers.",
+      text: "Bring back your best performer to reach new followers.",
     },
     {
-      icon: <FileText className="h-4 w-4" />,
+      icon: <FileText className="h-3.5 w-3.5" />,
       title: "Use Your Drafts",
-      text: "You have drafts waiting — publish them to keep your streak alive.",
+      text: "You have drafts waiting — publish them to keep your streak.",
+    },
+    {
+      icon: <Lightbulb className="h-3.5 w-3.5" />,
+      title: "Evergreen Ideas",
+      text: "Reuse the content ideas that always work for your audience.",
+    },
+    {
+      icon: <PenLine className="h-3.5 w-3.5" />,
+      title: "Duplicate Post",
+      text: "Copy a past post and adapt it in a few clicks.",
     },
   ];
 
@@ -1028,34 +1097,35 @@ export default function Insights() {
       <DashboardSidebar theme={theme} />
 
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-4 py-[clamp(20px,4vh,36px)] sm:px-6 lg:px-8">
-        {/* HEADER — avatar + handle, icônes, export (comme la maquette) */}
+        {/* TOP BAR — avatar + handle + roue crantée | recherche, cloche, Export */}
         <header className="flex flex-wrap items-center justify-between gap-4">
           <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-          <div className="flex items-center gap-2 print:hidden">
-            <button
-              type="button"
-              aria-label="Settings"
-              onClick={() => navigate("settings")}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${t.ring} ${t.border} ${t.card} ${t.hover} ${t.soft}`}
-            >
-              <Settings className="h-4 w-4" aria-hidden="true" />
-            </button>
+          <div className="flex items-center gap-2.5 print:hidden">
             <button
               type="button"
               aria-label="Search"
               onClick={() => navigate("search")}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${t.ring} ${t.border} ${t.card} ${t.hover} ${t.soft}`}
+              className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.hover} ${t.soft}`}
             >
               <Search className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               type="button"
+              aria-label="Notifications"
+              onClick={() => navigate("notifications")}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+            >
+              <Bell className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               onClick={exportCsv}
               disabled={!channel}
-              className={`flex h-9 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-medium transition-colors disabled:opacity-40 ${t.ring} ${t.border} ${t.card} ${t.hover} ${t.text}`}
+              className={`flex h-9 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-medium transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Export</span>
+              Export
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
             </button>
           </div>
         </header>
@@ -1063,7 +1133,7 @@ export default function Insights() {
         {!channel ? (
           <section className={`flex flex-col items-center gap-3 rounded-[20px] border px-6 py-20 text-center ${t.card}`}>
             <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.iconBox}`}>
-              <BarChart3 className="h-5 w-5" aria-hidden="true" />
+              <Activity className="h-5 w-5" aria-hidden="true" />
             </span>
             <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
             <p className={`max-w-[360px] text-[14px] ${t.soft}`}>
@@ -1072,7 +1142,7 @@ export default function Insights() {
             <button
               type="button"
               onClick={() => navigate("channels")}
-              className={`mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium ${t.ring} ${t.greenBtn}`}
+              className={`mt-2 flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold ${t.ring} ${t.greenBtn}`}
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Connect a channel
@@ -1080,50 +1150,67 @@ export default function Insights() {
           </section>
         ) : (
           <>
-            {/* BANNIÈRE « A Path to Growth » + Create Post + cartes tips */}
-            <section className={`grid grid-cols-1 gap-4 rounded-[20px] border p-5 lg:grid-cols-[1.2fr_1fr] lg:p-6 ${t.card}`}>
-              <div className="flex flex-col items-start gap-3">
-                <div>
-                  <h2 className="text-[19px] font-semibold tracking-[-0.02em]">
-                    A Path to Growth with Weekly Takeaways
-                  </h2>
-                  <p className={`mt-1.5 max-w-[440px] text-[13.5px] ${t.soft}`}>
-                    We watch your numbers and hand you a simple plan each week: what to post,
-                    what to repost, and what to write next.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("new-post")}
-                  className={`mt-1 flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-all duration-150 hover:-translate-y-px active:scale-[0.98] ${t.ring} ${t.greenBtn}`}
-                >
-                  <PenLine className="h-4 w-4" aria-hidden="true" />
-                  Create Post
-                </button>
-              </div>
-              <div className="flex flex-col gap-3">
-                {tips.map((tip) => (
-                  <div key={tip.title} className={`flex items-start gap-3 rounded-xl border p-3.5 ${t.inner}`}>
-                    <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${t.iconBox}`}>
-                      {tip.icon}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold">{tip.title}</p>
-                      <p className={`mt-0.5 text-[12.5px] leading-snug ${t.soft}`}>{tip.text}</p>
-                    </div>
+            {/* BANNIÈRE — dégradé bleu-nuit, titre, CTA vert, cartes tips */}
+            <section
+              className={`relative overflow-hidden rounded-[20px] border p-5 sm:p-6 ${
+                isDark
+                  ? "border-indigo-400/20 bg-gradient-to-br from-[#141b33] via-[#101425] to-[#0d101c]"
+                  : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-sky-50 to-white"
+              }`}
+            >
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr] lg:gap-8">
+                <div className="flex flex-col items-start gap-4">
+                  <div>
+                    <h2 className="text-[20px] font-semibold tracking-[-0.02em]">
+                      A Path to Growth with Weekly Takeaways
+                    </h2>
+                    <p className={`mt-2 max-w-[460px] text-[13.5px] leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                      The more you post, the better your takeaways. Share a few posts and
+                      we'll start showing you weekly insights to help you grow.
+                    </p>
                   </div>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => navigate("new-post")}
+                    className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold transition-all duration-150 hover:-translate-y-px active:scale-[0.98] ${t.ring} ${t.greenBtn}`}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Create Post
+                  </button>
+                </div>
+
+                {/* Cartes empilées blanches, texte violet */}
+                <div className="flex flex-col gap-2.5">
+                  {tips.map((tip) => (
+                    <button
+                      key={tip.title}
+                      type="button"
+                      onClick={() => navigate("new-post")}
+                      className="flex w-full items-center gap-3 rounded-xl bg-white px-3.5 py-2.5 text-left shadow-[0_2px_10px_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-px"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                        {tip.icon}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-semibold text-violet-700">
+                          {tip.title}
+                        </span>
+                        <span className="block truncate text-[12px] text-violet-500">{tip.text}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
 
-            {/* ALL INSIGHTS — titre + filtres (période, Tags) */}
+            {/* ALL INSIGHTS — titre + onglets soulignés + Tags */}
             <section aria-labelledby="all-title">
-              <div className={`flex flex-wrap items-center justify-between gap-3 rounded-[20px] border px-3 py-2.5 ${t.card}`}>
-                <h2 id="all-title" className="pl-1 text-[15px] font-semibold">
+              <div className={`flex flex-wrap items-end justify-between gap-4 border-b pb-0 ${t.border}`}>
+                <h2 id="all-title" className="pb-2 text-[16px] font-semibold">
                   All Insights
                 </h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} t={t} />
+                <div className="flex flex-wrap items-center gap-5">
+                  <UnderlineTabs label="Date range" value={range} options={RANGES} onChange={setRange} t={t} />
                   {range === "custom" && (
                     <RangePicker
                       range={range}
@@ -1136,96 +1223,90 @@ export default function Insights() {
                       isDark={isDark}
                     />
                   )}
-                  {/* Filtre Tags : placeholder branché sur rien pour l'instant */}
+                  {/* Dropdown Tags (placeholder — à brancher) */}
                   <button
                     type="button"
                     onClick={() => navigate("tags")}
-                    className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.border} ${t.card} ${t.hover} ${t.soft}`}
+                    className={`flex items-center gap-1.5 pb-2 text-[13px] transition-colors ${t.ring} ${t.soft} ${t.hover}`}
                   >
-                    <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
                     Tags
                     <ChevronDown className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </div>
               </div>
 
-              {/* SUMMARY — boîtes métriques + comparaison de périodes */}
-              <div className={`mt-4 rounded-[20px] border p-5 ${t.card}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-[14.5px] font-semibold">Summary</h3>
-                  <p className={`flex items-center gap-1.5 text-[12px] ${t.muted}`}>
-                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    {fmtFull(start)} – {fmtFull(end)}{" "}
-                    <span className="opacity-60">
-                      compared to {fmtFull(prevStart)} – {fmtFull(prevEnd)}
-                    </span>
-                  </p>
-                </div>
+              {/* SUMMARY — 2 rangées × 5 boîtes, comparaison de périodes */}
+              <div className="mt-5">
+                <p className={`flex flex-wrap items-center gap-1.5 text-[12.5px] ${t.muted}`}>
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    {fmtFull(start)} - {fmtFull(end)}
+                  </span>
+                  <span className="opacity-60">
+                    - Compared to {fmtFull(prevStart)} - {fmtFull(prevEnd)}
+                  </span>
+                </p>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {summaryBoxes.map((b) => (
-                    <MetricBox key={b.label} label={b.label} value={b.value} delta={b.delta} isDark={isDark} t={t} />
+                    <MetricBox
+                      key={b.label}
+                      label={b.label}
+                      value={b.value}
+                      icon={b.icon}
+                      delta={b.delta}
+                      isDark={isDark}
+                      t={t}
+                    />
                   ))}
                 </div>
               </div>
             </section>
 
-            {/* METRICS — sous-onglets + graphique This / Comparison / Both */}
+            {/* METRICS — onglets This/Previous, bandeau bleu, graphique */}
             <section className={`rounded-[20px] border p-5 ${t.card}`} aria-labelledby="metrics-title">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 id="metrics-title" className="text-[15px] font-semibold">
-                    Metrics
-                  </h2>
-                  <Segmented label="Metric" value={metric} options={METRICS} onChange={setMetric} t={t} />
-                  <Segmented label="Category" value={tab} options={TABS} onChange={setTab} t={t} />
-                </div>
-                <Segmented label="Chart view" value={chartView} options={CHART_VIEWS} onChange={setChartView} t={t} />
+                <h2 id="metrics-title" className="text-[16px] font-semibold">
+                  Metrics
+                </h2>
+                <PillTabs label="Chart view" value={chartView} options={CHART_VIEWS} onChange={setChartView} t={t} />
               </div>
 
-              {/* Bandeau bleu comme la maquette */}
-              <p className={`mt-4 rounded-xl px-4 py-3 text-[13px] ${t.blueBanner}`}>
-                {metric === "followers" && delta === 0
-                  ? "Your audience held steady this period."
-                  : metric === "followers" && delta > 0
-                  ? `Your audience grew by ${nf(delta)} followers this period.`
-                  : metric === "followers"
-                  ? `Your audience declined by ${nf(Math.abs(delta))} followers this period.`
-                  : totalPosts === 0
+              {/* Bandeau bleu */}
+              <p
+                className={`mt-4 rounded-xl border px-4 py-3 text-[13px] ${
+                  isDark
+                    ? "border-sky-400/25 bg-sky-500/10 text-sky-200"
+                    : "border-sky-200 bg-sky-50 text-sky-800"
+                }`}
+              >
+                {delta === 0
                   ? "Your content impact held steady this period."
-                  : `${nf(totalPosts)} posts drove your content impact this period.`}
+                  : delta > 0
+                  ? `Your audience grew by ${nf(delta)} followers this period.`
+                  : `Your audience declined by ${nf(Math.abs(delta))} followers this period.`}
               </p>
 
-              <div className="mt-4">
+              <div className="mt-5">
                 <Chart
                   dates={dates}
-                  current={series.cur}
-                  previous={series.prev}
+                  posts={current.map((p) => p.posts)}
+                  followers={current.map((p) => p.followers)}
+                  prevPosts={previous.map((p) => p.posts)}
+                  prevFollowers={previous.map((p) => p.followers)}
                   view={chartView}
                   isDark={isDark}
-                  unit={series.unit}
                 />
-              </div>
-
-              <div className={`mt-3 flex flex-wrap items-center gap-4 text-[11px] ${t.muted}`} aria-hidden="true">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-0.5 w-4 rounded-full bg-emerald-500" />
-                  This period
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-0 w-4 border-t-2 border-dashed border-indigo-400" />
-                  {fmtFull(prevStart)} – {fmtFull(prevEnd)}
-                </span>
               </div>
             </section>
 
-            {/* PERFORMANCE PER POST — cartes de posts */}
+            {/* PERFORMANCE PER POST — cartes avec miniature */}
             <section className={`rounded-[20px] border p-5 ${t.card}`} aria-labelledby="perf-title">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="perf-title" className="text-[15px] font-semibold">
+                <h2 id="perf-title" className="text-[16px] font-semibold">
                   Performance per Post
                 </h2>
-                <p className={`text-[12px] ${t.muted}`}>
-                  {fmtFull(start)} – {fmtFull(end)}
+                <p className={`text-[12.5px] ${t.muted}`}>
+                  {fmtFull(start)} - {fmtFull(end)}
                 </p>
               </div>
 
@@ -1249,33 +1330,34 @@ export default function Insights() {
               ) : (
                 <ul className="mt-4 flex flex-col gap-3">
                   {posts.map((p, idx) => (
-                    <li key={p.id} className={`flex flex-wrap items-center gap-4 rounded-2xl border p-4 ${t.inner}`}>
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${t.iconBox}`}>
-                        {mediaIcon(p.media)}
+                    <li key={p.id} className={`flex flex-wrap items-center gap-5 rounded-2xl border p-4 ${t.inner}`}>
+                      {/* Miniature du post */}
+                      <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                        {p.thumbnailUrl ? (
+                          <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                        ) : (
+                          mediaIcon(p.media)
+                        )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13.5px] font-semibold">
+                        <p className="text-[14px] font-semibold">
                           #{idx + 1} {p.label}
                         </p>
                         <p className={`text-[12px] ${t.muted}`}>{fmtFull(p.date)}</p>
                       </div>
-                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12.5px]">
-                        <span className={`flex items-center gap-1.5 ${t.soft}`}>
-                          <Heart className="h-3.5 w-3.5" aria-hidden="true" />
-                          <b className="tabular-nums">{nf(p.reactions)}</b> Reactions
-                        </span>
-                        <span className={`flex items-center gap-1.5 ${t.soft}`}>
-                          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                          <b className="tabular-nums">{nf(p.comments)}</b> Comments
-                        </span>
-                        <span className={`flex items-center gap-1.5 ${t.soft}`}>
-                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                          <b className="tabular-nums">{p.engRate.toFixed(2)}%</b> Engagement
-                        </span>
-                        <span className={`flex items-center gap-1.5 ${t.soft}`}>
-                          <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                          <b className="tabular-nums">{nf(p.videoViews)}</b> Views
-                        </span>
+                      {/* Métriques : valeur au-dessus du label */}
+                      <div className="flex flex-wrap gap-x-8 gap-y-2">
+                        {[
+                          { label: "Reactions", value: nf(p.reactions) },
+                          { label: "Comments", value: nf(p.comments) },
+                          { label: "Eng. Rate", value: `${p.engRate.toFixed(2)}%` },
+                          { label: "Video Views", value: nf(p.videoViews) },
+                        ].map((m) => (
+                          <div key={m.label} className="flex min-w-[64px] flex-col gap-0.5 text-center sm:text-left">
+                            <span className="text-[16px] font-semibold leading-none tabular-nums">{m.value}</span>
+                            <span className={`text-[11.5px] ${t.muted}`}>{m.label}</span>
+                          </div>
+                        ))}
                       </div>
                     </li>
                   ))}
