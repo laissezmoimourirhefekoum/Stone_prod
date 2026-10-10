@@ -1008,7 +1008,7 @@ function Channels({
 
             type="button"
 
-            *aria-label*="Connect a channel"
+            aria-label="Connect a channel"
 
             onClick={onAdd}
 
@@ -1106,7 +1106,7 @@ function Channels({
 
               type="button"
 
-              *aria-label*="Connect another channel"
+              aria-label="Connect another channel"
 
               title="Connect another channel"
 
