@@ -252,6 +252,11 @@ const SIDEBAR_KEYFRAMES = `
   animation: sbFadeIn 200ms ease-out both;
 }
 
+/* Hover de navigation explicite : ne dépend pas uniquement des classes Tailwind. */
+#app-sidebar nav button:hover {
+  background-color: var(--sidebar-hover-bg) !important;
+}
+
 #app-sidebar button,
 #app-sidebar [role="menuitem"],
 #app-sidebar [role="button"],
@@ -2698,6 +2703,11 @@ export default function DashboardSidebar({
         <aside
           id="app-sidebar"
           data-width-ms={SIDEBAR_WIDTH_MS}
+          style={
+            {
+              "--sidebar-hover-bg": isDark ? "#34343a" : "#e0e0dc",
+            } as React.CSSProperties
+          }
           className={[
             "relative flex h-full flex-col",
             "overflow-visible rounded-[28px]",
