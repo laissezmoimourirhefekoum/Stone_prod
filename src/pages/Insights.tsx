@@ -1,17 +1,11 @@
 // src/pages/Insights.tsx
-// Page Insights — reproduction fidèle des captures :
-//  • Top bar : avatar (+ badge réseau) + handle + signet + roue crantée à gauche ;
-//    bulle, bulle verte, bouton « Export » à droite.
-//  • Bannière bleu-nuit : titre + sous-titre + bouton « Create Post » vert clair,
-//    cartes blanches inclinées à droite (Repost / Drafts / Evergreen).
-//  • « All Insights » : segmented control (7 Days / 30 Days / Month to Date /
-//    Custom ⚡) + dropdown « Tags ».
-//  • « Summary » : 6 colonnes × 2 lignes, label + icône info, valeur en dessous.
-//  • « Performance per Post » : This / Previous Period + tableau triable.
-//  • « Metrics » : onglets Posts / Content Impact / Audience Growth / Visibility,
-//    valeurs en en-tête, toggle This Period / Comparison / Both, graphique.
+// Page Insights — structure des captures + thème noir & blanc de la page Home.
+//  • Mêmes surfaces que Home : cartes #141416, panneaux white/[0.03],
+//    bordures white/[0.07], fond #09090a (clair : #f5f3ef).
+//  • Aucune couleur d'accent : sélection = blanc sur noir (clair : noir sur blanc),
+//    graphique en blanc / gris.
 // Contrats conservés : useInsights, useConnectedChannels, CalendarPicker,
-// useHashRoute, useTheme, DashboardSidebar.
+// useHashRoute, useTheme, DashboardSidebar, HelpChatButton.
 import {
   useEffect,
   useId,
@@ -24,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  Activity,
   Bell,
   Bookmark,
   CalendarClock,
@@ -34,12 +29,14 @@ import {
   Download,
   ExternalLink,
   Eye,
+  FileText,
   FlaskConical,
-  HelpCircle,
+  Image as ImageIcon,
   Info,
   MessageCircle,
   MoreVertical,
   Pencil,
+  Play,
   Plus,
   Repeat2,
   Send,
@@ -47,14 +44,11 @@ import {
   Tag,
   TrendingUp,
   Zap,
-  Activity,
-  Image as ImageIcon,
-  Play,
-  FileText,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSidebar";
+import HelpChatButton from "../components/Helpchatbutton";
 import { CalendarPicker } from "../components/CalendarPicker";
 import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
 import {
@@ -77,6 +71,7 @@ type ChartView = "this" | "comparison" | "both";
 type PostsPeriod = "this" | "previous";
 type MetricTab = "posts" | "impact" | "growth" | "visibility";
 type SortKey = "reactions" | "comments" | "engRate" | "videoViews";
+type NumKey = "posts" | "reactions" | "comments" | "followers" | "profileViews";
 
 type Point = {
   date: Date;
@@ -86,8 +81,6 @@ type Point = {
   followers: number;
   profileViews: number;
 };
-
-type NumKey = "posts" | "reactions" | "comments" | "followers" | "profileViews";
 
 type Summary = {
   followers: number;
@@ -114,7 +107,7 @@ type PostRow = {
   videoViews: number;
 };
 
-type SeriesDef = { key: NumKey; label: string; color: string; agg: "sum" | "last" };
+type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
 
 const RANGES: { key: Range; label: string }[] = [
   { key: "7d", label: "7 Days" },
@@ -124,9 +117,7 @@ const RANGES: { key: Range; label: string }[] = [
 ];
 
 /* ============================================================
-   STYLE — palette des captures
-   fond #141414 · cartes #1e1f1f · boîtes #272828
-   sélection : vert sourd (#2f4a35 / #b8e8b0) · CTA vert clair
+   STYLE — thème de la page Home (noir & blanc)
 ============================================================ */
 
 type Tokens = {
@@ -135,53 +126,59 @@ type Tokens = {
   muted: string;
   soft: string;
   card: string;
+  panel: string;
   inner: string;
   border: string;
-  greenBtn: string;
+  head: string;
+  primaryBtn: string;
   outlineBtn: string;
   iconBox: string;
   ring: string;
   hover: string;
-  accent: string;
   sel: string;
   idle: string;
+  popover: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#141414] text-white",
+        page: "bg-[#09090a]",
         text: "text-white",
-        muted: "text-zinc-500",
-        soft: "text-zinc-400",
-        card: "bg-[#1e1f1f] border-[#262727]",
-        inner: "bg-[#272828] border-[#303131]",
-        border: "border-[#2b2c2c]",
-        greenBtn: "bg-[#8ccf8c] text-[#10240f] hover:bg-[#9bdb9b]",
-        outlineBtn: "border border-[#2f3030] bg-[#1e1f1f] text-white hover:bg-[#262727]",
-        iconBox: "bg-[#2a2b2b] text-zinc-300",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50",
-        hover: "hover:bg-white/[0.05]",
-        accent: "text-emerald-400",
-        sel: "bg-[#2f4a35] text-[#b8e8b0]",
-        idle: "text-zinc-400 hover:text-white",
+        muted: "text-neutral-600",
+        soft: "text-neutral-400",
+        card: "border-white/[0.07] bg-[#141416]",
+        panel: "border-white/[0.07] bg-white/[0.03]",
+        inner: "border-white/[0.07] bg-white/[0.04]",
+        border: "border-white/[0.07]",
+        head: "bg-white/[0.03]",
+        primaryBtn: "bg-white text-black hover:bg-neutral-200",
+        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
+        iconBox: "bg-white/[0.07] text-neutral-300",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        hover: "hover:bg-white/[0.06]",
+        sel: "bg-white text-black",
+        idle: "text-neutral-400 hover:text-white",
+        popover: "border-white/10 bg-[#1b1b1e]",
       }
     : {
-        page: "bg-[#f6f6f7] text-black",
-        text: "text-black",
-        muted: "text-zinc-500",
-        soft: "text-zinc-600",
-        card: "bg-white border-zinc-200",
-        inner: "bg-zinc-50 border-zinc-200",
-        border: "border-zinc-200",
-        greenBtn: "bg-emerald-600 text-white hover:bg-emerald-500",
-        outlineBtn: "border border-zinc-300 bg-white text-black hover:bg-black/[0.03]",
-        iconBox: "bg-zinc-100 text-zinc-700",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
-        hover: "hover:bg-black/[0.04]",
-        accent: "text-emerald-600",
-        sel: "bg-emerald-100 text-emerald-800",
-        idle: "text-zinc-500 hover:text-black",
+        page: "bg-[#f5f3ef]",
+        text: "text-neutral-900",
+        muted: "text-neutral-400",
+        soft: "text-neutral-500",
+        card: "border-black/[0.06] bg-white",
+        panel: "border-black/[0.06] bg-neutral-50",
+        inner: "border-black/[0.06] bg-white",
+        border: "border-black/[0.06]",
+        head: "bg-neutral-50",
+        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
+        outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
+        iconBox: "bg-neutral-200/70 text-neutral-600",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20",
+        hover: "hover:bg-neutral-100",
+        sel: "bg-neutral-900 text-white",
+        idle: "text-neutral-500 hover:text-neutral-900",
+        popover: "border-black/10 bg-white",
       };
 
 /* ============================================================
@@ -363,7 +360,7 @@ function smoothPath(pts: [number, number][]): string {
 }
 
 /* ============================================================
-   CHART — 1 ou 2 séries, double axe Y avec titres d'axe,
+   CHART — 1 ou 2 séries (blanc / gris), double axe Y,
    toggle This / Comparison / Both. Clavier + pointer.
 ============================================================ */
 
@@ -392,7 +389,7 @@ function Chart({
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const axis = isDark ? "#8a8b8b" : "#9a9aa3";
+  const axis = isDark ? "#6b6b72" : "#a3a3a3";
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
   const maxes = series.map((s) =>
@@ -428,7 +425,9 @@ function Chart({
 
   return (
     <div
-      className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+      className={`relative rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
+        isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/20"
+      }`}
       tabIndex={0}
       role="group"
       aria-label="Metrics chart. Use the left and right arrow keys to inspect each day."
@@ -445,12 +444,11 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.2" />
+            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.14" />
             <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        {/* titres d'axes */}
         <text
           x={12}
           y={pad.t + ih / 2}
@@ -544,7 +542,7 @@ function Chart({
                   cx={x(hover)}
                   cy={y(si, s.values[hover])}
                   r="4.5"
-                  fill={isDark ? "#1e1f1f" : "#fff"}
+                  fill={isDark ? "#141416" : "#fff"}
                   stroke={s.color}
                   strokeWidth="2.5"
                 />
@@ -556,7 +554,7 @@ function Chart({
       {hover !== null && (
         <div
           className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
-            isDark ? "bg-[#2a2b2b] text-white ring-1 ring-white/10" : "bg-white text-black ring-1 ring-black/10"
+            isDark ? "bg-[#1b1b1e] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -593,7 +591,7 @@ function Chart({
    PETITS COMPOSANTS
 ============================================================ */
 
-/** Segmented control (boîte bordée, option active en vert sourd). */
+/** Segmented control : option active = blanc sur noir (clair : inversé). */
 function Segmented<T extends string>({
   value,
   options,
@@ -613,7 +611,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.border} ${t.card}`}
+      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -624,8 +622,8 @@ function Segmented<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.key)}
             className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 ${
-              size === "lg" ? "py-2 text-[14px]" : "py-1.5 text-[13px]"
-            } font-medium transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
+              size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
+            } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
           >
             {o.icon}
             {o.label}
@@ -655,8 +653,8 @@ function IconBtn({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${t.ring} ${t.soft} ${
-        boxed ? `border ${t.inner} hover:text-white` : t.hover
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${
+        boxed ? `border ${t.inner} ${t.hover}` : t.hover
       }`}
     >
       {children}
@@ -664,17 +662,17 @@ function IconBtn({
   );
 }
 
-/** Boîte du Summary : label + info à la même ligne, chiffre dessous. */
+/** Boîte du Summary : label + info sur la même ligne, chiffre dessous. */
 function MetricBox({ label, value, info, t }: { label: string; value: string; info: string; t: Tokens }) {
   return (
     <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
-      <span className={`flex items-center justify-between gap-2 text-[12px] ${t.soft}`}>
+      <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
         <span title={info} className={`shrink-0 ${t.muted}`}>
           <Info className="h-3.5 w-3.5" aria-label={info} />
         </span>
       </span>
-      <span className="text-[22px] font-semibold leading-none tabular-nums">{value}</span>
+      <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
     </div>
   );
 }
@@ -699,22 +697,29 @@ function channelNetwork(c?: ConnectedChannel): string {
   return String(raw).toLowerCase();
 }
 
-function NetworkIcon({ channel, size = 13 }: { channel?: ConnectedChannel; size?: number }) {
-  const Icon = NETWORK_ICONS[channelNetwork(channel)];
+function NetworkIcon({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
+  const key = channelNetwork(channel);
+  const Icon = Object.entries(NETWORK_ICONS).find(([k]) => key.includes(k))?.[1];
   if (!Icon) return null;
   return (
-    <span className="absolute -bottom-1 -right-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white shadow">
-      <Icon className="h-[11px] w-[11px]" size={size} />
+    <span
+      className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1 ${
+        isDark ? "ring-[#09090a]" : "ring-[#f5f3ef]"
+      }`}
+    >
+      <Icon className="h-2.5 w-2.5" />
     </span>
   );
 }
 
 function Avatar({
   channel,
+  isDark,
   size = 36,
   showNetwork = true,
 }: {
   channel?: ConnectedChannel;
+  isDark: boolean;
   size?: number;
   showNetwork?: boolean;
 }) {
@@ -732,17 +737,19 @@ function Avatar({
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           style={box}
-          className="rounded-[10px] object-cover"
+          className="rounded-full object-cover"
         />
       ) : (
         <span
           style={box}
-          className="flex items-center justify-center rounded-[10px] bg-zinc-700 text-[13px] font-semibold text-white"
+          className={`flex items-center justify-center rounded-full text-[12px] font-semibold ${
+            isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
+          }`}
         >
           {label.charAt(0).toUpperCase() || "?"}
         </span>
       )}
-      {showNetwork && <NetworkIcon channel={channel} />}
+      {showNetwork && <NetworkIcon channel={channel} isDark={isDark} />}
     </span>
   );
 }
@@ -781,7 +788,7 @@ function ChannelMenu({
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           aria-haspopup="menu"
@@ -790,8 +797,8 @@ function ChannelMenu({
           onClick={() => setOpen((o) => !o)}
           className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
         >
-          <Avatar channel={current} />
-          <span className={`max-w-[220px] truncate text-[22px] font-semibold tracking-[-0.01em] ${t.text}`}>
+          <Avatar channel={current} isDark={isDark} />
+          <span className={`max-w-[220px] truncate text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
             {name(current)}
           </span>
           {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
@@ -807,9 +814,7 @@ function ChannelMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute left-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${
-            isDark ? "border-[#2f3030] bg-[#242525]" : "border-zinc-200 bg-white"
-          }`}
+          className={`absolute left-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
         >
           {channels.map((c) => {
             const active = c.key === current?.key;
@@ -825,9 +830,9 @@ function ChannelMenu({
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
               >
-                <Avatar channel={c} size={28} showNetwork={false} />
-                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${t.text}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${t.accent}`} aria-hidden="true" />}
+                <Avatar channel={c} isDark={isDark} size={28} showNetwork={false} />
+                <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${t.text}`}>{name(c)}</span>
+                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
               </button>
             );
           })}
@@ -836,7 +841,7 @@ function ChannelMenu({
             type="button"
             role="menuitem"
             onClick={() => navigate("channels")}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -928,7 +933,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -944,9 +949,7 @@ function RangePicker({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors ${t.ring} ${t.border} ${
-          open ? t.inner : t.card
-        } ${t.hover} ${t.text}`}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
@@ -958,9 +961,7 @@ function RangePicker({
 
       {open && (
         <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${
-            isDark ? "border-[#2f3030] bg-[#242525]" : "border-zinc-200 bg-white"
-          }`}
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
         >
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
             {fieldTab("from")}
@@ -968,7 +969,7 @@ function RangePicker({
           </div>
 
           <div className="p-3">
-            <p className={`mb-2 text-[12.5px] ${t.soft}`}>
+            <p className={`mb-2 text-[12px] ${t.soft}`}>
               {field === "from"
                 ? "Pick the first day of the period."
                 : "Pick the last day of the period (today max)."}
@@ -988,14 +989,14 @@ function RangePicker({
             <button
               type="button"
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-              className={`text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               {field === "from" ? "Next: To" : "Back: From"}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 text-[12.5px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.accent}`}
+              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
               Done
@@ -1014,36 +1015,29 @@ function RangePicker({
 function TipCard({
   className,
   icon,
-  iconBg,
   title,
   text,
   cta,
-  onClick,
 }: {
   className: string;
   icon: ReactNode;
-  iconBg: string;
   title: string;
   text: string;
   cta?: string;
-  onClick?: () => void;
 }) {
   return (
-    <div className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ${className}`}>
+    <div className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}>
       <div className="flex items-center gap-2">
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${iconBg}`}>{icon}</span>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
+          {icon}
+        </span>
         <span className="text-[10.5px] font-semibold leading-tight">{title}</span>
       </div>
-      <p className="mt-2 text-[9.5px] leading-snug text-zinc-700">{text}</p>
+      <p className="mt-2 text-[9.5px] leading-snug text-neutral-600">{text}</p>
       {cta && (
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={onClick}
-          className="mt-2 rounded-md border border-zinc-300 px-2 py-0.5 text-[9.5px] font-semibold"
-        >
+        <span className="mt-2 inline-block rounded-md border border-neutral-300 px-2 py-0.5 text-[9.5px] font-semibold">
           {cta}
-        </button>
+        </span>
       )}
     </div>
   );
@@ -1109,35 +1103,32 @@ export default function Insights() {
     { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
 
-  /* Séries du graphique selon l'onglet. */
-  const LAVENDER = isDark ? "#b9a8ee" : "#8b5cf6";
-  const TEAL = isDark ? "#7fd6d0" : "#14b8a6";
+  /* Séries du graphique : tone 0 = blanc/noir, tone 1 = gris. */
+  const TONES = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
-      { key: "posts", label: "Posts", color: LAVENDER, agg: "sum" },
-      { key: "reactions", label: "Reactions", color: TEAL, agg: "sum" },
+      { key: "posts", label: "Posts", tone: 0, agg: "sum" },
+      { key: "reactions", label: "Reactions", tone: 1, agg: "sum" },
     ],
     impact: [
-      { key: "reactions", label: "Reactions", color: LAVENDER, agg: "sum" },
-      { key: "comments", label: "Comments", color: TEAL, agg: "sum" },
+      { key: "reactions", label: "Reactions", tone: 0, agg: "sum" },
+      { key: "comments", label: "Comments", tone: 1, agg: "sum" },
     ],
-    growth: [{ key: "followers", label: "Followers", color: TEAL, agg: "last" }],
+    growth: [{ key: "followers", label: "Followers", tone: 0, agg: "last" }],
     visibility: [
-      { key: "profileViews", label: "Profile Views", color: LAVENDER, agg: "sum" },
-      { key: "followers", label: "Followers", color: TEAL, agg: "last" },
+      { key: "profileViews", label: "Profile Views", tone: 0, agg: "sum" },
+      { key: "followers", label: "Followers", tone: 1, agg: "last" },
     ],
   };
   const activeSeries = SERIES[metricTab];
   const chartSeries: ChartSeries[] = activeSeries.map((s) => ({
     label: s.label,
-    color: s.color,
+    color: TONES[s.tone],
     values: current.map((p) => p[s.key]),
     prev: previous.map((p) => p[s.key]),
   }));
   const seriesTotal = (s: SeriesDef) =>
-    s.agg === "sum"
-      ? current.reduce((a, p) => a + p[s.key], 0)
-      : current[days - 1]?.[s.key] ?? 0;
+    s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
   const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode; trailing?: ReactNode }[] = [
     {
@@ -1196,409 +1187,405 @@ export default function Insights() {
   const mediaIcon = (m: PostRow["media"]) =>
     m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
 
-  const sectionCard = `rounded-2xl border p-3 sm:p-4 ${t.card}`;
+  const sectionCard = `rounded-2xl border p-4 ${t.card}`;
+  const sectionTitle = `text-[16px] font-semibold tracking-[-0.02em] ${t.text}`;
+  const sectionSub = `mt-1 text-[11px] ${t.muted}`;
 
   return (
     <main
-      className={`min-h-screen w-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${t.page}`}
-      style={{ paddingLeft: sidebarOffset }}
+      className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${t.page}`}
     >
       <DashboardSidebar theme={theme} />
 
-      <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-[clamp(16px,3vh,24px)] sm:px-5">
-        {/* TOP BAR */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-          <div className="flex items-center gap-2.5 print:hidden">
-            <button
-              type="button"
-              aria-label="Feedback"
-              onClick={() => navigate("search")}
-              className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.hover} ${t.soft}`}
-            >
-              <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              aria-label="Notifications"
-              onClick={() => navigate("notifications")}
-              className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${
-                isDark ? "bg-[#26382a] text-[#8ccf8c] hover:bg-[#2c4231]" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={exportCsv}
-              disabled={!channel}
-              className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[14px] font-medium transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export
-              <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
-            </button>
-          </div>
-        </header>
+      <div
+        className="h-full overflow-y-auto overflow-x-hidden transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ paddingLeft: sidebarOffset }}
+      >
+        <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+          {/* TOP BAR */}
+          <header className="flex flex-wrap items-center justify-between gap-4">
+            <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
+            <div className="flex items-center gap-2.5 print:hidden">
+              <IconBtn label="Feedback" onClick={() => navigate("search")} t={t}>
+                <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
+              </IconBtn>
+              <button
+                type="button"
+                aria-label="Notifications"
+                onClick={() => navigate("notifications")}
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.iconBox} ${t.hover}`}
+              >
+                <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={exportCsv}
+                disabled={!channel}
+                className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Export
+                <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+              </button>
+            </div>
+          </header>
 
-        {!channel ? (
-          <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.card}`}>
-            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.iconBox}`}>
-              <Activity className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <h2 className="text-[17px] font-semibold">Connect a channel to see insights</h2>
-            <p className={`max-w-[360px] text-[14px] ${t.soft}`}>
-              Followers, reach and engagement show up here once a social account is connected.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("channels")}
-              className={`mt-2 flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-semibold ${t.ring} ${t.greenBtn}`}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Connect a channel
-            </button>
-          </section>
-        ) : (
-          <>
-            {/* BANNIÈRE */}
-            <section
-              className={`relative overflow-hidden rounded-2xl border ${
-                isDark
-                  ? "border-[#1c2c3a] bg-[#12202c]"
-                  : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-sky-50 to-white"
-              }`}
-            >
-              <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
-                <div>
-                  <h2 className="text-[22px] font-semibold tracking-[-0.02em]">
-                    A Path to Growth with Weekly Takeaways
-                  </h2>
-                  <p className={`mt-2 max-w-[400px] text-[14px] leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-                    The more you post, the better your takeaways. Share a few posts and
-                    we'll start showing you weekly insights to help you grow.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("new-post")}
-                  className={`flex w-fit items-center rounded-lg px-4 py-2.5 text-[14px] font-medium transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.greenBtn}`}
-                >
-                  Create Post
-                </button>
-              </div>
-
-              {/* Cartes inclinées (décoratives) */}
-              <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block">
-                <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-white/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
-                  <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-sky-100 text-sky-600">
-                    <FlaskConical className="h-3.5 w-3.5" />
-                  </span>
-                </div>
-                <TipCard
-                  className="left-[70px] top-[74px] -rotate-[9deg]"
-                  icon={<Pencil className="h-3.5 w-3.5 text-emerald-600" />}
-                  iconBg="bg-emerald-100"
-                  title="Use Your Drafts"
-                  text="You have 3 unsaved drafts to schedule."
-                  cta="Open Drafts"
-                />
-                <TipCard
-                  className="left-[168px] top-[4px] -rotate-[5deg]"
-                  icon={<Repeat2 className="h-3.5 w-3.5 text-pink-500" />}
-                  iconBg="bg-pink-100"
-                  title="Repost Your Popular Post"
-                  text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
-                  cta="Create Post"
-                />
-                <TipCard
-                  className="left-[272px] top-[66px] rotate-[6deg]"
-                  icon={<Send className="h-3.5 w-3.5 text-violet-600" />}
-                  iconBg="bg-violet-100"
-                  title="Evergreen Ideas"
-                  text="Reshare last year's top post, still pulling engagement."
-                  cta="Duplicate Post"
-                />
-              </div>
+          {!channel ? (
+            <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
+              <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                <Activity className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h2 className={`text-[14px] font-semibold ${t.text}`}>Connect a channel to see insights</h2>
+              <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                Followers, reach and engagement show up here once a social account is connected.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("channels")}
+                className={`mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Connect a channel
+              </button>
             </section>
-
-            {/* ALL INSIGHTS */}
-            <section aria-labelledby="all-title" className="flex flex-col gap-4">
-              <h2 id="all-title" className="text-[22px] font-semibold tracking-[-0.01em]">
-                All Insights
-              </h2>
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div
-                    role="tablist"
-                    aria-label="Date range"
-                    className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.border} ${t.card}`}
-                  >
-                    {RANGES.map((o) => {
-                      const active = range === o.key;
-                      return (
-                        <button
-                          key={o.key}
-                          type="button"
-                          role="tab"
-                          aria-selected={active}
-                          onClick={() => setRange(o.key)}
-                          className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[15px] font-medium transition-colors ${t.ring} ${
-                            active ? t.sel : t.idle
-                          }`}
-                        >
-                          {o.label}
-                          {o.key === "custom" && (
-                            <span
-                              className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#4c3d96] text-[#cfc6ff]"
-                              aria-hidden="true"
-                            >
-                              <Zap className="h-3 w-3 fill-current" />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {range === "custom" && (
-                    <RangePicker
-                      range={range}
-                      start={start}
-                      end={end}
-                      onStartChange={setCustomStart}
-                      onEndChange={setCustomEnd}
-                      onRangeChange={setRange}
-                      t={t}
-                      isDark={isDark}
-                    />
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("tags")}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[15px] font-medium transition-colors ${t.ring} ${t.hover} ${t.text}`}
-                >
-                  <Tag className="h-4 w-4" aria-hidden="true" />
-                  Tags
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </div>
-
-              {/* SUMMARY */}
-              <div className={sectionCard}>
-                <div className="flex items-start justify-between gap-3 px-1">
+          ) : (
+            <>
+              {/* BANNIÈRE */}
+              <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
+                    isDark ? "from-white/[0.06] via-transparent to-transparent" : "from-black/[0.04] via-transparent to-transparent"
+                  }`}
+                />
+                <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
                   <div>
-                    <h3 className="text-[17px] font-semibold">Summary</h3>
-                    <p className={`mt-1 text-[13px] ${t.soft}`}>
-                      {periodLabel} · {compareLabel}
+                    <h2 className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
+                      A Path to Growth with Weekly Takeaways
+                    </h2>
+                    <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
+                      The more you post, the better your takeaways. Share a few posts and
+                      we'll start showing you weekly insights to help you grow.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 print:hidden">
-                    <IconBtn label="Share summary" boxed t={t}>
-                      <Send className="h-4 w-4" aria-hidden="true" />
-                    </IconBtn>
-                    <IconBtn label="Open summary" boxed t={t}>
-                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                    </IconBtn>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-                  {summaryBoxes.map((b) => (
-                    <MetricBox key={b.label} label={b.label} value={b.value} info={SUMMARY_INFO[b.label] ?? b.label} t={t} />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* PERFORMANCE PER POST */}
-            <section className={sectionCard} aria-labelledby="perf-title">
-              <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                <div>
-                  <h3 id="perf-title" className="text-[17px] font-semibold">
-                    Performance per Post
-                  </h3>
-                  <p className={`mt-1 text-[13px] ${t.soft}`}>
-                    {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
-                  </p>
-                </div>
-                <Segmented<PostsPeriod>
-                  label="Posts period"
-                  value={postsPeriod}
-                  onChange={setPostsPeriod}
-                  t={t}
-                  size="lg"
-                  options={[
-                    { key: "this", label: "This Period" },
-                    { key: "previous", label: "Previous Period" },
-                  ]}
-                />
-              </div>
-
-              <div className={`mt-4 overflow-x-auto rounded-xl border ${t.border}`}>
-                <div className="min-w-[720px]">
-                  <div
-                    className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[14px] font-semibold ${
-                      isDark ? "bg-[#161717]" : "bg-zinc-50"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => navigate("new-post")}
+                    className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
                   >
-                    <span>Posts · {rows.length}</span>
-                    {columns.map((c) => (
-                      <button
-                        key={c.key}
-                        type="button"
-                        onClick={() => toggleSort(c.key)}
-                        aria-label={`Sort by ${c.label}`}
-                        className={`flex w-fit items-center gap-1 rounded-md text-left ${t.ring}`}
-                      >
-                        {c.label}
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
-                            sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
-                          } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      aria-label="Customize columns"
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg border ${t.inner} ${t.soft} ${t.ring}`}
-                    >
-                      <Columns className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    Create Post
+                  </button>
+                </div>
 
-                  {sortedRows.length === 0 ? (
-                    <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
-                      <Activity className={`h-5 w-5 ${t.muted}`} aria-hidden="true" />
-                      <p className="text-[14px] font-medium">No posts in this period</p>
-                      <p className={`max-w-[360px] text-[13px] ${t.soft}`}>
-                        Choose a longer range to see how your earlier posts performed.
-                      </p>
-                      {days < 30 && (
-                        <button
-                          type="button"
-                          onClick={() => setRange("30d")}
-                          className={`mt-1 rounded-lg border px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.border} ${t.hover}`}
-                        >
-                          Show last 30 days
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    sortedRows.map((p, idx) => (
-                      <div
-                        key={p.id}
-                        className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[14px] ${t.border}`}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className={`w-5 shrink-0 text-[13px] ${t.soft}`}>#{idx + 1}</span>
-                          <span
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${
-                              isDark ? "bg-gradient-to-br from-[#3d6b2f] to-[#2a3d1f] text-zinc-200" : t.iconBox
+                {/* Cartes inclinées (décoratives) */}
+                <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block">
+                  <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
+                    <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
+                      <FlaskConical className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <TipCard
+                    className="left-[70px] top-[74px] -rotate-[9deg]"
+                    icon={<Pencil className="h-3.5 w-3.5" />}
+                    title="Use Your Drafts"
+                    text="You have 3 unsaved drafts to schedule."
+                    cta="Open Drafts"
+                  />
+                  <TipCard
+                    className="left-[168px] top-[4px] -rotate-[5deg]"
+                    icon={<Repeat2 className="h-3.5 w-3.5" />}
+                    title="Repost Your Popular Post"
+                    text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
+                    cta="Create Post"
+                  />
+                  <TipCard
+                    className="left-[272px] top-[66px] rotate-[6deg]"
+                    icon={<Send className="h-3.5 w-3.5" />}
+                    title="Evergreen Ideas"
+                    text="Reshare last year's top post, still pulling engagement."
+                    cta="Duplicate Post"
+                  />
+                </div>
+              </section>
+
+              {/* ALL INSIGHTS */}
+              <section aria-labelledby="all-title" className="flex flex-col gap-4">
+                <div>
+                  <h2 id="all-title" className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
+                    All Insights
+                  </h2>
+                  <p className={`mt-0.5 text-[10px] ${t.muted}`}>Your activity at a glance</p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div
+                      role="tablist"
+                      aria-label="Date range"
+                      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
+                    >
+                      {RANGES.map((o) => {
+                        const active = range === o.key;
+                        return (
+                          <button
+                            key={o.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => setRange(o.key)}
+                            className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
+                              active ? t.sel : t.idle
                             }`}
                           >
-                            {p.thumbnailUrl ? (
-                              <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                            ) : (
-                              mediaIcon(p.media)
+                            {o.label}
+                            {o.key === "custom" && (
+                              <span
+                                className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                                  active
+                                    ? isDark
+                                      ? "bg-black/15 text-black"
+                                      : "bg-white/20 text-white"
+                                    : isDark
+                                    ? "bg-white/15 text-white"
+                                    : "bg-black/10 text-black"
+                                }`}
+                                aria-hidden="true"
+                              >
+                                <Zap className="h-3 w-3 fill-current" />
+                              </span>
                             )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className={`truncate text-[15px] ${t.soft}`}>{p.label}</p>
-                            <p className={`text-[13px] ${t.soft}`}>{fmtFull(p.date)}</p>
-                          </div>
-                        </div>
-                        {columns.map((c) => (
-                          <span key={c.key} className="tabular-nums">
-                            {c.render(p)}
-                          </span>
-                        ))}
-                        <button
-                          type="button"
-                          aria-label="Post actions"
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
-                        >
-                          <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </div>
-                    ))
-                  )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {range === "custom" && (
+                      <RangePicker
+                        range={range}
+                        start={start}
+                        end={end}
+                        onStartChange={setCustomStart}
+                        onEndChange={setCustomEnd}
+                        onRangeChange={setRange}
+                        t={t}
+                        isDark={isDark}
+                      />
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("tags")}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                  >
+                    <Tag className="h-4 w-4" aria-hidden="true" />
+                    Tags
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
                 </div>
-              </div>
-            </section>
 
-            {/* METRICS */}
-            <section className={sectionCard} aria-labelledby="metrics-title">
-              <div className="flex items-start justify-between gap-3 px-1">
-                <div>
-                  <h3 id="metrics-title" className="text-[17px] font-semibold">
-                    Metrics
-                  </h3>
-                  <p className={`mt-1 text-[13px] ${t.soft}`}>
-                    {periodLabel} · {compareLabel}
-                  </p>
-                </div>
-                <IconBtn label="Share metrics" boxed t={t}>
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                </IconBtn>
-              </div>
-
-              <div className="mt-4">
-                <Segmented<MetricTab>
-                  label="Metric group"
-                  value={metricTab}
-                  onChange={setMetricTab}
-                  t={t}
-                  size="lg"
-                  options={METRIC_TABS}
-                />
-              </div>
-
-              <div className={`mt-3 rounded-xl border p-4 ${t.border} ${isDark ? "bg-[#1a1b1b]" : "bg-zinc-50/50"}`}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex flex-wrap gap-x-10 gap-y-3 pl-2">
-                    {activeSeries.map((s) => (
-                      <div key={s.key}>
-                        <p className={`text-[14px] ${t.soft}`}>{s.label}</p>
-                        <p className="mt-1 flex items-center gap-2 text-[30px] font-medium leading-none tabular-nums">
-                          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: s.color }} aria-hidden="true" />
-                          {nf(seriesTotal(s))}
-                        </p>
-                      </div>
+                {/* SUMMARY */}
+                <div className={sectionCard}>
+                  <div className="flex items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 className={sectionTitle}>Summary</h3>
+                      <p className={sectionSub}>
+                        {periodLabel} · {compareLabel}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 print:hidden">
+                      <IconBtn label="Share summary" boxed t={t}>
+                        <Send className="h-4 w-4" aria-hidden="true" />
+                      </IconBtn>
+                      <IconBtn label="Open summary" boxed t={t}>
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                      </IconBtn>
+                    </div>
+                  </div>
+                  <div className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}>
+                    {summaryBoxes.map((b) => (
+                      <MetricBox key={b.label} label={b.label} value={b.value} info={SUMMARY_INFO[b.label] ?? b.label} t={t} />
                     ))}
                   </div>
-                  <Segmented<ChartView>
-                    label="Chart view"
-                    value={chartView}
-                    onChange={setChartView}
+                </div>
+              </section>
+
+              {/* PERFORMANCE PER POST */}
+              <section className={sectionCard} aria-labelledby="perf-title">
+                <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                  <div>
+                    <h3 id="perf-title" className={sectionTitle}>
+                      Performance per Post
+                    </h3>
+                    <p className={sectionSub}>
+                      {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                    </p>
+                  </div>
+                  <Segmented<PostsPeriod>
+                    label="Posts period"
+                    value={postsPeriod}
+                    onChange={setPostsPeriod}
                     t={t}
                     size="lg"
-                    options={CHART_VIEWS}
+                    options={[
+                      { key: "this", label: "This Period" },
+                      { key: "previous", label: "Previous Period" },
+                    ]}
                   />
                 </div>
 
-                <div className="mt-6">
-                  <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                <div className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}>
+                  <div className="min-w-[720px]">
+                    <div
+                      className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
+                    >
+                      <span>Posts · {rows.length}</span>
+                      {columns.map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => toggleSort(c.key)}
+                          aria-label={`Sort by ${c.label}`}
+                          className={`flex w-fit items-center gap-1 rounded-md text-left ${t.ring}`}
+                        >
+                          {c.label}
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
+                              sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
+                            } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        aria-label="Customize columns"
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
+                      >
+                        <Columns className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    {sortedRows.length === 0 ? (
+                      <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
+                        <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                          <Activity className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <p className={`text-[12px] font-medium ${t.text}`}>No posts in this period</p>
+                        <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                          Choose a longer range to see how your earlier posts performed.
+                        </p>
+                        {days < 30 && (
+                          <button
+                            type="button"
+                            onClick={() => setRange("30d")}
+                            className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                          >
+                            Show last 30 days
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      sortedRows.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
+                            <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                              {p.thumbnailUrl ? (
+                                <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                              ) : (
+                                mediaIcon(p.media)
+                              )}
+                            </span>
+                            <div className="min-w-0">
+                              <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                              <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
+                            </div>
+                          </div>
+                          {columns.map((c) => (
+                            <span key={c.key} className="tabular-nums">
+                              {c.render(p)}
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            aria-label="Post actions"
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                          >
+                            <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            </section>
-          </>
-        )}
+              </section>
+
+              {/* METRICS */}
+              <section className={sectionCard} aria-labelledby="metrics-title">
+                <div className="flex items-start justify-between gap-3 px-1">
+                  <div>
+                    <h3 id="metrics-title" className={sectionTitle}>
+                      Metrics
+                    </h3>
+                    <p className={sectionSub}>
+                      {periodLabel} · {compareLabel}
+                    </p>
+                  </div>
+                  <IconBtn label="Share metrics" boxed t={t}>
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  </IconBtn>
+                </div>
+
+                <div className="mt-4">
+                  <Segmented<MetricTab>
+                    label="Metric group"
+                    value={metricTab}
+                    onChange={setMetricTab}
+                    t={t}
+                    size="lg"
+                    options={METRIC_TABS}
+                  />
+                </div>
+
+                <div className={`mt-3 rounded-2xl border p-4 ${t.panel}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex flex-wrap gap-x-10 gap-y-3 pl-2">
+                      {activeSeries.map((s) => (
+                        <div key={s.key}>
+                          <p className={`text-[11px] font-medium ${t.soft}`}>{s.label}</p>
+                          <p className={`mt-1.5 flex items-center gap-2 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>
+                            <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: TONES[s.tone] }} aria-hidden="true" />
+                            {nf(seriesTotal(s))}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <Segmented<ChartView>
+                      label="Chart view"
+                      value={chartView}
+                      onChange={setChartView}
+                      t={t}
+                      size="lg"
+                      options={CHART_VIEWS}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Bouton d'aide flottant */}
-      <button
-        type="button"
-        aria-label="Help"
-        className={`fixed bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border shadow-lg print:hidden ${t.ring} ${
-          isDark ? "border-[#2b4a66] bg-[#16324a] text-sky-200 hover:bg-[#1b3d5c]" : "border-sky-200 bg-sky-50 text-sky-700"
-        }`}
-      >
-        <HelpCircle className="h-5 w-5" aria-hidden="true" />
-      </button>
+      {/* HELP */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }
