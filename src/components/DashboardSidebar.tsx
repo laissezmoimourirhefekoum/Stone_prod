@@ -1607,7 +1607,7 @@ function SidebarChannelsImpl({
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[21px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      "ml-[17px] mt-1 flex flex-col gap-0.5 border-l pl-2",
                       t.rail,
                     ].join(" ")}
                   >
@@ -1641,8 +1641,8 @@ function SidebarChannelsImpl({
                             transitionDelay: subLinkDelay(isOpen, i),
                           }}
                           className={[
-                            "group flex h-8 w-full select-none items-center gap-2 whitespace-nowrap",
-                            "rounded-full px-2.5 text-left text-[12.5px] font-medium",
+                            "group flex h-8 w-full select-none items-center gap-1.5 whitespace-nowrap",
+                            "rounded-full px-2 text-left text-[12.5px] font-medium",
                             "transition-[background-color,color,opacity,transform] duration-300",
                             "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                             isOpen
@@ -1660,11 +1660,13 @@ function SidebarChannelsImpl({
                                 : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
                             ].join(" ")}
                           />
-                          <span className="flex-1">{link.label}</span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {link.label}
+                          </span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                                "shrink-0 rounded-full px-1.5 py-px text-[9.5px] font-semibold leading-4",
                                 t.badge,
                               ].join(" ")}
                             >
