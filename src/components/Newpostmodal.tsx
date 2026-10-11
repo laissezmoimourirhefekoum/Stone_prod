@@ -27,6 +27,10 @@ import {
   type TikTokCreatorInfo,
   type TikTokPostOptions,
 } from "../services/tiktok";
+import {
+  publishToYouTube,
+  type YouTubePrivacy,
+} from "../services/youtube";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -145,6 +149,19 @@ const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   yourBrand: false,
   branded: false,
 };
+
+// YouTube
+const YOUTUBE_PRIVACY_LABELS: Record<YouTubePrivacy, string> = {
+  public: "Public",
+  unlisted: "Unlisted",
+  private: "Private",
+};
+
+const YOUTUBE_TITLE_MAX = 100;
+const YOUTUBE_DESCRIPTION_MAX_BYTES = 5000;
+const YOUTUBE_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const YOUTUBE_TERMS_URL = "https://www.youtube.com/t/terms";
+const GOOGLE_PRIVACY_URL = "https://policies.google.com/privacy";
 
 /* ──────────────────────────────────────────────────────────────
    Brouillon
@@ -516,6 +533,7 @@ export default function NewPostModal({
   const [hoveredMediaId, setHoveredMediaId] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -532,7 +550,14 @@ export default function NewPostModal({
     TIKTOK_DEFAULT_COMMERCIAL
   );
 
+  // ── YouTube ──
+  // Visibilité "private" par défaut (valeur sûre) ; la déclaration
+  // « made for kids » n'est jamais présélectionnée.
+  const [youtubePrivacy, setYoutubePrivacy] = useState<YouTubePrivacy>("private");
+  const [youtubeMadeForKids, setYoutubeMadeForKids] = useState<boolean | null>(null);
+
   const tiktokSelected = networks.includes("tiktok");
+  const youtubeSelected = networks.includes("youtube");
 
   // Visibilités proposées : celles de TikTok si disponibles ;
   // en cas d'échec du chargement, on propose « Only me » (jamais présélectionné).
@@ -715,6 +740,7 @@ export default function NewPostModal({
     setShowDateTimePanel(false);
     setEditingItem(null);
     setSubmitError(null);
+    setSubmitNotice(null);
     setSubmitProgress(null);
     setShowEmojiPicker(false);
     setTiktokInfo(null);
@@ -723,6 +749,8 @@ export default function NewPostModal({
     setTiktokOptions(TIKTOK_DEFAULT_OPTIONS);
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
+    setYoutubePrivacy("private");
+    setYoutubeMadeForKids(null);
     caretRef.current = null;
   };
 
@@ -923,6 +951,42 @@ export default function NewPostModal({
     ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
+  // ── Règles YouTube ──
+  // YouTube = vidéo obligatoire. "Now" publie tout de suite ; "Set Date" programme
+  // (privée jusqu'à l'heure choisie, puis publique) ; "save_in_folder" reste
+  // géré par le parent (rien n'est envoyé à YouTube).
+  const youtubeActive = youtubeSelected && scheduleAction !== "save_in_folder";
+  const youtubeVideo = media.find((m) => m.kind === "video")?.file ?? null;
+  const videoCount = media.filter((m) => m.kind === "video").length;
+
+  const youtubeDescription = [
+    content.trim(),
+    hashtags.map((t) => `#${t}`).join(" "),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const youtubeChannel =
+    channelTiles.find((t) => t.network.id === "youtube")?.channel ?? null;
+
+  const youtubeBlockingReason: string | null = !youtubeActive
+    ? null
+    : !youtubeVideo
+    ? "YouTube requires a video. Add a video, or deselect YouTube."
+    : youtubeVideo.size > YOUTUBE_MAX_VIDEO_BYTES
+    ? "This video is too large for YouTube upload (max 100 MB)."
+    : title.trim().length === 0
+    ? "Add a title for your YouTube video."
+    : new TextEncoder().encode(youtubeDescription).length >
+      YOUTUBE_DESCRIPTION_MAX_BYTES
+    ? "The description is too long for YouTube (max 5,000 characters)."
+    : youtubeMadeForKids === null
+    ? "Tell YouTube if this video is made for kids."
+    : scheduleAction === "set_date" &&
+      scheduledAt.getTime() < Date.now() + 2 * 60 * 1000
+    ? "Pick a time at least 2 minutes from now for YouTube."
+    : null;
+
   // Raison affichée à côté du bouton pour les autres conditions bloquantes.
   const otherBlockingReason: string | null =
     networks.length === 0
@@ -938,9 +1002,12 @@ export default function NewPostModal({
     (content.trim().length > 0 || media.length > 0) &&
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
     !tiktokBlockingReason &&
+    !youtubeBlockingReason &&
     !isSubmitting;
 
-  const footerHint = isSubmitting ? null : tiktokBlockingReason ?? otherBlockingReason;
+  const footerHint = isSubmitting
+    ? null
+    : tiktokBlockingReason ?? youtubeBlockingReason ?? otherBlockingReason;
 
   // Libellé légal obligatoire (« Promotional content » / « Paid partnership »).
   const tiktokLabelNotice =
@@ -953,17 +1020,20 @@ export default function NewPostModal({
       : null;
 
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
+  const showYouTubeDeclaration = youtubeActive;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
     const tiktokNow = tiktokSelected && scheduleAction === "now";
+    const youtubeNow = youtubeActive;
 
-    // TikTok est publié directement depuis ici ; les autres réseaux
-    // passent par `onSubmit` comme avant.
-    const remainingNetworks = tiktokNow
-      ? networks.filter((n) => n !== "tiktok")
-      : networks;
+    // TikTok et YouTube sont publiés directement depuis ici ; les autres
+    // réseaux passent par `onSubmit` comme avant.
+    const remainingNetworks = networks.filter(
+      (n) =>
+        !(tiktokNow && n === "tiktok") && !(youtubeNow && n === "youtube")
+    );
 
     const payload: NewPostPayload = {
       title: title.trim(),
@@ -976,11 +1046,15 @@ export default function NewPostModal({
       media: media.map((item) => item.file),
     };
 
+    let lockedNotice: string | null = null;
+
     try {
       setIsSubmitting(true);
       setSubmitError(null);
+      setSubmitNotice(null);
       setSubmitProgress(null);
 
+      // ───────────── TikTok ─────────────
       if (tiktokNow && tiktokPostType) {
         const caption = [
           content.trim(),
@@ -1077,8 +1151,47 @@ export default function NewPostModal({
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
+      // ───────────── YouTube ─────────────
+      if (youtubeNow && youtubeVideo) {
+        setSubmitProgress("Uploading video to YouTube… 0%");
+
+        const result = await publishToYouTube({
+          video: youtubeVideo,
+          title: title.trim(),
+          description: youtubeDescription,
+          tags: hashtags,
+          privacy: youtubePrivacy,
+          madeForKids: youtubeMadeForKids === true,
+          publishAt:
+            scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
+          onProgress: (percent) =>
+            setSubmitProgress(
+              percent < 100
+                ? `Uploading video to YouTube… ${percent}%`
+                : "YouTube is processing your video…"
+            ),
+        });
+
+        // YouTube force le privé tant que le projet Google n'est pas validé.
+        if (result.privacy_locked) {
+          lockedNotice =
+            "Your video was uploaded to YouTube, but it is private: YouTube restricts uploads from API projects that haven't passed its compliance audit.";
+        }
+
+        // Évite de republier sur YouTube si un autre réseau échoue ensuite.
+        setNetworks((prev) => prev.filter((n) => n !== "youtube"));
+      }
+
       if (remainingNetworks.length > 0) {
         await onSubmit?.(payload);
+      }
+
+      if (lockedNotice) {
+        // On garde la modale ouverte (vidée) pour que l'utilisateur lise l'avis.
+        savedDraft = null;
+        clearForm();
+        setSubmitNotice(lockedNotice);
+        return;
       }
 
       discardAndClose();
@@ -1590,10 +1703,109 @@ export default function NewPostModal({
               </div>
             )}
 
+            {/* ── Options YouTube ── */}
+            {youtubeActive && (
+              <div className={["mt-3 rounded-xl border p-3 text-[13px]", border, bgPanel].join(" ")}>
+                <p className={["mb-1 font-semibold", textPrimary].join(" ")}>
+                  Posting to YouTube
+                  {youtubeChannel ? ` · ${youtubeChannel.handle || youtubeChannel.name}` : ""}
+                </p>
+
+                <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
+                  {!youtubeVideo
+                    ? "Add a video to post on YouTube."
+                    : videoCount > 1
+                    ? "Several videos added: only the first one will be sent to YouTube."
+                    : "Video post — vertical videos up to 3 minutes are published as Shorts automatically."}
+                </p>
+
+                {/* Titre (obligatoire) */}
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    value={title}
+                    maxLength={YOUTUBE_TITLE_MAX}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Video title (required)"
+                    className={[
+                      "w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
+                      border,
+                      isDark
+                        ? "bg-[#242427] text-white placeholder:text-neutral-500"
+                        : "bg-white text-neutral-900 placeholder:text-neutral-400",
+                    ].join(" ")}
+                  />
+                  <p className={["mt-0.5 text-right text-[11px]", textSecondary].join(" ")}>
+                    {title.length}/{YOUTUBE_TITLE_MAX}
+                  </p>
+                </div>
+
+                {/* Visibilité */}
+                {scheduleAction === "set_date" ? (
+                  <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
+                    The video stays private until {formatShortDateTime(scheduledAt)}, then becomes public.
+                  </p>
+                ) : (
+                  <select
+                    value={youtubePrivacy}
+                    onChange={(e) => setYoutubePrivacy(e.target.value as YouTubePrivacy)}
+                    className={[
+                      "mb-2 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
+                      border,
+                      isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900",
+                    ].join(" ")}
+                  >
+                    {(Object.keys(YOUTUBE_PRIVACY_LABELS) as YouTubePrivacy[]).map((p) => (
+                      <option key={p} value={p}>
+                        {YOUTUBE_PRIVACY_LABELS[p]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Audience : choix explicite obligatoire */}
+                <p className={["mb-1 text-[12.5px] font-semibold", textPrimary].join(" ")}>
+                  Is this video made for kids?
+                </p>
+                <div className="flex gap-2">
+                  {([
+                    { value: true, label: "Yes, it's made for kids" },
+                    { value: false, label: "No, it's not made for kids" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      aria-pressed={youtubeMadeForKids === opt.value}
+                      onClick={() => setYoutubeMadeForKids(opt.value)}
+                      className={[
+                        "rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition",
+                        youtubeMadeForKids === opt.value
+                          ? `${accentBg} ${accentText} ${accentBorder}`
+                          : `${border} ${textSecondary}`,
+                      ].join(" ")}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className={["mt-3 text-[11.5px]", textSecondary].join(" ")}>
+                  Your text and hashtags are used as the video description. It may take a few minutes for YouTube to finish processing the video.
+                </p>
+
+                {youtubeBlockingReason && (
+                  <p className="mt-2 text-[12px] text-amber-500">{youtubeBlockingReason}</p>
+                )}
+              </div>
+            )}
+
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
 
             {submitProgress && (
               <p className={["mt-2 text-[12px]", textSecondary].join(" ")}>{submitProgress}</p>
+            )}
+            {submitNotice && (
+              <p className="mt-2 text-[12px] text-amber-500">{submitNotice}</p>
             )}
             {submitError && <p className="mt-2 text-[12px] text-red-500">{submitError}</p>}
 
@@ -1716,8 +1928,8 @@ export default function NewPostModal({
 
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-5 py-3", border].join(" ")}>
-          {/* Raison du blocage + déclaration TikTok (juste avant le bouton) */}
-          {(footerHint || showTikTokDeclaration) && (
+          {/* Raison du blocage + déclarations TikTok / YouTube (juste avant le bouton) */}
+          {(footerHint || showTikTokDeclaration || showYouTubeDeclaration) && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
               {footerHint && (
                 <p
@@ -1742,6 +1954,20 @@ export default function NewPostModal({
                   )}
                   <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
                     Music Usage Confirmation
+                  </a>
+                  .
+                </p>
+              )}
+
+              {showYouTubeDeclaration && (
+                <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
+                  By posting, you agree to the{" "}
+                  <a href={YOUTUBE_TERMS_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                    YouTube Terms of Service
+                  </a>{" "}
+                  and the{" "}
+                  <a href={GOOGLE_PRIVACY_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                    Google Privacy Policy
                   </a>
                   .
                 </p>
