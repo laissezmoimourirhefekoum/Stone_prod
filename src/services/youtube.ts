@@ -25,19 +25,86 @@ export type YouTubePublishResult = {
   privacy_locked: boolean;
 };
 
+/** Réponse de /api/youtube/status — consommée par DashboardSidebar. */
+export type YouTubeStatusResponse = {
+  connected: boolean;
+  account?:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null;
+};
+
 // Le serveur ajoute lui-même "/api/..." : on retire un éventuel "/api" final.
 const API_ORIGIN = String(import.meta.env.VITE_API_BASE_URL ?? "")
   .replace(/\/+$/, "")
   .replace(/\/api$/i, "");
 
 // ⚠️ À ADAPTER : reprends EXACTEMENT la même logique que dans
-// services/tiktok.ts pour récupérer le token d'accès Stone
-// (idéalement, exporte-la depuis un fichier commun et importe-la ici).
+// services/tiktok.ts pour récupérer le token d'accès Stone.
 async function getAccessToken(): Promise<string> {
   const token = localStorage.getItem("access_token");
   if (!token) throw new Error("You are not signed in.");
   return token;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Status / Login / Disconnect
+   ────────────────────────────────────────────────────────────── */
+
+export async function getYouTubeStatus(): Promise<YouTubeStatusResponse> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${API_ORIGIN}/api/youtube/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not load YouTube status (HTTP ${response.status}).`);
+  }
+
+  return (await response.json()) as YouTubeStatusResponse;
+}
+
+export async function startYouTubeLogin(): Promise<void> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${API_ORIGIN}/api/youtube/login`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not start YouTube login (HTTP ${response.status}).`);
+  }
+
+  const data = (await response.json()) as { url?: string; auth_url?: string };
+  const url = data.url ?? data.auth_url;
+
+  if (!url) {
+    throw new Error("The server did not return a YouTube authorization URL.");
+  }
+
+  window.location.href = url;
+}
+
+export async function disconnectYouTube(): Promise<void> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${API_ORIGIN}/api/youtube/disconnect`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not disconnect YouTube (HTTP ${response.status}).`);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Publication
+   ────────────────────────────────────────────────────────────── */
 
 export async function publishToYouTube(
   input: YouTubePublishInput
@@ -68,21 +135,22 @@ export async function publishToYouTube(
     };
 
     xhr.onload = () => {
-      let data: any = {};
+      let data: Record<string, unknown> = {};
       try {
-        data = JSON.parse(xhr.responseText);
+        data = JSON.parse(xhr.responseText) as Record<string, unknown>;
       } catch {
         // réponse non JSON
       }
 
       if (xhr.status >= 200 && xhr.status < 300 && data.success) {
-        resolve(data as YouTubePublishResult);
+        resolve(data as unknown as YouTubePublishResult);
         return;
       }
 
       reject(
         new Error(
-          data?.error || `YouTube publishing failed (HTTP ${xhr.status}).`
+          (data.error as string) ||
+            `YouTube publishing failed (HTTP ${xhr.status}).`
         )
       );
     };
